@@ -33,6 +33,8 @@ vacation-planner-polyglot/
 │   └── contract/                # Provider verification (Pact + schema-first) vs. API_BASE_URL
 ├── journeys/                    # Cross-system Playwright journeys (isolated workspace, §6.6)
 ├── docs/features/               # Acceptance criteria per feature (§6.2)
+├── docs/decisions/              # Architecture decision records (ADRs)
+├── spikes/                      # NON-PRODUCTION spikes; outside the workspace and every gate
 ├── .llm-cassettes/              # Recorded LLM HTTP exchanges for replay — COMMITTED
 ├── pnpm-workspace.yaml
 ├── package.json
@@ -100,6 +102,7 @@ The enum is closed and versioned. Adding a value is a `feat(domain-schema)`; rem
 
 ### 4.4 Two schemas, never one
 - **`ExtractionSchema`** — what the LLM fills in. Every field is **required but nullable** (`null` = "not mentioned"). This is the most reliable shape for structured output and has no optional-vs-absent ambiguity.
+  - **Constructs (ADR 0001, Q3):** this schema, and every other schema handed to the model, uses only object, string, number/integer, boolean, enum, literal, nullable, array and discriminated union. **No** `tuple` (HTTP 400), `record` (always comes back `{}`), `.optional()`, `.default()`, numeric/length/pattern constraints or string `format`s. The provider strips constraints into descriptions, but the SDK still validates against them, so one out-of-range value fails the whole call as a 502 instead of becoming a rule violation. Range and format checks belong in `src/rules/`.
 - **`TripProfile`** — the domain/wire shape above. Built by a pure `normalize(extraction)` function that drops nulls and empty arrays.
 
 ### 4.5 Validation = shape parse + rule evaluation (separate steps)
@@ -245,7 +248,7 @@ Tests prove plumbing, contracts and rules. They do **not** judge whether recomme
 | 1. Extract | structured output → `ExtractionSchema` | `MODEL_FAST` | Prompt includes `currentProfile` and `referenceDate`; returns the **full updated** profile (not a patch), so corrections like "actually 5 people" replace old values. Rules run in code afterwards. A second fast call writes `clarificationQuestion` from the violation codes. |
 | 2a. Recommend | structured output → `RecommendationSet` | `MODEL_REASONING` | Only runs on a `ready` profile. |
 | 2b. Critic | deterministic checks **first**, then LLM critic → `CritiqueResult { pass, issues[] }` | `MODEL_CRITIC` | Max **2** revise cycles, then return the best attempt with `critique.unresolved[]`. Never loop unbounded. |
-| 3. Present | streamed structured output → `PresentationModel` | `MODEL_FAST` | Fields that are pure data (dates, party size, prices) are mapped in code; the LLM writes only the prose and card copy. |
+| 3. Present | streamed structured output → `PresentationModel` | `MODEL_FAST` | Fields that are pure data (dates, party size, prices) are mapped in code; the LLM writes only the prose and card copy. Serve with `createTextStreamResponse({ stream: toTextStream({ stream: result.stream }) })`. Partial objects contain missing keys **and truncated strings**. |
 
 **Factual honesty:** there is no live flight or hotel data source. Recommendations must not present invented specifics (airline schedules, "direct flight exists", prices) as facts. Every such claim carries `verification: 'unverified' | 'fixture'`. A local fixture dataset (`backends/api-nextjs/data/routes.json`, e.g. nonstop routes from MSP) may back `'fixture'` claims, and the critic's deterministic checks validate against it.
 
@@ -262,11 +265,14 @@ MODEL_CRITIC=claude-sonnet-5-5     # may drop to claude-haiku-5-5 once determini
 ```
 Claude 3.5 models are retired; do not use their IDs. Use exact IDs with no date suffix.
 
-### 8.2 Provider gotchas (check at the start of the AI work)
-- Claude Sonnet 5.5 and Opus 5.5 **reject forced `tool_choice`** (`any`/`tool`) with a 400. Before building stage 1, confirm the pinned `@ai-sdk/anthropic` version produces structured output with these models (native structured output, not a forced tool call). Spike this before writing pipeline code.
-- Sonnet 5.5 / Haiku 5.5 reject non-default sampling params, so **do not set `temperature`/`topP`/`topK`**. Tune with `effort` (`low` for extraction/presentation, `medium` for recommend/critic) via provider options.
-- Handle a `refusal` stop reason as a 502 with code `LLM_REFUSAL`.
-- AI SDK APIs for structured output have moved between major versions (`generateObject`/`streamObject` vs `generateText`/`streamText` with an `output` option). Use whatever the **pinned** version documents, and check its docs rather than relying on memory.
+### 8.2 Provider rules (confirmed in [ADR 0001](docs/decisions/0001-structured-output.md))
+Verified against `ai 7.0.154` / `@ai-sdk/anthropic 4.0.89`. Re-check the ADR on any major upgrade, and check the **pinned** version's docs (`node_modules/ai/docs`) rather than memory.
+- **API:** `generateText` / `streamText` with `output: Output.object({ schema })`. Do not use `generateObject` / `streamObject` (deprecated), or the deprecated response methods on the `streamText` result; use the standalone `toTextStream` + `createTextStreamResponse`. On the client, use `useObject` from `@ai-sdk/react`.
+- **Native structured output:** always pass `providerOptions.anthropic.structuredOutputMode: 'outputFormat'` (sends `output_config.format`). Sonnet 5.5 and Opus 5.5 **reject forced `tool_choice`**, and `'jsonTool'` sends a forced tool call on Haiku 5.5, so never use it.
+- **No sampling params:** do not set `temperature`/`topP`/`topK`. The SDK silently drops them for the 5.5 models. Tune with `providerOptions.anthropic.effort` (`low` for extraction/presentation, `medium` for recommend/critic). Always set `maxOutputTokens` per stage; the default is the model maximum (128k).
+- **Retries:** set `maxRetries: 0` on every SDK call. The `LlmClient` owns the single retry from §7, so SDK retries (default 2) don't compound it or duplicate cassette entries.
+- **Refusal:** it arrives as a *successful* call with `finishReason: 'content-filter'`; reading `.output` then throws `NoOutputGeneratedError`. Check `finishReason` first and map it to a 502 with code `LLM_REFUSAL`. Schema-invalid or unparseable output is `NoObjectGeneratedError`.
+- **Record/replay:** pass `createAnthropic({ fetch })`. Strip the `x-api-key` request header, and **allowlist** response headers: they carry `anthropic-organization-id` and `anthropic-workspace-id`. A recorder must not await a streaming body before returning the response, or the stream is delivered as one chunk.
 
 ### 8.3 Cost discipline in local dev
 - **`LLM_MODE=live | record | replay | mock`**, implemented as described in §6.1. UI work and all gated tests run without `live`.

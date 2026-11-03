@@ -19,7 +19,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 |---|---|---|---|
 | WU-01 | Workspace scaffold | — | done |
 | WU-02 | Quality gates & test harness | WU-01 | todo |
-| WU-03 | AI SDK structured-output spike | WU-01 | todo |
+| WU-03 | AI SDK structured-output spike | WU-01 | in-progress |
 | WU-04 | Contract wire schemas & generation | WU-02, WU-03 | todo |
 | WU-05 | Invariant rules & fixtures | WU-04 | todo |
 | WU-06 | `api-nextjs` skeleton | WU-04 | todo |
@@ -98,7 +98,7 @@ WU-01 ─┬─ WU-02 ─┐
 ---
 
 ## WU-03 — AI SDK structured-output spike
-**Status:** todo · **Depends on:** WU-01 · **Commits:**
+**Status:** in-progress · **Depends on:** WU-01 · **Commits:**
 
 **Goal:** remove the biggest technical unknown before building on it. Throwaway code, permanent decision record.
 
@@ -144,6 +144,9 @@ WU-01 ─┬─ WU-02 ─┐
 - Wire schemas contain no refinements or transforms (lint rule or test enforces it).
 
 **Notes:**
+- Pin the ADR 0001 versions in the pnpm `catalog:`: `ai 7.0.154`, `@ai-sdk/anthropic 4.0.89`, `@ai-sdk/react 4.0.158`, `zod 4.6.7`. See [ADR 0001](decisions/0001-structured-output.md), "Versions tested".
+- `ExtractionSchema` follows the CLAUDE.md §4.4 construct rule: no tuple, record, `.optional()`, `.default()`, numeric/length/pattern constraints or string formats. Wire schemas may keep constraints.
+- **Open question (with WU-05):** the flexible `month` range (1–12) can't be a constraint on the extraction side. Decide whether it becomes part of `DATE_VALID` or a new rule code.
 
 ---
 
@@ -168,6 +171,7 @@ WU-01 ─┬─ WU-02 ─┐
 - Coverage on `domain-schema` is ≥ 95% lines and branches.
 
 **Notes:**
+- **Open question (with WU-04):** the flexible `month` range (1–12) has to be enforced by a rule, not by `ExtractionSchema`. Extend `DATE_VALID` or add a rule code in `rules.md` and CLAUDE.md §4.6. See [ADR 0001](decisions/0001-structured-output.md), Q3.
 
 ---
 
@@ -194,6 +198,7 @@ WU-01 ─┬─ WU-02 ─┐
 - `pnpm test:functional` boots and tears down the real server cleanly on Windows.
 
 **Notes:**
+- CORS must answer the preflight for a JSON `POST` to `/v1/trip/present`: `useObject` sends `content-type: application/json`. See [ADR 0001](decisions/0001-structured-output.md), Q7.
 
 ---
 
@@ -235,10 +240,16 @@ WU-01 ─┬─ WU-02 ─┐
 - *Integration:* a real provider call replayed from a committed cassette (one recorded live call)
 
 **Definition of done**
-- `grep` finds no API key material in `.llm-cassettes/`.
+- `grep` finds no API key material or account identifiers (`anthropic-organization-id`, `anthropic-workspace-id`) in `.llm-cassettes/`.
 - Gated tests pass with the network disabled.
 
 **Notes:**
+- `LlmClient` defaults on every call: `structuredOutputMode: 'outputFormat'`, `maxRetries: 0` (the client owns the single retry), an explicit `maxOutputTokens`, and `effort` but no sampling params. See [ADR 0001](decisions/0001-structured-output.md), Decision.
+- Cassette key = hash of the request body string. The SDK version is only in `user-agent`, so patch bumps don't invalidate cassettes.
+- Strip `x-api-key`; **allowlist** response headers (they carry `anthropic-organization-id` and `anthropic-workspace-id`).
+- Record streams without awaiting the body before returning the response; otherwise the stream arrives as one chunk. Replay should re-emit SSE events as separate chunks.
+- Integration tests assert `result.warnings` is empty, so a silently dropped option fails a test.
+- Reference implementation: `spikes/structured-output/src/capture-fetch.ts`.
 
 ---
 
@@ -263,6 +274,7 @@ WU-01 ─┬─ WU-02 ─┐
 **Definition of done:** all AC IDs from `extraction.md` are covered by passing tests.
 
 **Notes:**
+- Check `finishReason === 'content-filter'` before reading `.output`, and map it to `502 LLM_REFUSAL`. Set `maxOutputTokens` for both calls (extraction and clarification). See [ADR 0001](decisions/0001-structured-output.md), Q5.
 
 ---
 
@@ -289,6 +301,7 @@ WU-01 ─┬─ WU-02 ─┐
 **Definition of done:** no recommendation path can return an unlabeled factual claim (a test asserts this).
 
 **Notes:**
+- Same as WU-09: check `finishReason` before `.output`, and set `maxOutputTokens` for recommend and critic. See [ADR 0001](decisions/0001-structured-output.md), Q4–Q5.
 
 ---
 
@@ -311,6 +324,7 @@ WU-01 ─┬─ WU-02 ─┐
 **Definition of done:** a non-TS client (e.g. `curl` piped to a JSON validator) can consume the stream; record how in Notes.
 
 **Notes:**
+- Serve with `createTextStreamResponse({ stream: toTextStream({ stream: result.stream }) })`; the methods on the `streamText` result are deprecated. Mid-stream errors (`onError`) were not covered by the spike, so test them here. See [ADR 0001](decisions/0001-structured-output.md), Q1/Q7.
 
 ---
 
@@ -333,6 +347,7 @@ WU-01 ─┬─ WU-02 ─┐
 **Definition of done:** the web app has no imports from `backends/` or `@vp/domain-schema/rules` (lint enforced), and the pact is verified.
 
 **Notes:**
+- Pin `@ai-sdk/react 4.0.158` (and `react`/`react-dom 19.3.1`) to match ADR 0001; use `useObject`, not `experimental_useObject`. See [ADR 0001](decisions/0001-structured-output.md), "Versions tested".
 
 ---
 
@@ -375,6 +390,7 @@ WU-01 ─┬─ WU-02 ─┐
 **Definition of done:** cards render without errors at every partial stage, which a test asserts.
 
 **Notes:**
+- Partial objects contain missing keys **and truncated strings** (e.g. `"Calm tur"`); cards must render both. Use `useObject`'s `onFinish({ object, error })` for the final validation. See [ADR 0001](decisions/0001-structured-output.md), Q7.
 
 ---
 
