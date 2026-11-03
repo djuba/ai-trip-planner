@@ -1,0 +1,272 @@
+{
+  "label": "q5-refusal-no-details",
+  "request": {
+    "url": "https://api.anthropic.com/v1/messages",
+    "method": "POST",
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+      "user-agent": "ai/7.0.154 ai-sdk-provider-utils/5.0.69 node.js/24",
+      "x-api-key": "[stripped]"
+    },
+    "body": {
+      "model": "claude-haiku-5-5",
+      "max_tokens": 128000,
+      "output_config": {
+        "format": {
+          "type": "json_schema",
+          "schema": {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "properties": {
+              "departureCity": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dateRange": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "fixed",
+                            "type": "string"
+                          },
+                          "start": {
+                            "type": "string",
+                            "format": "date",
+                            "description": "pattern: ^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$."
+                          },
+                          "end": {
+                            "type": "string",
+                            "format": "date",
+                            "description": "pattern: ^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$."
+                          }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                          "kind",
+                          "start",
+                          "end"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "flexible",
+                            "type": "string"
+                          },
+                          "month": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "description": "minimum: 1; maximum: 12."
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "year": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "description": "minimum: -9007199254740991; maximum: 9007199254740991."
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "durationNights": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "description": "minimum: -9007199254740991; maximum: 9007199254740991."
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                          "kind",
+                          "month",
+                          "year",
+                          "durationNights",
+                          "note"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "region": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "climate": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "tropical",
+                      "warm",
+                      "temperate",
+                      "cool",
+                      "cold"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "experiences": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "enum": [
+                        "beach",
+                        "pool",
+                        "golf",
+                        "go-karts",
+                        "hiking",
+                        "snorkeling",
+                        "theme-parks",
+                        "museums",
+                        "nightlife",
+                        "skiing"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "unmappedExperiences": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "people": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "userType": {
+                          "enum": [
+                            "adult",
+                            "child"
+                          ],
+                          "type": "string"
+                        },
+                        "age": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "description": "minimum: -9007199254740991; maximum: 9007199254740991."
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "gender": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false,
+                      "required": [
+                        "userType",
+                        "age",
+                        "gender"
+                      ]
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "departureCity",
+              "dateRange",
+              "region",
+              "climate",
+              "experiences",
+              "unmappedExperiences",
+              "people"
+            ]
+          }
+        }
+      },
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "synthetic"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "id": "msg_synthetic",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-5-5",
+      "content": [],
+      "stop_reason": "refusal",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 10,
+        "output_tokens": 0
+      }
+    }
+  }
+}

@@ -1,0 +1,292 @@
+{
+  "label": "q2-request-claude-haiku-5-5-jsonTool-mode",
+  "request": {
+    "url": "https://api.anthropic.com/v1/messages",
+    "method": "POST",
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+      "user-agent": "ai/7.0.154 ai-sdk-provider-utils/5.0.69 node.js/24",
+      "x-api-key": "[stripped]"
+    },
+    "body": {
+      "model": "claude-haiku-5-5",
+      "max_tokens": 128000,
+      "system": [
+        {
+          "type": "text",
+          "text": "You extract a vacation request into the given JSON schema. Use null for anything the user did not mention. Only use experience values from the enum; put anything else the user asked for into unmappedExperiences. Resolve relative dates against referenceDate."
+        }
+      ],
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"referenceDate\":\"2026-10-27\",\"currentProfile\":null,\"message\":\"Two adults and our 7 year old want somewhere warm next March for about a week, flying out of Minneapolis. We love beaches and snorkeling, and my wife wants to do a wine tasting.\"}"
+            }
+          ]
+        }
+      ],
+      "tools": [
+        {
+          "name": "json",
+          "description": "Respond with a JSON object.",
+          "input_schema": {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "properties": {
+              "departureCity": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dateRange": {
+                "anyOf": [
+                  {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "fixed"
+                          },
+                          "start": {
+                            "type": "string",
+                            "format": "date",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                          },
+                          "end": {
+                            "type": "string",
+                            "format": "date",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "start",
+                          "end"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "flexible"
+                          },
+                          "month": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 12
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "year": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "durationNights": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "month",
+                          "year",
+                          "durationNights",
+                          "note"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "region": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "climate": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "tropical",
+                      "warm",
+                      "temperate",
+                      "cool",
+                      "cold"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "experiences": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "beach",
+                        "pool",
+                        "golf",
+                        "go-karts",
+                        "hiking",
+                        "snorkeling",
+                        "theme-parks",
+                        "museums",
+                        "nightlife",
+                        "skiing"
+                      ]
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "unmappedExperiences": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "people": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "userType": {
+                          "type": "string",
+                          "enum": [
+                            "adult",
+                            "child"
+                          ]
+                        },
+                        "age": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "gender": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "userType",
+                        "age",
+                        "gender"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "departureCity",
+              "dateRange",
+              "region",
+              "climate",
+              "experiences",
+              "unmappedExperiences",
+              "people"
+            ],
+            "additionalProperties": false
+          }
+        }
+      ],
+      "tool_choice": {
+        "type": "any",
+        "disable_parallel_tool_use": true
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "id": "msg_synthetic",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-5-5",
+      "content": [
+        {
+          "type": "text",
+          "text": "{}"
+        }
+      ],
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 10,
+        "output_tokens": 20
+      }
+    }
+  }
+}

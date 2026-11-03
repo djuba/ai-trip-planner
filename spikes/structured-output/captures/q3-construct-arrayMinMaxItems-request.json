@@ -1,0 +1,74 @@
+{
+  "label": "q3-construct-arrayMinMaxItems-request",
+  "request": {
+    "url": "https://api.anthropic.com/v1/messages",
+    "method": "POST",
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+      "user-agent": "ai/7.0.154 ai-sdk-provider-utils/5.0.69 node.js/24",
+      "x-api-key": "[stripped]"
+    },
+    "body": {
+      "model": "claude-haiku-5-5",
+      "max_tokens": 128000,
+      "output_config": {
+        "format": {
+          "type": "json_schema",
+          "schema": {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "properties": {
+              "xs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "min items: 1; max items: 3."
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "xs"
+            ]
+          }
+        }
+      },
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "synthetic"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "id": "msg_synthetic",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-5-5",
+      "content": [
+        {
+          "type": "text",
+          "text": "{}"
+        }
+      ],
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 10,
+        "output_tokens": 20
+      }
+    }
+  }
+}
