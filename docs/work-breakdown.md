@@ -19,7 +19,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 |---|---|---|---|
 | WU-01 | Workspace scaffold | — | done |
 | WU-02 | Quality gates & test harness | WU-01 | todo |
-| WU-03 | AI SDK structured-output spike | WU-01 | in-progress |
+| WU-03 | AI SDK structured-output spike | WU-01 | done |
 | WU-04 | Contract wire schemas & generation | WU-02, WU-03 | todo |
 | WU-05 | Invariant rules & fixtures | WU-04 | todo |
 | WU-06 | `api-nextjs` skeleton | WU-04 | todo |
@@ -98,7 +98,7 @@ WU-01 ─┬─ WU-02 ─┐
 ---
 
 ## WU-03 — AI SDK structured-output spike
-**Status:** in-progress · **Depends on:** WU-01 · **Commits:**
+**Status:** done · **Depends on:** WU-01 · **Commits:** [PR #3](https://github.com/djuba/vacation-planner-polyglot/pull/3)
 
 **Goal:** remove the biggest technical unknown before building on it. Throwaway code, permanent decision record.
 
@@ -119,6 +119,11 @@ WU-01 ─┬─ WU-02 ─┐
 - `spikes/` is deleted or clearly marked non-production.
 
 **Notes:**
+- All seven answers, the versions tested and the decisions are in [ADR 0001](decisions/0001-structured-output.md). CLAUDE.md §4.4, §7 and §8.2 now state the confirmed rules, and the affected units (WU-04/05/06/08/09/10/11/12/14) carry per-unit notes.
+- Versions to pin from WU-04 on: `ai 7.0.154`, `@ai-sdk/anthropic 4.0.89`, `@ai-sdk/react 4.0.158`, `zod 4.6.7`, `react`/`react-dom 19.3.1`.
+- The spike is kept at `spikes/structured-output/` (non-production, own lockfile: `pnpm install --ignore-workspace`). A full re-run costs well under $0.10.
+- Lessons for recorders: live Anthropic responses carry `anthropic-organization-id` / `anthropic-workspace-id`, so allowlist response headers; and never await a streaming body before returning the response.
+- Open item: flexible `month` 1–12 has to become a rule (`DATE_VALID` or a new code), decided in WU-04/05.
 
 ---
 
