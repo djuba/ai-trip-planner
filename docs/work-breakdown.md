@@ -18,7 +18,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | ID | Unit | Depends on | Status |
 |---|---|---|---|
 | WU-01 | Workspace scaffold | — | done |
-| WU-02 | Quality gates & test harness | WU-01 | todo |
+| WU-02 | Quality gates & test harness | WU-01 | in-progress |
 | WU-03 | AI SDK structured-output spike | WU-01 | done |
 | WU-04 | Contract wire schemas & generation | WU-02, WU-03 | todo |
 | WU-05 | Invariant rules & fixtures | WU-04 | todo |
@@ -77,7 +77,7 @@ WU-01 ─┬─ WU-02 ─┐
 ---
 
 ## WU-02 — Quality gates & test harness
-**Status:** todo · **Depends on:** WU-01 · **Commits:**
+**Status:** in-progress · **Depends on:** WU-01 · **Commits:**
 
 **Goal:** every gate in CLAUDE.md §6.7 exists and runs, even with almost no tests yet.
 
@@ -152,6 +152,7 @@ WU-01 ─┬─ WU-02 ─┐
 - Pin the ADR 0001 versions in the pnpm `catalog:`: `ai 7.0.154`, `@ai-sdk/anthropic 4.0.89`, `@ai-sdk/react 4.0.158`, `zod 4.6.7`. See [ADR 0001](decisions/0001-structured-output.md), "Versions tested".
 - `ExtractionSchema` follows the CLAUDE.md §4.4 construct rule: no tuple, record, `.optional()`, `.default()`, numeric/length/pattern constraints or string formats. Wire schemas may keep constraints.
 - **Open question (with WU-05):** the flexible `month` range (1–12) can't be a constraint on the extraction side. Decide whether it becomes part of `DATE_VALID` or a new rule code.
+- From WU-02: replace the `gen:check` stub in the root `package.json` with the real drift check. Add `vitest: catalog:` to `domain-schema` devDependencies (WU-02 D12). Prove the 95% coverage gate fires: with the first real source, confirm a deliberately uncovered branch fails `pnpm test:coverage`. WU-02 could not prove it on empty source (WU-02 review #3).
 
 ---
 
@@ -204,6 +205,7 @@ WU-01 ─┬─ WU-02 ─┐
 
 **Notes:**
 - CORS must answer the preflight for a JSON `POST` to `/v1/trip/present`: `useObject` sends `content-type: application/json`. See [ADR 0001](decisions/0001-structured-output.md), Q7.
+- From WU-02: add `vitest: catalog:` to `api-nextjs` devDependencies. The Vitest `functional` project already collects `test/functional/**/*.test.ts`, with a 60 s test timeout (`vitest.config.ts`).
 
 ---
 
@@ -224,6 +226,7 @@ WU-01 ─┬─ WU-02 ─┐
 - Any one stub field changed to an invalid value makes the suite fail.
 
 **Notes:**
+- From WU-02: replace the `test:contract` stub in the root `package.json`.
 
 ---
 
@@ -353,6 +356,7 @@ WU-01 ─┬─ WU-02 ─┐
 
 **Notes:**
 - Pin `@ai-sdk/react 4.0.158` (and `react`/`react-dom 19.3.1`) to match ADR 0001; use `useObject`, not `experimental_useObject`. See [ADR 0001](decisions/0001-structured-output.md), "Versions tested".
+- From WU-02: add `webServer` to `apps/web-nextjs/playwright.config.ts`, and install Chromium in CI (`pnpm exec playwright install --with-deps chromium`) together with the first spec. Once specs exist, drop `--pass-with-no-tests` from the web `test:functional` script so an empty glob cannot pass. Replace the `test:contract` stub if WU-07 has not already. `@axe-core/playwright` is already installed.
 
 ---
 
@@ -415,6 +419,7 @@ WU-01 ─┬─ WU-02 ─┐
 - Journeys pass three consecutive runs (flakiness check).
 
 **Notes:**
+- From WU-02: replace the `verify:integrated` and `verify:full` stubs. `test:journeys` already runs Playwright; drop its `--pass-with-no-tests` once journeys exist.
 
 ---
 
