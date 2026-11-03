@@ -4,6 +4,9 @@ contracts/pacts/
 .llm-cassettes/
 spikes/
 coverage/
+playwright-report/
+test-results/
+blob-report/
 .next/
 dist/
 

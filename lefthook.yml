@@ -1,0 +1,28 @@
+# Git hooks (CLAUDE.md §6.7, §10). Installed by `pnpm install` via the root `prepare` script.
+# scripts/test/functional/git-hooks.test.ts reads this file (via `lefthook dump`) and runs these
+# exact commands, so a change here is tested.
+
+commit-msg:
+  jobs:
+    - name: commitlint
+      run: pnpm exec commitlint --edit {1}
+
+# Sequential on purpose: eslint --fix and prettier --write both rewrite and re-stage the same
+# files, so running them in parallel can race and drop a fix. piped stops at the first failure.
+pre-commit:
+  piped: true
+  jobs:
+    - name: eslint
+      glob: '*.{js,mjs,cjs,ts,tsx}'
+      run: pnpm exec eslint --fix --no-warn-ignored {staged_files}
+      stage_fixed: true
+    - name: prettier
+      run: pnpm exec prettier --write --ignore-unknown {staged_files}
+      stage_fixed: true
+    - name: gitleaks
+      run: node scripts/gitleaks.mjs
+
+pre-push:
+  jobs:
+    - name: verify
+      run: pnpm verify
