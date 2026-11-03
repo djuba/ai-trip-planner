@@ -18,7 +18,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | ID | Unit | Depends on | Status |
 |---|---|---|---|
 | WU-01 | Workspace scaffold | — | done |
-| WU-02 | Quality gates & test harness | WU-01 | in-progress |
+| WU-02 | Quality gates & test harness | WU-01 | done |
 | WU-03 | AI SDK structured-output spike | WU-01 | done |
 | WU-04 | Contract wire schemas & generation | WU-02, WU-03 | todo |
 | WU-05 | Invariant rules & fixtures | WU-04 | todo |
@@ -77,7 +77,7 @@ WU-01 ─┬─ WU-02 ─┐
 ---
 
 ## WU-02 — Quality gates & test harness
-**Status:** in-progress · **Depends on:** WU-01 · **Commits:**
+**Status:** done · **Depends on:** WU-01 · **Commits:** [PR #5](https://github.com/djuba/vacation-planner-polyglot/pull/5)
 
 **Goal:** every gate in CLAUDE.md §6.7 exists and runs, even with almost no tests yet.
 
@@ -94,6 +94,12 @@ WU-01 ─┬─ WU-02 ─┐
 - `pnpm verify` runs end to end and passes.
 
 **Notes:**
+- Hooks use lefthook's native staged-file handling, not `lint-staged` (plan Q2). `pre-commit` runs in sequence (eslint → prettier → gitleaks), because the two fixers re-stage the same files. `scripts/test/functional/git-hooks.test.ts` reads `lefthook.yml` via `lefthook dump`, so hook edits are tested.
+- **gitleaks is a native-binary prerequisite** (8.30.1; `winget install Gitleaks.Gitleaks`). `scripts/gitleaks.mjs` fails rather than skips when it is missing. CI installs it pinned with a SHA-256 check; bump the version and checksum together in `.github/workflows/verify.yml`.
+- pnpm 12 fails install on ignored build scripts, so new dependencies with postinstall scripts need an explicit `allowBuilds` entry in `pnpm-workspace.yaml` (lefthook is `false`; `prepare` installs the hooks).
+- Gate stubs (`gen:check`, `test:contract`, `verify:integrated`, `verify:full`) call `scripts/skip.mjs`, which names the WU that makes each one real. Notes on WU-04/06/07/12/15 say what to replace.
+- The script is named `audit:prod`, because `pnpm audit` always runs pnpm's built-in command.
+- Usage: main/Opus 88 req, 95k out; wu-implementer/Sonnet 4 req, 2k out; wu-reviewer/Sonnet 6 req, 4k out.
 
 ---
 
