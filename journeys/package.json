@@ -4,9 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "playwright test --pass-with-no-tests",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@playwright/test": "catalog:",
+    "@types/node": "catalog:",
     "typescript": "catalog:"
   }
 }

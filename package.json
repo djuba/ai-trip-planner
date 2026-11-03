@@ -8,20 +8,40 @@
     "node": ">=24.11.0 <25"
   },
   "scripts": {
+    "prepare": "lefthook install",
     "typecheck": "tsc --noEmit -p tsconfig.json && pnpm -r typecheck",
-    "lint": "eslint . && node scripts/lint-boundary-probe.mjs",
+    "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "gen:check": "node scripts/skip.mjs \"gen drift check (no diff in packages/domain-schema/generated/)\" WU-04",
+    "audit:prod": "pnpm audit --prod",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:coverage": "vitest run --project unit --project integration --coverage",
+    "test:functional": "vitest run --project functional && pnpm --filter @vp/web-nextjs test:functional",
+    "test:contract": "node scripts/skip.mjs \"contract tests (Pact consumer + provider, schema conformance)\" WU-07/WU-12",
+    "test:journeys": "pnpm --filter @vp/journeys test",
+    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm gen:check && pnpm audit:prod && pnpm test:coverage && pnpm test:functional && pnpm test:contract",
+    "verify:integrated": "node scripts/skip.mjs \"integrated gate (build all, start stack, journeys @smoke + @critical)\" WU-15",
+    "verify:full": "node scripts/skip.mjs \"full gate (journeys @full and provider contracts on every backend)\" WU-15"
   },
   "devDependencies": {
+    "@commitlint/cli": "21.2.4",
+    "@commitlint/config-conventional": "21.2.4",
+    "@commitlint/lint": "21.2.4",
+    "@commitlint/load": "21.2.4",
+    "@commitlint/types": "21.2.3",
     "@eslint/js": "10.0.1",
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "eslint": "10.13.0",
     "eslint-config-prettier": "10.1.8",
     "globals": "17.13.0",
+    "lefthook": "2.2.2",
     "prettier": "3.9.10",
     "typescript": "catalog:",
-    "typescript-eslint": "8.72.1"
+    "typescript-eslint": "8.72.1",
+    "vitest": "catalog:"
   }
 }

@@ -4,7 +4,7 @@ import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-// Import boundaries (CLAUDE.md §4.2, §6.6, §9). Exported so scripts/lint-boundary-probe.mjs
+// Import boundaries (CLAUDE.md §4.2, §6.6, §9). Exported so scripts/lint-boundaries.int.test.ts
 // can assert they keep failing the build.
 export const appsRestrictedImports = {
   patterns: [
