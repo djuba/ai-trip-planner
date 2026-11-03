@@ -1,0 +1,88 @@
+{
+  "label": "q3-construct-stringPattern-live",
+  "request": {
+    "url": "https://api.anthropic.com/v1/messages",
+    "method": "POST",
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+      "user-agent": "ai/7.0.154 ai-sdk-provider-utils/5.0.69 node.js/24",
+      "x-api-key": "[stripped]"
+    },
+    "body": {
+      "model": "claude-haiku-5-5",
+      "max_tokens": 1000,
+      "output_config": {
+        "effort": "low",
+        "format": {
+          "type": "json_schema",
+          "schema": {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "properties": {
+              "s": {
+                "type": "string",
+                "description": "pattern: ^[A-Z]{3}$."
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "s"
+            ]
+          }
+        }
+      },
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "Return any small example object that fits the schema. For n use 7, for s use \"MSP\", for d use 2027-03-14."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json",
+      "request-id": "req_011CgTSJAFwuVPDka42SrfXB"
+    },
+    "body": {
+      "model": "claude-haiku-5-5",
+      "id": "msg_011CgTSJAc2ZWw5oscGkhRV2",
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"s\": \"MSP\"}"
+        }
+      ],
+      "container": null,
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "stop_details": null,
+      "usage": {
+        "input_tokens": 280,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens": 12,
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard"
+      },
+      "diagnostics": null
+    }
+  }
+}

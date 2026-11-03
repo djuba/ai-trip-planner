@@ -48,6 +48,8 @@ export default tseslint.config(
       'packages/domain-schema/generated/**',
       'contracts/pacts/**',
       '.llm-cassettes/**',
+      // Non-production spikes are not linted (docs/decisions/; WU-03).
+      'spikes/**',
     ],
   },
   js.configs.recommended,
