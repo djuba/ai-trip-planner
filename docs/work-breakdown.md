@@ -20,7 +20,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-01 | Workspace scaffold | — | done |
 | WU-02 | Quality gates & test harness | WU-01 | done |
 | WU-03 | AI SDK structured-output spike | WU-01 | done |
-| WU-04 | Contract wire schemas & generation | WU-02, WU-03 | todo |
+| WU-04 | Contract wire schemas & generation | WU-02, WU-03 | in-progress |
 | WU-05 | Invariant rules & fixtures | WU-04 | todo |
 | WU-06 | `api-nextjs` skeleton | WU-04 | todo |
 | WU-07 | Contract suite (provider side) | WU-05, WU-06 | todo |
@@ -134,7 +134,7 @@ WU-01 ─┬─ WU-02 ─┐
 ---
 
 ## WU-04 — Contract wire schemas & generation
-**Status:** todo · **Depends on:** WU-02, WU-03 · **Commits:**
+**Status:** in-progress · **Depends on:** WU-02, WU-03 · **Commits:**
 
 **Goal:** the language-neutral contract exists as Zod plus committed JSON Schema/OpenAPI artifacts.
 
@@ -157,7 +157,7 @@ WU-01 ─┬─ WU-02 ─┐
 **Notes:**
 - Pin the ADR 0001 versions in the pnpm `catalog:`: `ai 7.0.154`, `@ai-sdk/anthropic 4.0.89`, `@ai-sdk/react 4.0.158`, `zod 4.6.7`. See [ADR 0001](decisions/0001-structured-output.md), "Versions tested".
 - `ExtractionSchema` follows the CLAUDE.md §4.4 construct rule: no tuple, record, `.optional()`, `.default()`, numeric/length/pattern constraints or string formats. Wire schemas may keep constraints.
-- **Open question (with WU-05):** the flexible `month` range (1–12) can't be a constraint on the extraction side. Decide whether it becomes part of `DATE_VALID` or a new rule code.
+- **Decided (with WU-05):** the flexible `month` range (1–12) can't be a constraint on the extraction side, so it became part of `DATE_VALID`, along with `year` 2000–2100 and `durationNights ≥ 1`. See [the WU-04 plan](plans/WU-04.md), A1.
 - From WU-02: replace the `gen:check` stub in the root `package.json` with the real drift check. Add `vitest: catalog:` to `domain-schema` devDependencies (WU-02 D12). Prove the 95% coverage gate fires: with the first real source, confirm a deliberately uncovered branch fails `pnpm test:coverage`. WU-02 could not prove it on empty source (WU-02 review #3).
 
 ---
@@ -183,7 +183,13 @@ WU-01 ─┬─ WU-02 ─┐
 - Coverage on `domain-schema` is ≥ 95% lines and branches.
 
 **Notes:**
-- **Open question (with WU-04):** the flexible `month` range (1–12) has to be enforced by a rule, not by `ExtractionSchema`. Extend `DATE_VALID` or add a rule code in `rules.md` and CLAUDE.md §4.6. See [ADR 0001](decisions/0001-structured-output.md), Q3.
+- **Decided in WU-04:** `DATE_VALID` covers fixed dates that aren't real `YYYY-MM-DD` dates, flexible `month` outside 1–12, `year` outside 2000–2100 and `durationNights < 1` (CLAUDE.md §4.6). `params.value` is the offending value; `path` points at the field. See [the WU-04 plan](plans/WU-04.md), A1, and [ADR 0001](decisions/0001-structured-output.md), Q3.
+- From WU-04, already fixed in `src/wire/rule-violation.ts`:
+  - Age `min`/`max` params are inclusive (child 0–17, adult 18–120).
+  - `DATE_NOT_PAST.value` is `YYYY-MM-DD`, `YYYY-MM` or `YYYY`. Decide how a flexible month with no year is compared, and write it into `rules.md`.
+  - `path` is a JSON Pointer (`/people/2/age`; `""` for the whole profile).
+- From WU-04: new rule `MAX_STOPS_RANGE` (`departure.maxStops` is null or `≥ 0`; `params.value`), and `departure` counts as populated when `city` is non-empty after trimming (CLAUDE.md §4.6–4.7). `normalize` must turn an extraction `departure` into a `Departure`, dropping nulls.
+- Optional: a test that reads `rules.md` and fails if its codes differ from `RuleCode`, or if a code has no fixture case. Prose and code otherwise aren't linked mechanically.
 
 ---
 
@@ -211,6 +217,7 @@ WU-01 ─┬─ WU-02 ─┐
 
 **Notes:**
 - CORS must answer the preflight for a JSON `POST` to `/v1/trip/present`: `useObject` sends `content-type: application/json`. See [ADR 0001](decisions/0001-structured-output.md), Q7.
+- From WU-04: `tsconfig.json` must extend the base, because contract imports end in `.ts` (`allowImportingTsExtensions`). Check that Next's `transpilePackages` handles those imports; if it doesn't, fall back to `tsx` for `gen` and extensionless imports ([plan](plans/WU-04.md), R1). Cap request body size at the HTTP layer, since `ExtractRequest.message` has no maximum length (A8).
 - From WU-02: add `vitest: catalog:` to `api-nextjs` devDependencies. The Vitest `functional` project already collects `test/functional/**/*.test.ts`, with a 60 s test timeout (`vitest.config.ts`).
 
 ---
@@ -233,6 +240,7 @@ WU-01 ─┬─ WU-02 ─┐
 
 **Notes:**
 - From WU-02: replace the `test:contract` stub in the root `package.json`.
+- From WU-04: use the same validator setup as `packages/domain-schema/src/wire/parity.test.ts` (Ajv 2020 in strict mode + `ajv-formats`, both in the catalog). Load every `generated/*.schema.json` first, because their `$id`s and `$ref`s are relative.
 
 ---
 
@@ -289,6 +297,7 @@ WU-01 ─┬─ WU-02 ─┐
 
 **Notes:**
 - Check `finishReason === 'content-filter'` before reading `.output`, and map it to `502 LLM_REFUSAL`. Set `maxOutputTokens` for both calls (extraction and clarification). See [ADR 0001](decisions/0001-structured-output.md), Q5.
+- From WU-04: `clarificationQuestion` must be non-empty on the wire, so an empty model reply counts as a failure (retry once, then 502). The extraction prompt must cover `departure` (`city`, `mode`, `maxStops`, where `0` = non-stop).
 
 ---
 
@@ -316,6 +325,7 @@ WU-01 ─┬─ WU-02 ─┐
 
 **Notes:**
 - Same as WU-09: check `finishReason` before `.output`, and set `maxOutputTokens` for recommend and critic. See [ADR 0001](decisions/0001-structured-output.md), Q4–Q5.
+- From WU-04: this is where `departure.mode` and `departure.maxStops` start affecting recommendations. `routes.json` only holds non-stop routes, so only `maxStops: 0` can back a `'fixture'` claim; anything else stays `'unverified'`. `maxStops` only means something when `mode` is `plane`, and there is no rule for that in the MVP.
 
 ---
 
@@ -362,6 +372,7 @@ WU-01 ─┬─ WU-02 ─┐
 
 **Notes:**
 - Pin `@ai-sdk/react 4.0.158` (and `react`/`react-dom 19.3.1`) to match ADR 0001; use `useObject`, not `experimental_useObject`. See [ADR 0001](decisions/0001-structured-output.md), "Versions tested".
+- From WU-04: `tsconfig.json` must extend the base, and Next must handle `.ts` contract imports (same check as WU-06). `apps/` may import wire schemas at runtime (CLAUDE.md §4.2). Leave `currentProfile` out on the first turn; `null` gets a 422. Build every mock with `buildFixture`.
 - From WU-02: add `webServer` to `apps/web-nextjs/playwright.config.ts`, and install Chromium in CI (`pnpm exec playwright install --with-deps chromium`) together with the first spec. Once specs exist, drop `--pass-with-no-tests` from the web `test:functional` script so an empty glob cannot pass. Replace the `test:contract` stub if WU-07 has not already. `@axe-core/playwright` is already installed.
 
 ---
