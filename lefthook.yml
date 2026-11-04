@@ -1,5 +1,5 @@
 # Git hooks (CLAUDE.md §6.7, §10). Installed by `pnpm install` via the root `prepare` script.
-# scripts/test/functional/git-hooks.test.ts reads this file (via `lefthook dump`) and runs these
+# scripts/tests/functional/git-hooks.test.ts reads this file (via `lefthook dump`) and runs these
 # exact commands, so a change here is tested.
 
 commit-msg:

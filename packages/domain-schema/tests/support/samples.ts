@@ -1,7 +1,7 @@
 // Valid and invalid payloads for every contract schema. Zod and the generated JSON Schema must
 // agree on each one (parity.test.ts). Rule-checked values (child aged 18, month 13, a date that
 // does not exist) are VALID on the wire: they are rule violations, not contract violations (D1).
-import type { ContractSchemaId } from '../src/wire/index.ts';
+import type { ContractSchemaId } from '../../src/wire/index.ts';
 
 export interface SampleSet {
   valid: unknown[];

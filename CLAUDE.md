@@ -14,10 +14,10 @@ A portfolio app that turns natural-language travel requests into structured, val
 vacation-planner-polyglot/
 ├── apps/
 │   └── web-nextjs/              # Next.js App Router client. Talks HTTP only.
-│       └── test/functional/     # Playwright, API mocked at the network edge
+│       └── tests/functional/    # Playwright, API mocked at the network edge
 ├── backends/
 │   ├── api-nextjs/              # TS reference backend (Route Handlers only)
-│   │   └── test/functional/     # in-process full-stack HTTP tests
+│   │   └── tests/{integration,functional}/  # unit tests sit beside the code (§6.3)
 │   ├── api-fastapi/             # future — README + .gitkeep only until started
 │   └── api-go/                  # future — README + .gitkeep only until started
 ├── packages/
@@ -26,12 +26,13 @@ vacation-planner-polyglot/
 │       ├── src/rules/           # TS implementation of invariant rules (backend-only)
 │       ├── generated/           # JSON Schema + openapi.yaml — generated, COMMITTED
 │       ├── rules.md             # Language-neutral invariant catalog (source of truth for rules)
-│       └── fixtures/            # Contract cases: input JSON → expected output JSON
+│       ├── fixtures/            # Contract cases: input JSON → expected output JSON
+│       └── tests/support/       # TS test helpers (fixture loader, samples)
 ├── contracts/
 │   └── pacts/                   # Consumer pact files written by web tests — COMMITTED
 ├── tests/
-│   └── contract/                # Provider verification (Pact + schema-first) vs. API_BASE_URL
-├── journeys/                    # Cross-system Playwright journeys (isolated workspace, §6.6)
+│   ├── contract/                # Provider verification (Pact + schema-first) vs. API_BASE_URL
+│   └── journeys/                # Cross-system Playwright journeys (isolated workspace, §6.6)
 ├── docs/features/               # Acceptance criteria per feature (§6.2)
 ├── docs/decisions/              # Architecture decision records (ADRs)
 ├── spikes/                      # NON-PRODUCTION spikes; outside the workspace and every gate
@@ -179,18 +180,20 @@ Each feature gets `docs/features/<feature>.md` listing acceptance criteria and e
 
 | Layer | Proves | Real | Faked | Tool | File pattern | Volume |
 |---|---|---|---|---|---|---|
-| **Unit** | Logic in isolation | the unit | everything else (`LlmClient` = mock model) | Vitest (+ React Testing Library/jsdom for web) | `*.test.ts(x)` colocated | hundreds, ms |
-| **Integration** | One component + its real immediate dependency | that dependency | everything else | Vitest | `*.int.test.ts` colocated | tens, seconds |
-| **Functional** | One app top-to-bottom, in-process, **no internal mocks** | whole app | only other systems (LLM via replay; for web, the API via network mocks) | Vitest (api) / Playwright (web) | `test/functional/**` | a handful, happy paths + key failures |
+| **Unit** | Logic in isolation | the unit | everything else (`LlmClient` = mock model) | Vitest (+ React Testing Library/jsdom for web) | `*.test.ts(x)` beside the code | hundreds, ms |
+| **Integration** | One component + its real immediate dependency | that dependency | everything else | Vitest | `tests/integration/**/*.test.ts` per project | tens, seconds |
+| **Functional** | One app top-to-bottom, in-process, **no internal mocks** | whole app | only other systems (LLM via replay; for web, the API via network mocks) | Vitest (api) / Playwright (web) | `tests/functional/**` per project | a handful, happy paths + key failures |
 | **Contract** | Consumer and provider agree on the HTTP contract | each side alone | the other side | Pact + JSON-Schema conformance | `*.pact.test.ts`, `tests/contract/**` | one per interaction |
-| **Journey** | The integrated system works for a user | everything | LLM via replay only | Playwright | `journeys/**/*.spec.ts` | deliberately few |
+| **Journey** | The integrated system works for a user | everything | LLM via replay only | Playwright | `tests/journeys/**/*.spec.ts` | deliberately few |
+
+Test helpers shared within a project go in its `tests/support/`.
 
 What belongs where:
 
 - **`packages/domain-schema`**
   - *Unit:* every rule code, with at least one passing and one failing fixture, including edge cases (age 17 vs 18, end date equal to start, leap days, flexible dates with month only); `normalize`; the populated-field counter; `gen` producing JSON Schema that round-trips the fixtures.
 - **`backends/api-nextjs`**
-  - *Unit:* prompt builders, merge/normalize, the critic's deterministic checks, the critic loop's iteration cap, presentation mapping, error mapping, each pipeline stage with a mock `LlmClient`.
+  - *Unit:* prompt builders, merge/normalize, the critic's deterministic checks, the critic loop's iteration cap, presentation mapping, error mapping, each use case with a mock `LlmClient`.
   - *Integration:* the `LlmClient` adapter against the real AI SDK provider plus replay cassettes (structured-output parsing, refusal → `LLM_REFUSAL`, malformed output → retry then 502); route handlers invoked with real `Request` objects (body parsing, 422 shape errors, CORS headers, stream headers).
   - *Functional:* boot the built app on a random port and drive it over real HTTP with `LLM_MODE=replay`: extract → `needs_clarification`, extract → `ready`, recommend, the `/present` stream ending in a schema-valid object, upstream failure → 502.
 - **`apps/web-nextjs`**
@@ -200,7 +203,7 @@ What belongs where:
 
 ### 6.4 Coverage
 Coverage is a floor, not a goal (Vitest, v8 provider, unit + integration combined):
-- `packages/domain-schema` and `backends/api-nextjs/src/pipeline`: **≥ 95% lines and branches**.
+- `packages/domain-schema` and `backends/api-nextjs/src/usecases`: **≥ 95% lines and branches**.
 - Everything else: **≥ 80%**.
 - Thresholds are enforced in `pnpm verify`. Never lower one to make a build pass; add the missing test.
 
@@ -215,7 +218,7 @@ A backend runs both halves with `LLM_MODE=replay` and must pass both before it c
 **Contract testing uses only open-source, local tooling: no subscriptions, accounts or hosted services.** PactFlow, including its bi-directional contract testing (BDCT), is out of scope. The schema-first conformance suite is this repo's replacement for BDCT; do not add PactFlow or any hosted broker.
 
 ### 6.6 Journey tests
-- They live in `journeys/`, a workspace package that **must not import** from `apps/`, `backends/` or `packages/`; it only drives a browser against URLs. (In a larger organization this would be a separate repo; here an isolated workspace keeps the same boundary.)
+- They live in `tests/journeys/`, a workspace package that **must not import** from `apps/`, `backends/` or `packages/`; it only drives a browser against URLs. (In a larger organization this would be a separate repo; here an isolated workspace keeps the same boundary.)
 - They run against the fully integrated local stack (`web-nextjs` + `BACKEND=nextjs|fastapi|go`, `LLM_MODE=replay`), so the same journeys prove every backend end to end.
 - **Two tag dimensions only:**
   - **area:** `@clarification`, `@recommendation`, `@presentation`
@@ -245,6 +248,8 @@ Each gate is a single command. **GitHub Actions mirrors the project gate** on ev
 Tests prove plumbing, contracts and rules. They do **not** judge whether recommendations are good. LLM output quality is assessed separately by an opt-in, non-gating eval script (`pnpm eval`, live, costs money) once the pipeline exists.
 
 ## 7. AI pipeline
+
+Each stage below is one use case: one module in `backends/api-nextjs/src/usecases/`, called by its route handler. The server is stateless, so each HTTP request runs one stage, and the client decides when to call the next.
 
 | Stage | Pattern | Model role | Notes |
 |---|---|---|---|
@@ -285,8 +290,9 @@ Verified against `ai 7.0.154` / `@ai-sdk/anthropic 4.0.89`. Re-check the ADR on 
 ## 9. Engineering rules
 
 - **No coupling between web and API:** no Server Actions, no importing backend code into `apps/`, no shared runtime state. `apps/web-nextjs` never holds an API key.
-- `backends/api-nextjs` exposes **Route Handlers only** (`app/v1/**/route.ts`), with no pages. Business logic lives in plain TS modules (`src/pipeline/`, `src/llm/`) that do not import from `next/*`; route handlers are thin adapters (parse → call → serialize). That keeps the logic portable and unit-testable.
-- No god modules: one pipeline stage per module; the LLM provider sits behind a small `LlmClient` interface so `mock`/`replay` can swap in.
+- `backends/api-nextjs` exposes **Route Handlers only** (`app/v1/**/route.ts`), with no pages. Business logic lives in plain TS modules (`src/usecases/`, `src/llm/`) that do not import from `next/*`; route handlers are thin adapters (parse → call → serialize). That keeps the logic portable and unit-testable.
+- No god modules: one use case per module; the LLM provider sits behind a small `LlmClient` interface so `mock`/`replay` can swap in.
+- **Dependency rule (lint enforced):** `src/usecases/` owns the `LlmClient` interface and must not import `next`, `ai`, `@ai-sdk/*` or `src/llm/`. `src/llm/` implements the interface. Tests are exempt, so they can use the AI SDK mock model.
 - UI: Tailwind + shadcn/ui only. **No inline `style={}`**, no CSS-in-JS.
 - Secrets in `.env.local` (git-ignored); `.env.example` is committed and kept current. Cassettes must never contain API keys; the recorder strips auth headers, and `gitleaks` runs on commit.
 - Do not write placeholder implementations for `api-fastapi`/`api-go` until asked; keep them to a README stating the contract they must satisfy (§6.5).
@@ -299,7 +305,7 @@ Verified against `ai 7.0.154` / `@ai-sdk/anthropic 4.0.89`. Re-check the ADR on 
 Format: `type(scope): imperative summary` — ≤72 chars, lowercase type.
 
 - **Types:** `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `build`, `ci`, `chore`
-- **Scopes (enforced list):** `web`, `api-nextjs`, `api-fastapi`, `api-go`, `domain-schema`, `contract`, `journeys`, `pipeline`, `repo`
+- **Scopes (enforced list):** `web`, `api-nextjs`, `api-fastapi`, `api-go`, `domain-schema`, `contract`, `journeys`, `usecases`, `repo`
 - **Breaking contract changes:** `feat(domain-schema)!: …` plus a `BREAKING CHANGE:` footer, and bump `contractVersion`.
 - One logical change per commit. Tests go in the same commit as the behavior they cover. Regenerate `generated/` and re-record affected cassettes/pacts in the same commit as the change that caused them.
 - Never commit without the user's explicit approval of the specific changes (§12). Commit messages end with the attribution trailer configured for the session.

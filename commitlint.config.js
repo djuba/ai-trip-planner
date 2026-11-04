@@ -13,7 +13,7 @@ export const SCOPES = [
   'domain-schema',
   'contract',
   'journeys',
-  'pipeline',
+  'usecases',
   'repo',
 ];
 

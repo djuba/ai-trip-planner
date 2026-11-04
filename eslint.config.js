@@ -5,7 +5,7 @@ import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-// Import boundaries (CLAUDE.md §4.2, §6.6, §9). Exported so scripts/lint-boundaries.int.test.ts
+// Import boundaries (CLAUDE.md §4.2, §6.6, §9). Exported so scripts/tests/integration/lint-boundaries.test.ts
 // can assert they keep failing the build.
 export const appsRestrictedImports = {
   patterns: [
@@ -33,6 +33,25 @@ export const journeysRestrictedImports = {
     {
       regex: '(^|/)(apps|backends|packages)/',
       message: 'journeys/ drives a browser against URLs only; no workspace imports.',
+    },
+  ],
+};
+
+// Use cases are the inner layer: they depend on the LlmClient interface they own, never on a
+// framework, the AI SDK or its implementation in src/llm (CLAUDE.md §9).
+export const usecasesRestrictedImports = {
+  patterns: [
+    {
+      regex: '^next(/|$)',
+      message: 'src/usecases must not depend on Next.js; route handlers are the adapters.',
+    },
+    {
+      regex: '^(ai(/|$)|@ai-sdk/)',
+      message: 'src/usecases depends on the LlmClient interface, not the AI SDK.',
+    },
+    {
+      regex: '(^|/)llm(/|$)',
+      message: 'src/usecases depends on the LlmClient interface, not its implementation.',
     },
   ],
 };
@@ -103,7 +122,14 @@ export default tseslint.config(
     },
   },
   {
-    files: ['journeys/**/*.{ts,tsx,js,mjs}'],
+    files: ['backends/api-nextjs/src/usecases/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': ['error', usecasesRestrictedImports],
+    },
+  },
+  {
+    files: ['tests/journeys/**/*.{ts,tsx,js,mjs}'],
     rules: {
       'no-restricted-imports': ['error', journeysRestrictedImports],
     },
