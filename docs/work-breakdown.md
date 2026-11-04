@@ -20,7 +20,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-01 | Workspace scaffold | — | done |
 | WU-02 | Quality gates & test harness | WU-01 | done |
 | WU-03 | AI SDK structured-output spike | WU-01 | done |
-| WU-04 | Contract wire schemas & generation | WU-02, WU-03 | in-progress |
+| WU-04 | Contract wire schemas & generation | WU-02, WU-03 | done |
 | WU-05 | Invariant rules & fixtures | WU-04 | todo |
 | WU-06 | `api-nextjs` skeleton | WU-04 | todo |
 | WU-07 | Contract suite (provider side) | WU-05, WU-06 | todo |
@@ -134,7 +134,7 @@ WU-01 ─┬─ WU-02 ─┐
 ---
 
 ## WU-04 — Contract wire schemas & generation
-**Status:** in-progress · **Depends on:** WU-02, WU-03 · **Commits:**
+**Status:** done · **Depends on:** WU-02, WU-03 · **Commits:** [PR #6](https://github.com/djuba/vacation-planner-polyglot/pull/6)
 
 **Goal:** the language-neutral contract exists as Zod plus committed JSON Schema/OpenAPI artifacts.
 
@@ -159,6 +159,9 @@ WU-01 ─┬─ WU-02 ─┐
 - `ExtractionSchema` follows the CLAUDE.md §4.4 construct rule: no tuple, record, `.optional()`, `.default()`, numeric/length/pattern constraints or string formats. Wire schemas may keep constraints.
 - **Decided (with WU-05):** the flexible `month` range (1–12) can't be a constraint on the extraction side, so it became part of `DATE_VALID`, along with `year` 2000–2100 and `durationNights ≥ 1`. See [the WU-04 plan](plans/WU-04.md), A1.
 - From WU-02: replace the `gen:check` stub in the root `package.json` with the real drift check. Add `vitest: catalog:` to `domain-schema` devDependencies (WU-02 D12). Prove the 95% coverage gate fires: with the first real source, confirm a deliberately uncovered branch fails `pnpm test:coverage`. WU-02 could not prove it on empty source (WU-02 review #3).
+- Both gates were proven by hand: an uncovered branch failed `pnpm test:coverage` (66.66% branches), and a schema change without `gen` failed `gen:check`. `pnpm why zod` shows one version (4.6.7).
+- `departureCity` became `departure { city, mode, maxStops }`, with a new `MAX_STOPS_RANGE` rule code. The implementation review ran before this change. See [the plan](plans/WU-04.md), X9–X10.
+- Usage: main/Opus 56 req, 96k out; wu-implementer/Sonnet 17 req, 38k out; wu-reviewer/Opus 15 req, 24k out.
 
 ---
 
