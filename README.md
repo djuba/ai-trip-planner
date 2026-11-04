@@ -22,6 +22,43 @@ Git hooks: `commit-msg` enforces Conventional Commits with the scopes in CLAUDE.
 
 Use pnpm only; do not use npm or Yarn.
 
+## Where to find things
+
+| Looking for | Location |
+|---|---|
+| The HTTP contract: request and response shapes | `packages/domain-schema/src/wire/`, generated into `generated/` |
+| Business rules | `packages/domain-schema/rules.md` (the spec) and `src/rules/` (the TS implementation) |
+| Language-neutral rule test cases | `packages/domain-schema/fixtures/rules/` |
+| API endpoints | `backends/api-nextjs/app/v1/**/route.ts` |
+| Business logic for each AI stage | `backends/api-nextjs/src/usecases/` |
+| The Anthropic client and record/replay | `backends/api-nextjs/src/llm/` |
+| The web client | `apps/web-nextjs/` |
+| Acceptance criteria and decisions | `docs/features/` and `docs/decisions/` |
+
+The backend, web client and journeys are scaffolds until their work units land, so some of these folders don't exist yet.
+
+### How this maps to Clean Architecture
+
+| Clean layer | Here |
+|---|---|
+| Core | `packages/domain-schema` |
+| Use cases | `backends/api-nextjs/src/usecases/`, which owns the `LlmClient` interface |
+| Infrastructure | `backends/api-nextjs/src/llm/` |
+| Web | `backends/api-nextjs/app/v1/**/route.ts` |
+
+ESLint import rules and the package `exports` map enforce the boundaries that project references would in .NET.
+
+### Where tests live
+
+| Test type | Location |
+|---|---|
+| Unit | `*.test.ts` beside the code |
+| Integration | `<project>/tests/integration/` |
+| Functional | `<project>/tests/functional/` |
+| Helpers shared within a project | `<project>/tests/support/` |
+| Contract, across backends | `tests/contract/` |
+| Journeys, across the whole system | `tests/journeys/` |
+
 ## Documentation
 
 - [CLAUDE.md](CLAUDE.md): architecture, testing strategy and engineering rules
