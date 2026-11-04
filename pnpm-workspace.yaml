@@ -3,7 +3,7 @@ packages:
   - backends/api-nextjs
   - packages/*
   - tests/contract
-  - journeys
+  - tests/journeys
 
 catalog:
   '@ai-sdk/anthropic': 4.0.89

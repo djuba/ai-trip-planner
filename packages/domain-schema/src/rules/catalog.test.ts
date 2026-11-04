@@ -9,7 +9,7 @@ import {
   loadAllRuleFixtures,
   parseRuleFixtureFile,
   ruleFixtureEntries,
-} from '../../test/rule-fixtures.ts';
+} from '../../tests/support/rule-fixtures.ts';
 import { RuleCode } from '../wire/index.ts';
 
 const read = (url: string): string =>

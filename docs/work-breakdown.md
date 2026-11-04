@@ -94,7 +94,7 @@ WU-01 ─┬─ WU-02 ─┐
 - `pnpm verify` runs end to end and passes.
 
 **Notes:**
-- Hooks use lefthook's native staged-file handling, not `lint-staged` (plan Q2). `pre-commit` runs in sequence (eslint → prettier → gitleaks), because the two fixers re-stage the same files. `scripts/test/functional/git-hooks.test.ts` reads `lefthook.yml` via `lefthook dump`, so hook edits are tested.
+- Hooks use lefthook's native staged-file handling, not `lint-staged` (plan Q2). `pre-commit` runs in sequence (eslint → prettier → gitleaks), because the two fixers re-stage the same files. `scripts/tests/functional/git-hooks.test.ts` reads `lefthook.yml` via `lefthook dump`, so hook edits are tested.
 - **gitleaks is a native-binary prerequisite** (8.30.1; `winget install Gitleaks.Gitleaks`). `scripts/gitleaks.mjs` fails rather than skips when it is missing. CI installs it pinned with a SHA-256 check; bump the version and checksum together in `.github/workflows/verify.yml`.
 - pnpm 12 fails install on ignored build scripts, so new dependencies with postinstall scripts need an explicit `allowBuilds` entry in `pnpm-workspace.yaml` (lefthook is `false`; `prepare` installs the hooks).
 - Gate stubs (`gen:check`, `test:contract`, `verify:integrated`, `verify:full`) call `scripts/skip.mjs`, which names the WU that makes each one real. Notes on WU-04/06/07/12/15 say what to replace.
@@ -225,7 +225,8 @@ WU-01 ─┬─ WU-02 ─┐
 **Notes:**
 - CORS must answer the preflight for a JSON `POST` to `/v1/trip/present`: `useObject` sends `content-type: application/json`. See [ADR 0001](decisions/0001-structured-output.md), Q7.
 - From WU-04: `tsconfig.json` must extend the base, because contract imports end in `.ts` (`allowImportingTsExtensions`). Check that Next's `transpilePackages` handles those imports; if it doesn't, fall back to `tsx` for `gen` and extensionless imports ([plan](plans/WU-04.md), R1). Cap request body size at the HTTP layer, since `ExtractRequest.message` has no maximum length (A8).
-- From WU-02: add `vitest: catalog:` to `api-nextjs` devDependencies. The Vitest `functional` project already collects `test/functional/**/*.test.ts`, with a 60 s test timeout (`vitest.config.ts`).
+- From WU-02: add `vitest: catalog:` to `api-nextjs` devDependencies. The Vitest `functional` project already collects `tests/functional/**/*.test.ts`, with a 60 s test timeout (`vitest.config.ts`).
+- From the test-layout refactor: unit tests sit beside the code, and integration and functional tests go in `backends/api-nextjs/tests/{integration,functional}/`. Add `tests` to its `tsconfig.json` `include`.
 
 ---
 
@@ -274,6 +275,7 @@ WU-01 ─┬─ WU-02 ─┐
 - Gated tests pass with the network disabled.
 
 **Notes:**
+- From the test-layout refactor: the `LlmClient` interface lives in `backends/api-nextjs/src/usecases/`, and its implementation, the cassette `fetch` and `mock` mode live in `src/llm/` (CLAUDE.md §9, lint enforced).
 - `LlmClient` defaults on every call: `structuredOutputMode: 'outputFormat'`, `maxRetries: 0` (the client owns the single retry), an explicit `maxOutputTokens`, and `effort` but no sampling params. See [ADR 0001](decisions/0001-structured-output.md), Decision.
 - Cassette key = hash of the request body string. The SDK version is only in `user-agent`, so patch bumps don't invalidate cassettes.
 - Strip `x-api-key`; **allowlist** response headers (they carry `anthropic-organization-id` and `anthropic-workspace-id`).
@@ -436,7 +438,7 @@ WU-01 ─┬─ WU-02 ─┐
 **Goal:** prove the integrated system works for a user, and close the gate set.
 
 **Scope**
-- `journeys/` workspace (no imports from other workspaces)
+- `tests/journeys/` workspace (no imports from other workspaces)
 - Stack start/stop script (`BACKEND=nextjs`, `LLM_MODE=replay`)
 - The four starting journeys from CLAUDE.md §6.6, with area + criticality tags
 - `verify:integrated` and `verify:full` made real

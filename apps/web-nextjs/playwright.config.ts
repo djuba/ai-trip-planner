@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 // webServer (build + start of the app) is added in WU-12.
 export default defineConfig({
-  testDir: 'test/functional',
+  testDir: 'tests/functional',
   testMatch: '**/*.spec.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

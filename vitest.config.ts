@@ -6,13 +6,13 @@ import { configDefaults, defineConfig } from 'vitest/config';
 const excludeEverywhere = [
   ...configDefaults.exclude,
   'spikes/**',
-  'journeys/**',
-  'apps/web-nextjs/test/functional/**',
+  'tests/journeys/**',
+  'apps/web-nextjs/tests/functional/**',
   '**/.next/**',
 ];
 
-const FUNCTIONAL = '**/test/functional/**/*.test.{ts,tsx}';
-const INTEGRATION = '**/*.int.test.{ts,tsx}';
+const FUNCTIONAL = '**/tests/functional/**/*.test.{ts,tsx}';
+const INTEGRATION = '**/tests/integration/**/*.test.{ts,tsx}';
 
 export default defineConfig({
   test: {
@@ -56,7 +56,7 @@ export default defineConfig({
         functions: 80,
         statements: 80,
         'packages/domain-schema/src/**': { lines: 95, branches: 95 },
-        'backends/api-nextjs/src/pipeline/**': { lines: 95, branches: 95 },
+        'backends/api-nextjs/src/usecases/**': { lines: 95, branches: 95 },
       },
     },
   },

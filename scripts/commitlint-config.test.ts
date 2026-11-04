@@ -19,7 +19,7 @@ describe('commitlint config', () => {
         'contract',
         'domain-schema',
         'journeys',
-        'pipeline',
+        'usecases',
         'repo',
         'web',
       ].sort(),
