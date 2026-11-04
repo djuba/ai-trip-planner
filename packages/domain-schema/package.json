@@ -8,9 +8,19 @@
     "./rules": "./src/rules/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "gen": "node gen/cli.ts",
+    "gen:check": "node gen/cli.ts --check"
   },
   "devDependencies": {
-    "typescript": "catalog:"
+    "@types/node": "catalog:",
+    "ajv": "catalog:",
+    "ajv-formats": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "yaml": "catalog:"
+  },
+  "dependencies": {
+    "zod": "catalog:"
   }
 }

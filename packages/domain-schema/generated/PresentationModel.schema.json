@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "PresentationModel.schema.json",
+  "type": "object",
+  "properties": {
+    "headline": {
+      "type": "string"
+    },
+    "intro": {
+      "type": "string"
+    },
+    "cards": {
+      "type": "array",
+      "items": {
+        "$ref": "PresentationCard.schema.json"
+      }
+    }
+  },
+  "required": [
+    "headline",
+    "intro",
+    "cards"
+  ]
+}

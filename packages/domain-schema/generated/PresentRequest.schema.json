@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "PresentRequest.schema.json",
+  "type": "object",
+  "properties": {
+    "profile": {
+      "$ref": "TripProfile.schema.json"
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "$ref": "Recommendation.schema.json"
+      }
+    }
+  },
+  "required": [
+    "profile",
+    "recommendations"
+  ]
+}

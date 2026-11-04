@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "RecommendationSet.schema.json",
+  "type": "object",
+  "properties": {
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "$ref": "Recommendation.schema.json"
+      }
+    }
+  },
+  "required": [
+    "recommendations"
+  ]
+}

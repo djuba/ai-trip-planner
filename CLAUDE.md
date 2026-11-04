@@ -78,14 +78,14 @@ vacation-planner-polyglot/
   "./rules": "./src/rules/index.ts"   // backends ONLY — web must not import
 }
 ```
-`apps/web-nextjs` may import `@vp/domain-schema/wire` **types** only (prefer `import type`). An ESLint `no-restricted-imports` rule blocks `@vp/domain-schema/rules` in `apps/`. `web-nextjs/next.config` lists the package in `transpilePackages`.
+`apps/web-nextjs` may import `@vp/domain-schema/wire`: its schemas (for the final `safeParse` of streamed data), its types (prefer `import type`) and `buildFixture`. It never imports `rules`. An ESLint `no-restricted-imports` rule blocks `@vp/domain-schema/rules` in `apps/`. `web-nextjs/next.config` lists the package in `transpilePackages`.
 
 ### 4.3 Domain model (wire shape)
 All dates are ISO-8601 `YYYY-MM-DD` strings. No `Date` objects cross the wire.
 
 ```ts
 TripProfile {
-  departureCity?:  string | null
+  departure?:      { city?: string | null, mode?: 'plane' | 'car' | 'train' | null, maxStops?: number | null /* 0 = non-stop */ } | null
   dateRange?:      { kind: 'fixed', start: string, end: string }
                  | { kind: 'flexible', month?: number /*1-12*/, year?: number, durationNights?: number, note?: string }
                  | null
@@ -109,7 +109,9 @@ The enum is closed and versioned. Adding a value is a `feat(domain-schema)`; rem
 1. Zod `safeParse` against the wire schema → shape errors (contract violation → HTTP 422).
 2. `evaluateRules(profile)` → `RuleViolation[]` (business result → HTTP 200 with `needs_clarification`).
 
-Rules never throw. Each violation is `{ code, path, params }`. **Messages are not part of the contract**; clients and the LLM clarification prompt render text from `code` + `params`.
+**Profile fields the model extracts (everything reachable from `ExtractionSchema`, i.e. `TripProfile`) carry no range or format constraints on the wire**, even when no rule checks them yet. Their checks are rules, so a `needs_clarification` response can carry the bad value, and the client can send it back. Other fields may carry constraints that are the server's own guarantee (e.g. `referenceDate` is a date, `clarificationQuestion` is non-empty).
+
+Rules never throw. Each violation is `{ code, path, params }`: `path` is a JSON Pointer into the profile, and `params` is typed per code (see `src/wire/rule-violation.ts`). **Messages are not part of the contract**; clients and the LLM clarification prompt render text from `code` + `params`.
 
 ### 4.6 Invariant catalog (mirror of `rules.md`)
 | Code | Rule |
@@ -118,14 +120,15 @@ Rules never throw. Each violation is `{ code, path, params }`. **Messages are no
 | `ADULT_AGE_RANGE` | `userType='adult'` ⇒ `age` is null or `18 ≤ age ≤ 120` |
 | `DATE_ORDER` | `fixed` range ⇒ `end ≥ start` |
 | `DATE_NOT_PAST` | `start` (or flexible month/year) is not before the request's `referenceDate` |
-| `DATE_VALID` | strings are real calendar dates |
+| `DATE_VALID` | fixed `start`/`end` are real `YYYY-MM-DD` calendar dates; flexible `month` is 1–12, `year` is 2000–2100, `durationNights ≥ 1` |
 | `PARTY_HAS_ADULT` | if `people` is non-empty, at least one adult |
 | `INSUFFICIENT_DETAIL` | fewer than `MIN_POPULATED_FIELDS` populated fields (see §4.7) |
+| `MAX_STOPS_RANGE` | `departure.maxStops` is null or `≥ 0` |
 
 `referenceDate` is supplied in the request (client's local date), so rules stay deterministic and testable. Backends never read the system clock inside rules.
 
 ### 4.7 "Populated field" — exact definition
-A top-level field counts as populated when it is: a non-empty trimmed string; a `dateRange` of kind `fixed`, or `flexible` with at least `month` or `year`; or a non-empty array (`experiences`, `people`). `unmappedExperiences` never counts. `MIN_POPULATED_FIELDS = 3`, and it is exported as a constant from the contract (and copied into `generated/constants.json`) so all backends share it.
+A top-level field counts as populated when it is: a non-empty trimmed string; a `departure` with a non-empty trimmed `city`; a `dateRange` of kind `fixed`, or `flexible` with at least `month` or `year`; or a non-empty array (`experiences`, `people`). `unmappedExperiences` never counts. `MIN_POPULATED_FIELDS = 3`, and it is exported as a constant from the contract (and copied into `generated/constants.json`) so all backends share it.
 
 ## 5. HTTP API (v1)
 

@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "TripProfile.schema.json",
+  "type": "object",
+  "properties": {
+    "departure": {
+      "anyOf": [
+        {
+          "$ref": "Departure.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "dateRange": {
+      "anyOf": [
+        {
+          "$ref": "DateRange.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "region": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "climate": {
+      "anyOf": [
+        {
+          "$ref": "Climate.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "experiences": {
+      "type": "array",
+      "items": {
+        "$ref": "Experience.schema.json"
+      }
+    },
+    "unmappedExperiences": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "people": {
+      "type": "array",
+      "items": {
+        "$ref": "Traveler.schema.json"
+      }
+    }
+  }
+}

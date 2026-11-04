@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "Experience.schema.json",
+  "type": "string",
+  "enum": [
+    "beach",
+    "pool",
+    "golf",
+    "go-karts",
+    "hiking",
+    "snorkeling",
+    "theme-parks",
+    "museums",
+    "nightlife",
+    "skiing"
+  ]
+}

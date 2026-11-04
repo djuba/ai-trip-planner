@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "BackendName.schema.json",
+  "type": "string",
+  "enum": [
+    "nextjs",
+    "fastapi",
+    "go"
+  ]
+}

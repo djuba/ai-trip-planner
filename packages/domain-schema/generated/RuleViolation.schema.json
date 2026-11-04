@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "RuleViolation.schema.json",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "const": "CHILD_AGE_RANGE"
+        },
+        "path": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "age": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "min": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "max": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "age",
+            "min",
+            "max"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "path",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "const": "ADULT_AGE_RANGE"
+        },
+        "path": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "age": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "min": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "max": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "age",
+            "min",
+            "max"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "path",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "const": "DATE_ORDER"
+        },
+        "path": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "string"
+            },
+            "end": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "start",
+            "end"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "path",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "const": "DATE_NOT_PAST"
+        },
+        "path": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string"
+            },
+            "referenceDate": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "value",
+            "referenceDate"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "path",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "const": "DATE_VALID"
+        },
+        "path": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              ]
+            }
+          },
+          "required": [
+            "value"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "path",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "const": "PARTY_HAS_ADULT"
+        },
+        "path": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      "required": [
+        "code",
+        "path",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "const": "INSUFFICIENT_DETAIL"
+        },
+        "path": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "populated": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "required": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "populated",
+            "required"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "path",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "const": "MAX_STOPS_RANGE"
+        },
+        "path": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "value"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "path",
+        "params"
+      ]
+    }
+  ]
+}

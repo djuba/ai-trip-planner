@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "Recommendation.schema.json",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "destination": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "matchedExperiences": {
+      "type": "array",
+      "items": {
+        "$ref": "Experience.schema.json"
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "$ref": "FactualClaim.schema.json"
+      }
+    }
+  },
+  "required": [
+    "id",
+    "destination",
+    "summary",
+    "matchedExperiences",
+    "claims"
+  ]
+}

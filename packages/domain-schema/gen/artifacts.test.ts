@@ -1,0 +1,101 @@
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
+import { CONTRACT_SCHEMAS, CONTRACT_VERSION } from '../src/wire/index.ts';
+import { buildArtifacts, buildJsonSchemas, buildOpenApi } from './artifacts.ts';
+
+const collectRefs = (node: unknown, out: string[] = []): string[] => {
+  if (Array.isArray(node)) node.forEach((n) => collectRefs(n, out));
+  else if (typeof node === 'object' && node !== null) {
+    for (const [k, v] of Object.entries(node)) {
+      if (k === '$ref' && typeof v === 'string') out.push(v);
+      else collectRefs(v, out);
+    }
+  }
+  return out;
+};
+
+const resolve = (root: unknown, ref: string): unknown =>
+  ref
+    .slice(2)
+    .split('/')
+    .reduce<unknown>((n, seg) => (n as Record<string, unknown> | undefined)?.[seg], root);
+
+describe('buildArtifacts', () => {
+  const files = buildArtifacts();
+
+  it('is deterministic', () => {
+    expect([...buildArtifacts()]).toEqual([...files]);
+  });
+
+  it('emits one schema file per contract schema plus openapi.yaml and constants.json', () => {
+    const expected = [
+      ...Object.keys(CONTRACT_SCHEMAS).map((id) => `${id}.schema.json`),
+      'openapi.yaml',
+      'constants.json',
+    ];
+    expect([...files.keys()].sort()).toEqual(expected.sort());
+  });
+
+  it('uses LF only and ends every file with exactly one newline', () => {
+    for (const [name, content] of files) {
+      expect(content, name).not.toContain('\r');
+      expect(content.endsWith('\n'), name).toBe(true);
+      expect(content.endsWith('\n\n'), name).toBe(false);
+    }
+  });
+
+  it('leaves objects open: no additionalProperties false (plan D2)', () => {
+    const offenders = [...files]
+      .filter(([name]) => name.endsWith('.schema.json'))
+      .filter(([, content]) => /"additionalProperties":\s*false/.test(content))
+      .map(([name]) => name);
+    expect(offenders).toEqual([]);
+    expect(Object.keys(buildJsonSchemas())).toEqual(Object.keys(CONTRACT_SCHEMAS));
+  });
+
+  it('writes constants.json from the contract constants', () => {
+    expect(JSON.parse(files.get('constants.json') ?? '')).toEqual({
+      contractVersion: CONTRACT_VERSION,
+      minPopulatedFields: 3,
+    });
+  });
+});
+
+describe('OpenAPI document', () => {
+  const doc = buildOpenApi();
+
+  it('declares OpenAPI 3.1.1 and the contract version', () => {
+    expect(doc.openapi).toBe('3.1.1');
+    expect((doc.info as { version: string }).version).toBe(CONTRACT_VERSION);
+  });
+
+  it('has the four v1 paths', () => {
+    expect(Object.keys(doc.paths as object).sort()).toEqual([
+      '/v1/health',
+      '/v1/trip/extract',
+      '/v1/trip/present',
+      '/v1/trip/recommend',
+    ]);
+  });
+
+  it('resolves every #/components $ref', () => {
+    const refs = collectRefs(doc);
+    expect(refs.length).toBeGreaterThan(0);
+    for (const ref of refs) {
+      expect(ref.startsWith('#/components/'), ref).toBe(true);
+      expect(resolve(doc, ref), ref).toBeDefined();
+    }
+  });
+
+  it('serializes to YAML that parses back to the same document, without anchors', () => {
+    const yaml = buildArtifacts().get('openapi.yaml') ?? '';
+    expect(yaml).not.toMatch(/[:-]\s+[&*]\w+/);
+    expect(parse(yaml)).toEqual(doc);
+  });
+
+  it('matches the committed openapi.yaml', () => {
+    const onDisk = readFileSync(new URL('../generated/openapi.yaml', import.meta.url), 'utf8');
+    expect(parse(onDisk)).toEqual(doc);
+  });
+});

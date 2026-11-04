@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "FactualClaim.schema.json",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "$ref": "ClaimKind.schema.json"
+    },
+    "statement": {
+      "type": "string"
+    },
+    "verification": {
+      "$ref": "Verification.schema.json"
+    }
+  },
+  "required": [
+    "kind",
+    "statement",
+    "verification"
+  ]
+}

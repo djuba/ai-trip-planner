@@ -1,4 +1,5 @@
 // @ts-check
+import { builtinModules } from 'node:module';
 import js from '@eslint/js';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';
@@ -10,7 +11,7 @@ export const appsRestrictedImports = {
   patterns: [
     {
       regex: '^@vp/domain-schema/rules(/|$)',
-      message: 'apps/ may import @vp/domain-schema/wire (types) only; rules are backend-only.',
+      message: 'apps/ may import @vp/domain-schema/wire; rules are backend-only.',
     },
     {
       regex: '^@vp/api-',
@@ -35,6 +36,25 @@ export const journeysRestrictedImports = {
     },
   ],
 };
+
+// The contract source is bundled into the browser (WU-12), so it must not reach for Node APIs.
+// Its gen/ tooling and tests may (WU-04 plan A9).
+export const contractSourceRestrictedImports = {
+  patterns: [
+    {
+      // Both specifier forms: `node:fs` and bare `fs` / `fs/promises`.
+      regex: `^(node:.*|(${builtinModules.join('|')})(/.*)?)$`,
+      message: 'packages/domain-schema/src is bundled for the browser; no Node built-ins.',
+    },
+  ],
+};
+
+export const contractSourceRestrictedGlobals = [
+  {
+    name: 'process',
+    message: 'packages/domain-schema/src is bundled for the browser; no Node globals.',
+  },
+];
 
 export default tseslint.config(
   {
@@ -72,6 +92,14 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': ['error', appsRestrictedImports],
       '@typescript-eslint/consistent-type-imports': 'error',
+    },
+  },
+  {
+    files: ['packages/domain-schema/src/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': ['error', contractSourceRestrictedImports],
+      'no-restricted-globals': ['error', ...contractSourceRestrictedGlobals],
     },
   },
   {

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "RecommendResponse.schema.json",
+  "type": "object",
+  "properties": {
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "$ref": "Recommendation.schema.json"
+      }
+    },
+    "critique": {
+      "type": "object",
+      "properties": {
+        "pass": {
+          "type": "boolean"
+        },
+        "unresolved": {
+          "type": "array",
+          "items": {
+            "$ref": "CritiqueIssue.schema.json"
+          }
+        }
+      },
+      "required": [
+        "pass",
+        "unresolved"
+      ]
+    }
+  },
+  "required": [
+    "recommendations",
+    "critique"
+  ]
+}

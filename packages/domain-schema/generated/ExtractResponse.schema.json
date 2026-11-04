@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ExtractResponse.schema.json",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "needs_clarification"
+        },
+        "profile": {
+          "$ref": "TripProfile.schema.json"
+        },
+        "violations": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "RuleViolation.schema.json"
+          }
+        },
+        "clarificationQuestion": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "status",
+        "profile",
+        "violations",
+        "clarificationQuestion"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "ready"
+        },
+        "profile": {
+          "$ref": "TripProfile.schema.json"
+        }
+      },
+      "required": [
+        "status",
+        "profile"
+      ]
+    }
+  ]
+}
