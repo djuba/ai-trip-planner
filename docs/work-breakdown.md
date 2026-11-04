@@ -21,7 +21,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-02 | Quality gates & test harness | WU-01 | done |
 | WU-03 | AI SDK structured-output spike | WU-01 | done |
 | WU-04 | Contract wire schemas & generation | WU-02, WU-03 | done |
-| WU-05 | Invariant rules & fixtures | WU-04 | in-progress |
+| WU-05 | Invariant rules & fixtures | WU-04 | done |
 | WU-06 | `api-nextjs` skeleton | WU-04 | todo |
 | WU-07 | Contract suite (provider side) | WU-05, WU-06 | todo |
 | WU-08 | `LlmClient` with record / replay / mock | WU-03, WU-06 | todo |
@@ -166,7 +166,7 @@ WU-01 ─┬─ WU-02 ─┐
 ---
 
 ## WU-05 — Invariant rules & fixtures
-**Status:** in-progress · **Depends on:** WU-04 · **Commits:**
+**Status:** done · **Depends on:** WU-04 · **Commits:** [PR #7](https://github.com/djuba/vacation-planner-polyglot/pull/7)
 
 **Goal:** every business invariant is specified language-neutrally and implemented in TS.
 
@@ -193,6 +193,10 @@ WU-01 ─┬─ WU-02 ─┐
   - `path` is a JSON Pointer (`/people/2/age`; `""` for the whole profile).
 - From WU-04: new rule `MAX_STOPS_RANGE` (`departure.maxStops` is null or `≥ 0`; `params.value`), and `departure` counts as populated when `city` is non-empty after trimming (CLAUDE.md §4.6–4.7). `normalize` must turn an extraction `departure` into a `Departure`, dropping nulls.
 - Optional: a test that reads `rules.md` and fails if its codes differ from `RuleCode`, or if a code has no fixture case. Prose and code otherwise aren't linked mechanically.
+- Decided: past dates return `needs_clarification`, and a flexible month with no year means its next occurrence, so it is never past. This replaces the tentative WU-04 A6 wording. Violation order is part of the contract, and "trimmed" means Unicode `White_Space`. See [the plan](plans/WU-05.md), §9.
+- Done: the optional check above is in `src/rules/catalog.test.ts`, which also ties ACs and committed `generated/` schemas to the fixtures. `test/rule-fixtures.ts` fails on any key Zod would strip, so a fixture typo can't silently test nothing.
+- Fixtures total 129 cases. Widening `CHILD_AGE_RANGE` to 0–18 failed 5 of them.
+- Usage: main/Opus 23 req, 56k out; wu-implementer/Sonnet 19 req, 61k out; wu-reviewer/Opus 12 req, 44k out.
 
 ---
 
