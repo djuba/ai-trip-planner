@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "HealthResponse.schema.json",
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "const": "ok"
+    },
+    "backend": {
+      "$ref": "BackendName.schema.json"
+    },
+    "contractVersion": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "status",
+    "backend",
+    "contractVersion"
+  ]
+}

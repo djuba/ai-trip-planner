@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "PresentationCard.schema.json",
+  "type": "object",
+  "properties": {
+    "recommendationId": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "blurb": {
+      "type": "string"
+    },
+    "highlights": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "$ref": "FactualClaim.schema.json"
+      }
+    }
+  },
+  "required": [
+    "recommendationId",
+    "title",
+    "blurb",
+    "highlights",
+    "claims"
+  ]
+}

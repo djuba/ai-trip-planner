@@ -1,4 +1,5 @@
-// Proves the import-boundary lint rules still fire (CLAUDE.md §4.2, §6.6, §9).
+// Proves the import-boundary lint rules still fire (CLAUDE.md §4.2, §6.6, §9), plus the rule
+// that keeps Node APIs out of the browser-bundled contract source (WU-04 plan A9).
 // Lints virtual files with the real eslint.config.js; type-aware rules are disabled so the
 // probe files need not exist on disk.
 import { ESLint } from 'eslint';
@@ -7,7 +8,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 const RULE = 'no-restricted-imports';
 
-const cases: { file: string; code: string; blocked: boolean }[] = [
+const cases: { file: string; code: string; blocked: boolean; rule?: string }[] = [
   {
     file: 'apps/web-nextjs/src/probe.ts',
     code: "import '@vp/domain-schema/rules';",
@@ -46,22 +47,44 @@ const cases: { file: string; code: string; blocked: boolean }[] = [
     code: "import '@vp/domain-schema/rules';",
     blocked: false,
   },
+  {
+    file: 'packages/domain-schema/src/wire/probe.ts',
+    code: "import 'node:fs';",
+    blocked: true,
+  },
+  { file: 'packages/domain-schema/src/wire/probe.ts', code: "import 'fs';", blocked: true },
+  {
+    file: 'packages/domain-schema/src/wire/probe.ts',
+    code: "import 'fs/promises';",
+    blocked: true,
+  },
+  {
+    file: 'packages/domain-schema/src/wire/probe.ts',
+    code: 'export const env = process.env;',
+    blocked: true,
+    rule: 'no-restricted-globals',
+  },
+  { file: 'packages/domain-schema/src/wire/probe.ts', code: "import 'zod';", blocked: false },
+  { file: 'packages/domain-schema/gen/probe.ts', code: "import 'node:fs';", blocked: false },
 ];
 
 const eslint = new ESLint({
   overrideConfig: [{ files: ['**/*.ts'], ...tseslint.configs.disableTypeChecked }],
 });
 
-describe('import boundaries (eslint no-restricted-imports)', () => {
+describe('import boundaries (eslint no-restricted-imports / -globals)', () => {
   // The first lint loads eslint.config.js and every plugin; do it once, outside the per-case
   // timeout, so each case measures only its own lint.
   beforeAll(async () => {
     await eslint.lintText('export {};', { filePath: 'apps/web-nextjs/src/warmup.ts' });
   }, 60_000);
 
-  it.each(cases)('$file: $code → blocked=$blocked', async ({ file, code, blocked }) => {
-    const [result] = await eslint.lintText(code, { filePath: file });
-    const hits = (result?.messages ?? []).filter((m) => m.ruleId === RULE);
-    expect(hits.length > 0).toBe(blocked);
-  });
+  it.each(cases)(
+    '$file: $code → blocked=$blocked',
+    async ({ file, code, blocked, rule = RULE }) => {
+      const [result] = await eslint.lintText(code, { filePath: file });
+      const hits = (result?.messages ?? []).filter((m) => m.ruleId === rule);
+      expect(hits.length > 0).toBe(blocked);
+    },
+  );
 });

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "RuleCode.schema.json",
+  "type": "string",
+  "enum": [
+    "CHILD_AGE_RANGE",
+    "ADULT_AGE_RANGE",
+    "DATE_ORDER",
+    "DATE_NOT_PAST",
+    "DATE_VALID",
+    "PARTY_HAS_ADULT",
+    "INSUFFICIENT_DETAIL",
+    "MAX_STOPS_RANGE"
+  ]
+}

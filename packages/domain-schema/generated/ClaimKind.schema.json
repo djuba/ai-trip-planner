@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ClaimKind.schema.json",
+  "type": "string",
+  "enum": [
+    "flight",
+    "lodging",
+    "price",
+    "activity",
+    "other"
+  ]
+}

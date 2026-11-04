@@ -14,7 +14,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "gen:check": "node scripts/skip.mjs \"gen drift check (no diff in packages/domain-schema/generated/)\" WU-04",
+    "gen:check": "pnpm --filter @vp/domain-schema gen:check",
     "audit:prod": "pnpm audit --prod",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",

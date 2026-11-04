@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ErrorCode.schema.json",
+  "type": "string",
+  "enum": [
+    "VALIDATION_FAILED",
+    "LLM_REFUSAL",
+    "LLM_UPSTREAM_ERROR",
+    "INTERNAL_ERROR"
+  ]
+}

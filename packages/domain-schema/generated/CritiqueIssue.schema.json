@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "CritiqueIssue.schema.json",
+  "type": "object",
+  "properties": {
+    "recommendationId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "issue": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "recommendationId",
+    "issue"
+  ]
+}

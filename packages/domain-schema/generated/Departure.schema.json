@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "Departure.schema.json",
+  "type": "object",
+  "properties": {
+    "city": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "mode": {
+      "anyOf": [
+        {
+          "$ref": "TravelMode.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "maxStops": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

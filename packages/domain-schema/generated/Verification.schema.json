@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "Verification.schema.json",
+  "type": "string",
+  "enum": [
+    "unverified",
+    "fixture"
+  ]
+}
