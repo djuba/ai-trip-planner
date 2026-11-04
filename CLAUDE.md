@@ -107,7 +107,7 @@ The enum is closed and versioned. Adding a value is a `feat(domain-schema)`; rem
 
 ### 4.5 Validation = shape parse + rule evaluation (separate steps)
 1. Zod `safeParse` against the wire schema → shape errors (contract violation → HTTP 422).
-2. `evaluateRules(profile)` → `RuleViolation[]` (business result → HTTP 200 with `needs_clarification`).
+2. `evaluateRules(profile, referenceDate)` → `RuleViolation[]` (business result → HTTP 200 with `needs_clarification`).
 
 **Profile fields the model extracts (everything reachable from `ExtractionSchema`, i.e. `TripProfile`) carry no range or format constraints on the wire**, even when no rule checks them yet. Their checks are rules, so a `needs_clarification` response can carry the bad value, and the client can send it back. Other fields may carry constraints that are the server's own guarantee (e.g. `referenceDate` is a date, `clarificationQuestion` is non-empty).
 
@@ -119,7 +119,7 @@ Rules never throw. Each violation is `{ code, path, params }`: `path` is a JSON 
 | `CHILD_AGE_RANGE` | `userType='child'` ⇒ `age` is null or `0 ≤ age < 18` |
 | `ADULT_AGE_RANGE` | `userType='adult'` ⇒ `age` is null or `18 ≤ age ≤ 120` |
 | `DATE_ORDER` | `fixed` range ⇒ `end ≥ start` |
-| `DATE_NOT_PAST` | `start` (or flexible month/year) is not before the request's `referenceDate` |
+| `DATE_NOT_PAST` | `start` (or flexible month + year, or year) is not before the request's `referenceDate`; a flexible month with no year means its next occurrence, so it is never past |
 | `DATE_VALID` | fixed `start`/`end` are real `YYYY-MM-DD` calendar dates; flexible `month` is 1–12, `year` is 2000–2100, `durationNights ≥ 1` |
 | `PARTY_HAS_ADULT` | if `people` is non-empty, at least one adult |
 | `INSUFFICIENT_DETAIL` | fewer than `MIN_POPULATED_FIELDS` populated fields (see §4.7) |
@@ -128,7 +128,7 @@ Rules never throw. Each violation is `{ code, path, params }`: `path` is a JSON 
 `referenceDate` is supplied in the request (client's local date), so rules stay deterministic and testable. Backends never read the system clock inside rules.
 
 ### 4.7 "Populated field" — exact definition
-A top-level field counts as populated when it is: a non-empty trimmed string; a `departure` with a non-empty trimmed `city`; a `dateRange` of kind `fixed`, or `flexible` with at least `month` or `year`; or a non-empty array (`experiences`, `people`). `unmappedExperiences` never counts. `MIN_POPULATED_FIELDS = 3`, and it is exported as a constant from the contract (and copied into `generated/constants.json`) so all backends share it.
+A top-level field counts as populated when it is: a non-empty trimmed string (trimming means Unicode `White_Space`, see `rules.md`); a `departure` with a non-empty trimmed `city`; a `dateRange` of kind `fixed`, or `flexible` with at least `month` or `year`; or a non-empty array (`experiences`, `people`). `unmappedExperiences` never counts. `MIN_POPULATED_FIELDS = 3`, and it is exported as a constant from the contract (and copied into `generated/constants.json`) so all backends share it.
 
 ## 5. HTTP API (v1)
 

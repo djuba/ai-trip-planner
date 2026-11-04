@@ -1,0 +1,510 @@
+[
+  {
+    "id": "past-fixed-start-equals-reference",
+    "ac": "AC-RULES-11",
+    "description": "fixed start equal to referenceDate is not past",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2027-03-15",
+        "end": "2027-03-20"
+      }
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "past-fixed-start-after-reference",
+    "ac": "AC-RULES-11",
+    "description": "fixed start after referenceDate is not past",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2027-03-16",
+        "end": "2027-03-20"
+      }
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "past-fixed-start-day-before",
+    "ac": "AC-RULES-12",
+    "description": "fixed start one day before referenceDate fires DATE_NOT_PAST",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2027-03-14",
+        "end": "2027-03-20"
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_NOT_PAST",
+        "path": "/dateRange/start",
+        "params": {
+          "value": "2027-03-14",
+          "referenceDate": "2027-03-15"
+        }
+      }
+    ]
+  },
+  {
+    "id": "past-fixed-start-day-before-year-boundary",
+    "ac": "AC-RULES-12",
+    "description": "fixed start 2026-12-31 against referenceDate 2027-01-01 fires DATE_NOT_PAST",
+    "referenceDate": "2027-01-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2026-12-31",
+        "end": "2027-01-05"
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_NOT_PAST",
+        "path": "/dateRange/start",
+        "params": {
+          "value": "2026-12-31",
+          "referenceDate": "2027-01-01"
+        }
+      }
+    ]
+  },
+  {
+    "id": "past-fixed-start-past-end-malformed",
+    "ac": "AC-RULES-12",
+    "description": "past fixed start still fires DATE_NOT_PAST when end is malformed",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2027-03-14",
+        "end": "2027-02-30"
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_NOT_PAST",
+        "path": "/dateRange/start",
+        "params": {
+          "value": "2027-03-14",
+          "referenceDate": "2027-03-15"
+        }
+      },
+      {
+        "code": "DATE_VALID",
+        "path": "/dateRange/end",
+        "params": {
+          "value": "2027-02-30"
+        }
+      }
+    ]
+  },
+  {
+    "id": "past-fixed-end-before-start-only-order",
+    "ac": "AC-RULES-12",
+    "description": "only the fixed start is checked: a future start with an earlier end fires DATE_ORDER, not DATE_NOT_PAST",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2027-03-20",
+        "end": "2027-03-10"
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_ORDER",
+        "path": "/dateRange",
+        "params": {
+          "start": "2027-03-20",
+          "end": "2027-03-10"
+        }
+      }
+    ]
+  },
+  {
+    "id": "past-flex-reference-month",
+    "ac": "AC-RULES-13",
+    "description": "flexible month and year equal to the reference month are not past",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "flexible",
+        "month": 3,
+        "year": 2027
+      }
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "past-flex-later-month-same-year",
+    "ac": "AC-RULES-13",
+    "description": "flexible month later in the reference year is not past",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "flexible",
+        "month": 12,
+        "year": 2027
+      }
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "past-flex-earlier-month-later-year",
+    "ac": "AC-RULES-13",
+    "description": "flexible month earlier than the reference month in a later year is not past",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "flexible",
+        "month": 1,
+        "year": 2028
+      }
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "past-flex-month-before-reference",
+    "ac": "AC-RULES-14",
+    "description": "flexible month before the reference month fires with zero-padded YYYY-MM",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "flexible",
+        "month": 2,
+        "year": 2027
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_NOT_PAST",
+        "path": "/dateRange",
+        "params": {
+          "value": "2027-02",
+          "referenceDate": "2027-03-15"
+        }
+      }
+    ]
+  },
+  {
+    "id": "past-flex-december-prior-year",
+    "ac": "AC-RULES-14",
+    "description": "flexible December of the prior year fires with YYYY-MM",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "flexible",
+        "month": 12,
+        "year": 2026
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_NOT_PAST",
+        "path": "/dateRange",
+        "params": {
+          "value": "2026-12",
+          "referenceDate": "2027-03-15"
+        }
+      }
+    ]
+  },
+  {
+    "id": "past-flex-year-reference",
+    "ac": "AC-RULES-15",
+    "description": "flexible year equal to the reference year is not past",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "flexible",
+        "year": 2027
+      }
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "past-flex-year-later",
+    "ac": "AC-RULES-15",
+    "description": "flexible year after the reference year is not past",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "flexible",
+        "year": 2028
+      }
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "past-flex-year-earlier",
+    "ac": "AC-RULES-15",
+    "description": "flexible year before the reference year fires with YYYY",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "flexible",
+        "year": 2026
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_NOT_PAST",
+        "path": "/dateRange",
+        "params": {
+          "value": "2026",
+          "referenceDate": "2027-03-15"
+        }
+      }
+    ]
+  },
+  {
+    "id": "past-flex-month-no-year-gone",
+    "ac": "AC-RULES-16",
+    "description": "flexible month already gone this year with no year is not past",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "flexible",
+        "month": 2
+      }
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "past-flex-month-no-year-december",
+    "ac": "AC-RULES-16",
+    "description": "flexible December with no year is not past",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "flexible",
+        "month": 12
+      }
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "past-flex-month-no-year-reference-month",
+    "ac": "AC-RULES-16",
+    "description": "flexible reference month with no year is not past",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "flexible",
+        "month": 3
+      }
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "past-flex-invalid-month-past-year",
+    "ac": "AC-RULES-17",
+    "description": "invalid month with a past year fires DATE_NOT_PAST for the year and DATE_VALID for the month",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "flexible",
+        "month": 13,
+        "year": 2020
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_NOT_PAST",
+        "path": "/dateRange",
+        "params": {
+          "value": "2020",
+          "referenceDate": "2027-03-15"
+        }
+      },
+      {
+        "code": "DATE_VALID",
+        "path": "/dateRange/month",
+        "params": {
+          "value": 13
+        }
+      }
+    ]
+  },
+  {
+    "id": "past-flex-invalid-month-zero-past-year",
+    "ac": "AC-RULES-17",
+    "description": "month 0 with a past year fires DATE_NOT_PAST for the year and DATE_VALID for the month",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "flexible",
+        "month": 0,
+        "year": 2026
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_NOT_PAST",
+        "path": "/dateRange",
+        "params": {
+          "value": "2026",
+          "referenceDate": "2027-03-15"
+        }
+      },
+      {
+        "code": "DATE_VALID",
+        "path": "/dateRange/month",
+        "params": {
+          "value": 0
+        }
+      }
+    ]
+  },
+  {
+    "id": "past-flex-invalid-year-low",
+    "ac": "AC-RULES-17",
+    "description": "out-of-range year 1999 fires DATE_VALID only",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "flexible",
+        "month": 6,
+        "year": 1999
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_VALID",
+        "path": "/dateRange/year",
+        "params": {
+          "value": 1999
+        }
+      }
+    ]
+  },
+  {
+    "id": "past-flex-invalid-year-high",
+    "ac": "AC-RULES-17",
+    "description": "out-of-range year 2101 fires DATE_VALID only",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "flexible",
+        "year": 2101
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_VALID",
+        "path": "/dateRange/year",
+        "params": {
+          "value": 2101
+        }
+      }
+    ]
+  },
+  {
+    "id": "past-flex-invalid-month-no-year",
+    "ac": "AC-RULES-17",
+    "description": "invalid month 13 with no year fires DATE_VALID only",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "flexible",
+        "month": 13
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_VALID",
+        "path": "/dateRange/month",
+        "params": {
+          "value": 13
+        }
+      }
+    ]
+  },
+  {
+    "id": "past-flex-duration-only",
+    "ac": "AC-RULES-17",
+    "description": "flexible range with only durationNights is never past",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "flexible",
+        "durationNights": 5
+      }
+    },
+    "expectedViolations": []
+  }
+]

@@ -1,0 +1,133 @@
+[
+  {
+    "id": "adult-aged-18",
+    "ac": "AC-RULES-05",
+    "description": "adult aged 18 is valid",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "adult",
+          "age": 18
+        }
+      ]
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "adult-aged-120",
+    "ac": "AC-RULES-05",
+    "description": "adult aged 120 is valid",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "adult",
+          "age": 120
+        }
+      ]
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "adult-aged-17",
+    "ac": "AC-RULES-06",
+    "description": "adult aged 17 fires ADULT_AGE_RANGE",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "adult",
+          "age": 17
+        }
+      ]
+    },
+    "expectedViolations": [
+      {
+        "code": "ADULT_AGE_RANGE",
+        "path": "/people/0/age",
+        "params": {
+          "age": 17,
+          "min": 18,
+          "max": 120
+        }
+      }
+    ]
+  },
+  {
+    "id": "adult-aged-121",
+    "ac": "AC-RULES-06",
+    "description": "adult aged 121 fires ADULT_AGE_RANGE",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "child",
+          "age": 5
+        },
+        {
+          "userType": "adult",
+          "age": 121
+        }
+      ]
+    },
+    "expectedViolations": [
+      {
+        "code": "ADULT_AGE_RANGE",
+        "path": "/people/1/age",
+        "params": {
+          "age": 121,
+          "min": 18,
+          "max": 120
+        }
+      }
+    ]
+  },
+  {
+    "id": "adult-age-null",
+    "ac": "AC-RULES-07",
+    "description": "adult with null age is valid",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "adult",
+          "age": null
+        }
+      ]
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "adult-age-absent",
+    "ac": "AC-RULES-07",
+    "description": "adult with absent age is valid",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "adult"
+        }
+      ]
+    },
+    "expectedViolations": []
+  }
+]

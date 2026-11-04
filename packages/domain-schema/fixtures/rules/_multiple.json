@@ -1,0 +1,282 @@
+[
+  {
+    "id": "multi-age-document-order",
+    "ac": "AC-RULES-34",
+    "description": "children then adults, each in traveler order, with matching path indexes",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "adult",
+          "age": 30
+        },
+        {
+          "userType": "child",
+          "age": 19
+        },
+        {
+          "userType": "child",
+          "age": 5
+        },
+        {
+          "userType": "child",
+          "age": 25
+        },
+        {
+          "userType": "adult",
+          "age": 200
+        }
+      ]
+    },
+    "expectedViolations": [
+      {
+        "code": "CHILD_AGE_RANGE",
+        "path": "/people/1/age",
+        "params": {
+          "age": 19,
+          "min": 0,
+          "max": 17
+        }
+      },
+      {
+        "code": "CHILD_AGE_RANGE",
+        "path": "/people/3/age",
+        "params": {
+          "age": 25,
+          "min": 0,
+          "max": 17
+        }
+      },
+      {
+        "code": "ADULT_AGE_RANGE",
+        "path": "/people/4/age",
+        "params": {
+          "age": 200,
+          "min": 18,
+          "max": 120
+        }
+      }
+    ]
+  },
+  {
+    "id": "multi-cross-code-order",
+    "ac": "AC-RULES-34",
+    "description": "CHILD_AGE_RANGE, DATE_ORDER, DATE_NOT_PAST, PARTY_HAS_ADULT, MAX_STOPS_RANGE come in catalog order",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "departure": {
+        "city": "Minneapolis",
+        "maxStops": -1
+      },
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2027-03-01",
+        "end": "2027-02-20"
+      },
+      "people": [
+        {
+          "userType": "child",
+          "age": 18
+        }
+      ]
+    },
+    "expectedViolations": [
+      {
+        "code": "CHILD_AGE_RANGE",
+        "path": "/people/0/age",
+        "params": {
+          "age": 18,
+          "min": 0,
+          "max": 17
+        }
+      },
+      {
+        "code": "DATE_ORDER",
+        "path": "/dateRange",
+        "params": {
+          "start": "2027-03-01",
+          "end": "2027-02-20"
+        }
+      },
+      {
+        "code": "DATE_NOT_PAST",
+        "path": "/dateRange/start",
+        "params": {
+          "value": "2027-03-01",
+          "referenceDate": "2027-03-15"
+        }
+      },
+      {
+        "code": "PARTY_HAS_ADULT",
+        "path": "/people",
+        "params": {}
+      },
+      {
+        "code": "MAX_STOPS_RANGE",
+        "path": "/departure/maxStops",
+        "params": {
+          "value": -1
+        }
+      }
+    ]
+  },
+  {
+    "id": "multi-insufficient-before-max-stops",
+    "ac": "AC-RULES-34",
+    "description": "INSUFFICIENT_DETAIL comes after PARTY_HAS_ADULT and before MAX_STOPS_RANGE",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "departure": {
+        "maxStops": -2
+      },
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2027-01-10",
+        "end": "2027-01-05"
+      },
+      "people": [
+        {
+          "userType": "child",
+          "age": 18
+        }
+      ]
+    },
+    "expectedViolations": [
+      {
+        "code": "CHILD_AGE_RANGE",
+        "path": "/people/0/age",
+        "params": {
+          "age": 18,
+          "min": 0,
+          "max": 17
+        }
+      },
+      {
+        "code": "DATE_ORDER",
+        "path": "/dateRange",
+        "params": {
+          "start": "2027-01-10",
+          "end": "2027-01-05"
+        }
+      },
+      {
+        "code": "DATE_NOT_PAST",
+        "path": "/dateRange/start",
+        "params": {
+          "value": "2027-01-10",
+          "referenceDate": "2027-03-15"
+        }
+      },
+      {
+        "code": "PARTY_HAS_ADULT",
+        "path": "/people",
+        "params": {}
+      },
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      },
+      {
+        "code": "MAX_STOPS_RANGE",
+        "path": "/departure/maxStops",
+        "params": {
+          "value": -2
+        }
+      }
+    ]
+  },
+  {
+    "id": "multi-adult-then-date-codes",
+    "ac": "AC-RULES-34",
+    "description": "ADULT_AGE_RANGE, DATE_NOT_PAST, DATE_VALID come in catalog order",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "child",
+          "age": 3
+        },
+        {
+          "userType": "adult",
+          "age": 130
+        }
+      ],
+      "dateRange": {
+        "kind": "flexible",
+        "month": 13,
+        "year": 2020
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "ADULT_AGE_RANGE",
+        "path": "/people/1/age",
+        "params": {
+          "age": 130,
+          "min": 18,
+          "max": 120
+        }
+      },
+      {
+        "code": "DATE_NOT_PAST",
+        "path": "/dateRange",
+        "params": {
+          "value": "2020",
+          "referenceDate": "2027-03-15"
+        }
+      },
+      {
+        "code": "DATE_VALID",
+        "path": "/dateRange/month",
+        "params": {
+          "value": 13
+        }
+      }
+    ]
+  },
+  {
+    "id": "multi-date-valid-before-party",
+    "ac": "AC-RULES-34",
+    "description": "DATE_VALID comes before PARTY_HAS_ADULT",
+    "referenceDate": "2027-03-15",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "child",
+          "age": 4
+        }
+      ],
+      "dateRange": {
+        "kind": "flexible",
+        "durationNights": 0
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_VALID",
+        "path": "/dateRange/durationNights",
+        "params": {
+          "value": 0
+        }
+      },
+      {
+        "code": "PARTY_HAS_ADULT",
+        "path": "/people",
+        "params": {}
+      }
+    ]
+  }
+]

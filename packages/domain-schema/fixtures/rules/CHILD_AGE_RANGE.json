@@ -1,0 +1,153 @@
+[
+  {
+    "id": "child-aged-17",
+    "ac": "AC-RULES-01",
+    "description": "child aged 17 is valid",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "adult",
+          "age": 30
+        },
+        {
+          "userType": "child",
+          "age": 17
+        }
+      ]
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "child-aged-0",
+    "ac": "AC-RULES-01",
+    "description": "child aged 0 is valid",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "adult",
+          "age": 30
+        },
+        {
+          "userType": "child",
+          "age": 0
+        }
+      ]
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "child-aged-18",
+    "ac": "AC-RULES-02",
+    "description": "child aged 18 fires CHILD_AGE_RANGE at the traveler index",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "adult",
+          "age": 40
+        },
+        {
+          "userType": "child",
+          "age": 18
+        }
+      ]
+    },
+    "expectedViolations": [
+      {
+        "code": "CHILD_AGE_RANGE",
+        "path": "/people/1/age",
+        "params": {
+          "age": 18,
+          "min": 0,
+          "max": 17
+        }
+      }
+    ]
+  },
+  {
+    "id": "child-aged-minus-1",
+    "ac": "AC-RULES-03",
+    "description": "child aged -1 fires CHILD_AGE_RANGE",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "adult",
+          "age": 40
+        },
+        {
+          "userType": "child",
+          "age": -1
+        }
+      ]
+    },
+    "expectedViolations": [
+      {
+        "code": "CHILD_AGE_RANGE",
+        "path": "/people/1/age",
+        "params": {
+          "age": -1,
+          "min": 0,
+          "max": 17
+        }
+      }
+    ]
+  },
+  {
+    "id": "child-age-null",
+    "ac": "AC-RULES-04",
+    "description": "child with null age is valid",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "adult",
+          "age": 40
+        },
+        {
+          "userType": "child",
+          "age": null
+        }
+      ]
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "child-age-absent",
+    "ac": "AC-RULES-04",
+    "description": "child with absent age is valid",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "adult",
+          "age": 40
+        },
+        {
+          "userType": "child"
+        }
+      ]
+    },
+    "expectedViolations": []
+  }
+]

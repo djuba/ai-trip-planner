@@ -1,0 +1,170 @@
+[
+  {
+    "id": "order-end-after-start",
+    "ac": "AC-RULES-08",
+    "description": "fixed end after start is valid",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2027-06-01",
+        "end": "2027-06-10"
+      }
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "order-end-equals-start",
+    "ac": "AC-RULES-08",
+    "description": "fixed end equal to start is valid",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2027-06-01",
+        "end": "2027-06-01"
+      }
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "order-end-before-start",
+    "ac": "AC-RULES-09",
+    "description": "fixed end before start fires DATE_ORDER at /dateRange",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2027-06-10",
+        "end": "2027-06-01"
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_ORDER",
+        "path": "/dateRange",
+        "params": {
+          "start": "2027-06-10",
+          "end": "2027-06-01"
+        }
+      }
+    ]
+  },
+  {
+    "id": "order-end-before-start-across-years",
+    "ac": "AC-RULES-09",
+    "description": "fixed end one day before start across a year boundary fires DATE_ORDER",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2028-01-01",
+        "end": "2027-12-31"
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_ORDER",
+        "path": "/dateRange",
+        "params": {
+          "start": "2028-01-01",
+          "end": "2027-12-31"
+        }
+      }
+    ]
+  },
+  {
+    "id": "order-start-malformed",
+    "ac": "AC-RULES-10",
+    "description": "malformed start fires DATE_VALID only, not DATE_ORDER",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2027-6-1",
+        "end": "2027-06-10"
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_VALID",
+        "path": "/dateRange/start",
+        "params": {
+          "value": "2027-6-1"
+        }
+      }
+    ]
+  },
+  {
+    "id": "order-end-malformed",
+    "ac": "AC-RULES-10",
+    "description": "malformed end fires DATE_VALID only, not DATE_ORDER",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2027-06-01",
+        "end": "2027-13-01"
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_VALID",
+        "path": "/dateRange/end",
+        "params": {
+          "value": "2027-13-01"
+        }
+      }
+    ]
+  },
+  {
+    "id": "order-both-malformed",
+    "ac": "AC-RULES-10",
+    "description": "both dates malformed fire DATE_VALID twice and no DATE_ORDER",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "dateRange": {
+        "kind": "fixed",
+        "start": "nope",
+        "end": "also nope"
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_VALID",
+        "path": "/dateRange/start",
+        "params": {
+          "value": "nope"
+        }
+      },
+      {
+        "code": "DATE_VALID",
+        "path": "/dateRange/end",
+        "params": {
+          "value": "also nope"
+        }
+      }
+    ]
+  }
+]

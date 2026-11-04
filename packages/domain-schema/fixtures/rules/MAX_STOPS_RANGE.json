@@ -1,0 +1,125 @@
+[
+  {
+    "id": "stops-zero",
+    "ac": "AC-RULES-32",
+    "description": "maxStops 0 (non-stop) is valid",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "departure": {
+        "city": "Minneapolis",
+        "maxStops": 0
+      }
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "stops-two",
+    "ac": "AC-RULES-32",
+    "description": "maxStops 2 is valid",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "departure": {
+        "city": "Minneapolis",
+        "maxStops": 2
+      }
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "stops-null",
+    "ac": "AC-RULES-32",
+    "description": "null maxStops is valid",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "departure": {
+        "city": "Minneapolis",
+        "maxStops": null
+      }
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "stops-absent",
+    "ac": "AC-RULES-32",
+    "description": "absent maxStops is valid",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "departure": {
+        "city": "Minneapolis"
+      }
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "stops-departure-null",
+    "ac": "AC-RULES-32",
+    "description": "null departure is valid",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "departure": null
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "stops-minus-1",
+    "ac": "AC-RULES-33",
+    "description": "maxStops -1 fires MAX_STOPS_RANGE",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "departure": {
+        "city": "Minneapolis",
+        "maxStops": -1
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "MAX_STOPS_RANGE",
+        "path": "/departure/maxStops",
+        "params": {
+          "value": -1
+        }
+      }
+    ]
+  },
+  {
+    "id": "stops-minus-5-no-city",
+    "ac": "AC-RULES-33",
+    "description": "maxStops -5 on a departure with no city fires MAX_STOPS_RANGE",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "departure": {
+        "maxStops": -5
+      }
+    },
+    "expectedViolations": [
+      {
+        "code": "MAX_STOPS_RANGE",
+        "path": "/departure/maxStops",
+        "params": {
+          "value": -5
+        }
+      }
+    ]
+  }
+]
