@@ -21,7 +21,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-02 | Quality gates & test harness | WU-01 | done |
 | WU-03 | AI SDK structured-output spike | WU-01 | done |
 | WU-04 | Contract wire schemas & generation | WU-02, WU-03 | done |
-| WU-05 | Invariant rules & fixtures | WU-04 | todo |
+| WU-05 | Invariant rules & fixtures | WU-04 | in-progress |
 | WU-06 | `api-nextjs` skeleton | WU-04 | todo |
 | WU-07 | Contract suite (provider side) | WU-05, WU-06 | todo |
 | WU-08 | `LlmClient` with record / replay / mock | WU-03, WU-06 | todo |
@@ -166,7 +166,7 @@ WU-01 ─┬─ WU-02 ─┐
 ---
 
 ## WU-05 — Invariant rules & fixtures
-**Status:** todo · **Depends on:** WU-04 · **Commits:**
+**Status:** in-progress · **Depends on:** WU-04 · **Commits:**
 
 **Goal:** every business invariant is specified language-neutrally and implemented in TS.
 
@@ -242,6 +242,7 @@ WU-01 ─┬─ WU-02 ─┐
 - Any one stub field changed to an invalid value makes the suite fail.
 
 **Notes:**
+- From WU-05: the fixtures are in `packages/domain-schema/fixtures/rules/`, and `rules.md` gives the format. Decide how they reach a backend: no endpoint evaluates a given profile deterministically, and `/extract` puts the LLM in between, with cassettes specific to each backend. Canned stubs can't return each fixture's expected violations, so this unit's scope and Definition of done can't both hold for rule fixtures as written. A rule-evaluation endpoint would be a §5 contract change. See [the WU-05 plan](plans/WU-05.md), R1.
 - From WU-02: replace the `test:contract` stub in the root `package.json`.
 - From WU-04: use the same validator setup as `packages/domain-schema/src/wire/parity.test.ts` (Ajv 2020 in strict mode + `ajv-formats`, both in the catalog). Load every `generated/*.schema.json` first, because their `$id`s and `$ref`s are relative.
 
@@ -300,6 +301,7 @@ WU-01 ─┬─ WU-02 ─┐
 
 **Notes:**
 - Check `finishReason === 'content-filter'` before reading `.output`, and map it to `502 LLM_REFUSAL`. Set `maxOutputTokens` for both calls (extraction and clarification). See [ADR 0001](decisions/0001-structured-output.md), Q5.
+- From WU-05: past dates return `needs_clarification` through `DATE_NOT_PAST`, never an HTTP error. A flexible month with no year means its next occurrence, and the rules never flag it as past. Violation order is part of the contract (`rules.md`). `normalize` doesn't trim strings; `evaluateRules` judges them.
 - From WU-04: `clarificationQuestion` must be non-empty on the wire, so an empty model reply counts as a failure (retry once, then 502). The extraction prompt must cover `departure` (`city`, `mode`, `maxStops`, where `0` = non-stop).
 
 ---
@@ -328,6 +330,7 @@ WU-01 ─┬─ WU-02 ─┐
 
 **Notes:**
 - Same as WU-09: check `finishReason` before `.output`, and set `maxOutputTokens` for recommend and critic. See [ADR 0001](decisions/0001-structured-output.md), Q4–Q5.
+- From WU-05: define what `/recommend` does with a profile that isn't `ready`; CLAUDE.md §5 and §7 don't say. Read a month-only date as its next occurrence.
 - From WU-04: this is where `departure.mode` and `departure.maxStops` start affecting recommendations. `routes.json` only holds non-stop routes, so only `maxStops: 0` can back a `'fixture'` claim; anything else stays `'unverified'`. `maxStops` only means something when `mode` is `plane`, and there is no rule for that in the MVP.
 
 ---
