@@ -1,0 +1,133 @@
+[
+  {
+    "id": "party-two-children",
+    "ac": "AC-RULES-24",
+    "description": "only children fires PARTY_HAS_ADULT at /people",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "child",
+          "age": 5
+        },
+        {
+          "userType": "child",
+          "age": 8
+        }
+      ]
+    },
+    "expectedViolations": [
+      {
+        "code": "PARTY_HAS_ADULT",
+        "path": "/people",
+        "params": {}
+      }
+    ]
+  },
+  {
+    "id": "party-one-child",
+    "ac": "AC-RULES-24",
+    "description": "a single child fires PARTY_HAS_ADULT",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "child",
+          "age": 5
+        }
+      ]
+    },
+    "expectedViolations": [
+      {
+        "code": "PARTY_HAS_ADULT",
+        "path": "/people",
+        "params": {}
+      }
+    ]
+  },
+  {
+    "id": "party-adult-and-child",
+    "ac": "AC-RULES-25",
+    "description": "adult and child is valid",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "adult",
+          "age": 35
+        },
+        {
+          "userType": "child",
+          "age": 8
+        }
+      ]
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "party-adult-out-of-range-counts",
+    "ac": "AC-RULES-25",
+    "description": "an adult with an out-of-range age still counts as an adult",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "child",
+          "age": 5
+        },
+        {
+          "userType": "adult",
+          "age": 130
+        }
+      ]
+    },
+    "expectedViolations": [
+      {
+        "code": "ADULT_AGE_RANGE",
+        "path": "/people/1/age",
+        "params": {
+          "age": 130,
+          "min": 18,
+          "max": 120
+        }
+      }
+    ]
+  },
+  {
+    "id": "party-people-empty",
+    "ac": "AC-RULES-26",
+    "description": "empty people does not fire PARTY_HAS_ADULT",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": []
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "party-people-absent",
+    "ac": "AC-RULES-26",
+    "description": "absent people does not fire PARTY_HAS_ADULT",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": []
+  }
+]

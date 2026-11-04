@@ -1,0 +1,678 @@
+[
+  {
+    "id": "detail-empty-profile",
+    "ac": "AC-RULES-27",
+    "description": "empty profile has 0 populated fields",
+    "referenceDate": "2027-03-01",
+    "profile": {},
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 0,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-one-field",
+    "ac": "AC-RULES-27",
+    "description": "one populated field fires INSUFFICIENT_DETAIL",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy"
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 1,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-two-fields",
+    "ac": "AC-RULES-27",
+    "description": "two populated fields fire INSUFFICIENT_DETAIL with populated 2",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm"
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-three-fields",
+    "ac": "AC-RULES-27",
+    "description": "three populated fields do not fire INSUFFICIENT_DETAIL",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "detail-all-six-fields",
+    "ac": "AC-RULES-27",
+    "description": "all six populated fields do not fire INSUFFICIENT_DETAIL",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "departure": {
+        "city": "Minneapolis",
+        "mode": "plane",
+        "maxStops": 0
+      },
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2027-06-01",
+        "end": "2027-06-10"
+      },
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": ["beach"],
+      "people": [
+        {
+          "userType": "adult",
+          "age": 35
+        },
+        {
+          "userType": "child",
+          "age": 8
+        }
+      ]
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "detail-region-empty",
+    "ac": "AC-RULES-28",
+    "description": "empty region does not count",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "",
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-region-spaces",
+    "ac": "AC-RULES-28",
+    "description": "region of spaces does not count",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "   ",
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-region-tab",
+    "ac": "AC-RULES-28",
+    "description": "region of a tab does not count",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "\t",
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-region-nbsp",
+    "ac": "AC-RULES-28",
+    "description": "region of U+00A0 does not count",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "\u00a0",
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-region-nel",
+    "ac": "AC-RULES-28",
+    "description": "region of U+0085 does not count",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "\u0085",
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-region-em-space",
+    "ac": "AC-RULES-28",
+    "description": "region of U+2003 does not count",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "\u2003",
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-region-bom",
+    "ac": "AC-RULES-28",
+    "description": "region of U+FEFF counts (not White_Space)",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "\ufeff",
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "detail-region-fs",
+    "ac": "AC-RULES-28",
+    "description": "region of U+001C counts (not White_Space)",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "\u001c",
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "detail-region-padded-text",
+    "ac": "AC-RULES-28",
+    "description": "region with text between whitespace counts",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "  Italy \u00a0",
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "detail-departure-city",
+    "ac": "AC-RULES-29",
+    "description": "departure with a non-blank city counts",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "departure": {
+        "city": "Minneapolis"
+      },
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "detail-departure-mode-stops-only",
+    "ac": "AC-RULES-29",
+    "description": "departure with only mode and maxStops does not count",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "departure": {
+        "mode": "plane",
+        "maxStops": 0
+      },
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-departure-city-blank",
+    "ac": "AC-RULES-29",
+    "description": "departure with a whitespace city does not count",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "departure": {
+        "city": " \u00a0 ",
+        "mode": "car"
+      },
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-departure-city-null",
+    "ac": "AC-RULES-29",
+    "description": "departure with a null city does not count",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "departure": {
+        "city": null,
+        "mode": "train"
+      },
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-departure-null",
+    "ac": "AC-RULES-29",
+    "description": "null departure does not count",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "departure": null,
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-date-fixed-valid",
+    "ac": "AC-RULES-30",
+    "description": "valid fixed range counts",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2027-06-01",
+        "end": "2027-06-05"
+      },
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "detail-date-fixed-malformed",
+    "ac": "AC-RULES-30",
+    "description": "malformed fixed range still counts and fires DATE_VALID instead",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2027-6-1",
+        "end": "2027-6-2"
+      },
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_VALID",
+        "path": "/dateRange/start",
+        "params": {
+          "value": "2027-6-1"
+        }
+      },
+      {
+        "code": "DATE_VALID",
+        "path": "/dateRange/end",
+        "params": {
+          "value": "2027-6-2"
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-date-flex-month",
+    "ac": "AC-RULES-30",
+    "description": "flexible range with a month counts",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "dateRange": {
+        "kind": "flexible",
+        "month": 6
+      },
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "detail-date-flex-year",
+    "ac": "AC-RULES-30",
+    "description": "flexible range with a year counts",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "dateRange": {
+        "kind": "flexible",
+        "year": 2027
+      },
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "detail-date-flex-month-zero",
+    "ac": "AC-RULES-30",
+    "description": "flexible month 0 with no year still counts and fires DATE_VALID only",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "dateRange": {
+        "kind": "flexible",
+        "month": 0
+      },
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": [
+      {
+        "code": "DATE_VALID",
+        "path": "/dateRange/month",
+        "params": {
+          "value": 0
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-date-flex-duration-only",
+    "ac": "AC-RULES-30",
+    "description": "flexible range with only durationNights does not count",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "dateRange": {
+        "kind": "flexible",
+        "durationNights": 5
+      },
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-date-flex-note-only",
+    "ac": "AC-RULES-30",
+    "description": "flexible range with only a note does not count",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "dateRange": {
+        "kind": "flexible",
+        "note": "sometime in summer"
+      },
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-date-flex-kind-only",
+    "ac": "AC-RULES-30",
+    "description": "flexible range with no fields does not count",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "dateRange": {
+        "kind": "flexible"
+      },
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-date-null",
+    "ac": "AC-RULES-30",
+    "description": "null dateRange does not count",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "dateRange": null,
+      "climate": "warm",
+      "experiences": ["beach"]
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-experiences-empty",
+    "ac": "AC-RULES-31",
+    "description": "empty experiences does not count",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "experiences": []
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-people-empty",
+    "ac": "AC-RULES-31",
+    "description": "empty people does not count",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "people": []
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-people-non-empty",
+    "ac": "AC-RULES-31",
+    "description": "non-empty people counts",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "people": [
+        {
+          "userType": "adult",
+          "age": 30
+        }
+      ]
+    },
+    "expectedViolations": []
+  },
+  {
+    "id": "detail-unmapped-never-counts",
+    "ac": "AC-RULES-31",
+    "description": "unmappedExperiences never counts",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": "Italy",
+      "climate": "warm",
+      "unmappedExperiences": ["zip lining", "bowling"]
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 2,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-null-fields-dont-count",
+    "ac": "AC-RULES-31",
+    "description": "null fields do not count",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "region": null,
+      "climate": null,
+      "departure": null,
+      "dateRange": null,
+      "experiences": ["beach"]
+    },
+    "expectedViolations": [
+      {
+        "code": "INSUFFICIENT_DETAIL",
+        "path": "",
+        "params": {
+          "populated": 1,
+          "required": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "detail-climate-counts",
+    "ac": "AC-RULES-31",
+    "description": "non-null climate counts",
+    "referenceDate": "2027-03-01",
+    "profile": {
+      "climate": "cold",
+      "region": "Norway",
+      "experiences": ["skiing"]
+    },
+    "expectedViolations": []
+  }
+]
