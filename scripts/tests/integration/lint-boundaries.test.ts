@@ -89,10 +89,102 @@ const cases: { file: string; code: string; blocked: boolean; rule?: string }[] =
   },
   { file: 'packages/domain-schema/src/wire/probe.ts', code: "import 'zod';", blocked: false },
   { file: 'packages/domain-schema/gen/probe.ts', code: "import 'node:fs';", blocked: false },
+
+  // Test helpers: blocked in shipped code, in every block that replaces the rule for that file.
+  {
+    file: 'apps/web-nextjs/src/probe.ts',
+    code: "import '@vp/domain-schema/testing';",
+    blocked: true,
+  },
+  {
+    file: 'apps/web-nextjs/src/probe.ts',
+    code: "import '../../../packages/domain-schema/tests/support/build-fixture.ts';",
+    blocked: true,
+  },
+  {
+    file: 'backends/api-nextjs/src/probe.ts',
+    code: "import '@vp/domain-schema/testing';",
+    blocked: true,
+  },
+  {
+    file: 'backends/api-nextjs/src/app/v1/health/route.ts',
+    code: "import '@vp/domain-schema/testing';",
+    blocked: true,
+  },
+  {
+    file: 'backends/api-nextjs/app/v1/health/route.ts',
+    code: "import '@vp/domain-schema/testing';",
+    blocked: true,
+  },
+  {
+    file: 'backends/api-nextjs/src/usecases/probe.ts',
+    code: "import '@vp/domain-schema/testing';",
+    blocked: true,
+  },
+  {
+    file: 'backends/api-nextjs/src/llm/probe.ts',
+    code: "import '@vp/domain-schema/testing';",
+    blocked: true,
+  },
+
+  // Test helpers: allowed in test code.
+  {
+    file: 'apps/web-nextjs/src/probe.test.tsx',
+    code: "import '@vp/domain-schema/testing';",
+    blocked: false,
+  },
+  {
+    file: 'apps/web-nextjs/tests/functional/probe.spec.ts',
+    code: "import '@vp/domain-schema/testing';",
+    blocked: false,
+  },
+  {
+    file: 'backends/api-nextjs/src/probe.test.ts',
+    code: "import '@vp/domain-schema/testing';",
+    blocked: false,
+  },
+  {
+    file: 'backends/api-nextjs/tests/integration/probe.test.ts',
+    code: "import '@vp/domain-schema/testing';",
+    blocked: false,
+  },
+  {
+    file: 'backends/api-nextjs/src/usecases/probe.test.ts',
+    code: "import '@vp/domain-schema/testing';",
+    blocked: false,
+  },
+
+  // Apps: the older restrictions survive in shipped code and in test code.
+  {
+    file: 'apps/web-nextjs/src/probe.test.tsx',
+    code: "import '@vp/domain-schema/rules';",
+    blocked: true,
+  },
+  {
+    file: 'apps/web-nextjs/tests/functional/probe.spec.ts',
+    code: "import '@vp/api-nextjs';",
+    blocked: true,
+  },
+
+  // Next.js: only route handlers and tests may import it.
+  { file: 'backends/api-nextjs/src/probe.ts', code: "import 'next/server';", blocked: true },
+  { file: 'backends/api-nextjs/src/llm/probe.ts', code: "import 'next/server';", blocked: true },
+  { file: 'backends/api-nextjs/src/probe.ts', code: "import 'next';", blocked: true },
+  {
+    file: 'backends/api-nextjs/src/app/v1/health/route.ts',
+    code: "import 'next/server';",
+    blocked: false,
+  },
+  { file: 'backends/api-nextjs/src/probe.test.ts', code: "import 'next/server';", blocked: false },
+  {
+    file: 'backends/api-nextjs/tests/integration/probe.test.ts',
+    code: "import 'next/server';",
+    blocked: false,
+  },
 ];
 
 const eslint = new ESLint({
-  overrideConfig: [{ files: ['**/*.ts'], ...tseslint.configs.disableTypeChecked }],
+  overrideConfig: [{ files: ['**/*.{ts,tsx}'], ...tseslint.configs.disableTypeChecked }],
 });
 
 describe('import boundaries (eslint no-restricted-imports / -globals)', () => {
@@ -106,7 +198,10 @@ describe('import boundaries (eslint no-restricted-imports / -globals)', () => {
     '$file: $code → blocked=$blocked',
     async ({ file, code, blocked, rule = RULE }) => {
       const [result] = await eslint.lintText(code, { filePath: file });
-      const hits = (result?.messages ?? []).filter((m) => m.ruleId === rule);
+      const messages = result?.messages ?? [];
+      // A file that fails to parse runs no rules, so an allowed case would pass without testing.
+      expect(messages.filter((m) => m.fatal)).toEqual([]);
+      const hits = messages.filter((m) => m.ruleId === rule);
       expect(hits.length > 0).toBe(blocked);
     },
   );
