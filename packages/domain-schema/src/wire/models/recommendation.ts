@@ -1,5 +1,5 @@
-// Recommendations (CLAUDE.md §7 stage 2). `RecommendationSet` is what the model produces, so it and
-// everything inside it use only ADR 0001 Q3 constructs. Provisional under contract 0.x.
+// Recommendations (CLAUDE.md §7 stage 2). The model produces these through `RecommendationSet`, so
+// everything here uses only ADR 0001 Q3 constructs. Provisional under contract 0.x.
 import { z } from 'zod';
 import { ClaimKind, Experience, Verification } from './enums.ts';
 
@@ -20,11 +20,6 @@ export const Recommendation = z.object({
   claims: z.array(FactualClaim),
 });
 export type Recommendation = z.infer<typeof Recommendation>;
-
-export const RecommendationSet = z.object({
-  recommendations: z.array(Recommendation),
-});
-export type RecommendationSet = z.infer<typeof RecommendationSet>;
 
 /** A critic finding still open after the revise cap (§7 stage 2b). */
 export const CritiqueIssue = z.object({

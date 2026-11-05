@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { buildFixture, ErrorResponse, TripProfile } from './index.ts';
+import { ErrorResponse, TripProfile } from '../../src/wire/index.ts';
+import { buildFixture } from './build-fixture.ts';
 
 describe('buildFixture', () => {
   it('returns the parsed, typed data for a valid payload', () => {

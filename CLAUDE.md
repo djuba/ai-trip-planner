@@ -4,7 +4,7 @@ Governs every build session. When this file conflicts with a recalled habit, thi
 
 ## 1. What this project is
 
-A portfolio app that turns natural-language travel requests into structured, validated vacation recommendations. Its main goal is to show that the system is **backend-swappable**: the web client talks only to an HTTP contract, so a TypeScript, Python (FastAPI) or Go backend can serve it without any frontend change.
+A portfolio app that turns natural-language travel requests into structured, validated vacation recommendations. Its main goal is to learn and demonstrate several tech stacks, which works because each side of the system is interchangeable behind one HTTP contract. A TypeScript, Python (FastAPI) or Go backend can serve the web client without any frontend change, and the same contract leaves room for more clients, such as a future React Native app. It's also a good showcase for LLM integration: travel requests are messy and open-ended, so a model turns them into structured data, while ordinary code validates that data and decides what happens next. A real product would likely run the other way, with one backend and several clients.
 
 **Portability is proven by tests, not by intent.** A backend is "conformant" only when it passes the contract suite in `tests/contract` (see §6.5).
 
@@ -13,8 +13,9 @@ A portfolio app that turns natural-language travel requests into structured, val
 ```
 vacation-planner-polyglot/
 ├── apps/
-│   └── web-nextjs/              # Next.js App Router client. Talks HTTP only.
-│       └── tests/functional/    # Playwright, API mocked at the network edge
+│   ├── web-nextjs/              # Next.js App Router client. Talks HTTP only.
+│   │   └── tests/functional/    # Playwright, API mocked at the network edge
+│   └── mobile-react-native/     # future — README + .gitkeep only until started
 ├── backends/
 │   ├── api-nextjs/              # TS reference backend (Route Handlers only)
 │   │   └── tests/{integration,functional}/  # unit tests sit beside the code (§6.3)
@@ -22,12 +23,12 @@ vacation-planner-polyglot/
 │   └── api-go/                  # future — README + .gitkeep only until started
 ├── packages/
 │   └── domain-schema/           # THE CONTRACT (see §4)
-│       ├── src/wire/            # Zod schemas for request/response payloads
+│       ├── src/wire/            # Zod schemas: http/ (bodies), models/ (shared), llm/ (model-only)
 │       ├── src/rules/           # TS implementation of invariant rules (backend-only)
 │       ├── generated/           # JSON Schema + openapi.yaml — generated, COMMITTED
 │       ├── rules.md             # Language-neutral invariant catalog (source of truth for rules)
 │       ├── fixtures/            # Contract cases: input JSON → expected output JSON
-│       └── tests/support/       # TS test helpers (fixture loader, samples)
+│       └── tests/support/       # TS test helpers (buildFixture, fixture loader, samples)
 ├── contracts/
 │   └── pacts/                   # Consumer pact files written by web tests — COMMITTED
 ├── tests/
@@ -68,18 +69,19 @@ vacation-planner-polyglot/
 ## 4. The contract (`packages/domain-schema`)
 
 ### 4.1 Source of truth
-- **Shapes:** Zod in `src/wire/` is where shapes are written. `z.toJSONSchema()` emits `generated/*.schema.json` and `generated/openapi.yaml`. Python/Go generate their models from `generated/`, never from TS.
+- **Shapes:** Zod in `src/wire/` is where shapes are written. `z.toJSONSchema()` emits `generated/*.schema.json` and `generated/openapi.yaml`. Python/Go generate their models from `generated/`, never from TS. Schemas only a model fills in (`src/wire/llm/`) never cross HTTP, so they get a `.schema.json` but stay out of `openapi.yaml`.
 - **Invariants:** `rules.md` is the source of truth. Each rule has a stable code, a plain-English definition, and fixture cases. `src/rules/` is just the TS implementation of it.
 - **Use only JSON-Schema-expressible constructs in wire schemas:** no `.transform()`, `.refine()`, `.superRefine()`, `z.date()`, `z.bigint()`, or `.default()` that changes meaning. Cross-field rules go in `src/rules/`, never in the wire schema.
 
 ### 4.2 Package exports (enforced)
 ```jsonc
 "exports": {
-  "./wire":  "./src/wire/index.ts",   // web + backends may import
-  "./rules": "./src/rules/index.ts"   // backends ONLY — web must not import
+  "./wire":    "./src/wire/index.ts",              // web + backends may import
+  "./rules":   "./src/rules/index.ts",             // backends ONLY — web must not import
+  "./testing": "./tests/support/build-fixture.ts"  // test code ONLY
 }
 ```
-`apps/web-nextjs` may import `@vp/domain-schema/wire`: its schemas (for the final `safeParse` of streamed data), its types (prefer `import type`) and `buildFixture`. It never imports `rules`. An ESLint `no-restricted-imports` rule blocks `@vp/domain-schema/rules` in `apps/`. `web-nextjs/next.config` lists the package in `transpilePackages`.
+`apps/web-nextjs` may import `@vp/domain-schema/wire`: its schemas (for the final `safeParse` of streamed data) and its types (prefer `import type`). Its tests may import `buildFixture` from `@vp/domain-schema/testing`. It never imports `rules`. An ESLint `no-restricted-imports` rule blocks `@vp/domain-schema/rules` in `apps/`. `web-nextjs/next.config` lists the package in `transpilePackages`.
 
 ### 4.3 Domain model (wire shape)
 All dates are ISO-8601 `YYYY-MM-DD` strings. No `Date` objects cross the wire.
@@ -112,7 +114,7 @@ The enum is closed and versioned. Adding a value is a `feat(domain-schema)`; rem
 
 **Profile fields the model extracts (everything reachable from `ExtractionSchema`, i.e. `TripProfile`) carry no range or format constraints on the wire**, even when no rule checks them yet. Their checks are rules, so a `needs_clarification` response can carry the bad value, and the client can send it back. Other fields may carry constraints that are the server's own guarantee (e.g. `referenceDate` is a date, `clarificationQuestion` is non-empty).
 
-Rules never throw. Each violation is `{ code, path, params }`: `path` is a JSON Pointer into the profile, and `params` is typed per code (see `src/wire/rule-violation.ts`). **Messages are not part of the contract**; clients and the LLM clarification prompt render text from `code` + `params`.
+Rules never throw. Each violation is `{ code, path, params }`: `path` is a JSON Pointer into the profile, and `params` is typed per code (see `src/wire/models/rule-violation.ts`). **Messages are not part of the contract**; clients and the LLM clarification prompt render text from `code` + `params`.
 
 ### 4.6 Invariant catalog (mirror of `rules.md`)
 | Code | Rule |
@@ -295,7 +297,7 @@ Verified against `ai 7.0.154` / `@ai-sdk/anthropic 4.0.89`. Re-check the ADR on 
 - **Dependency rule (lint enforced):** `src/usecases/` owns the `LlmClient` interface and must not import `next`, `ai`, `@ai-sdk/*` or `src/llm/`. `src/llm/` implements the interface. Tests are exempt, so they can use the AI SDK mock model.
 - UI: Tailwind + shadcn/ui only. **No inline `style={}`**, no CSS-in-JS.
 - Secrets in `.env.local` (git-ignored); `.env.example` is committed and kept current. Cassettes must never contain API keys; the recorder strips auth headers, and `gitleaks` runs on commit.
-- Do not write placeholder implementations for `api-fastapi`/`api-go` until asked; keep them to a README stating the contract they must satisfy (§6.5).
+- Do not write placeholder implementations for `api-fastapi`/`api-go`/`mobile-react-native` until asked; keep them to a README stating the contract they must satisfy (§6.5).
 - A change is not done until its tests exist at the right layer (§6.2–6.3) and `pnpm verify` passes. Report failing tests honestly, with output.
 
 ## 10. Commits & history

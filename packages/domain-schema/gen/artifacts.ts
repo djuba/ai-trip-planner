@@ -3,13 +3,13 @@
 // can compare it with what is committed.
 import { stringify } from 'yaml';
 import { z } from 'zod';
+import { CONTRACT_VERSION, MIN_POPULATED_FIELDS } from '../src/wire/index.ts';
 import {
   CONTRACT_SCHEMAS,
-  CONTRACT_VERSION,
-  MIN_POPULATED_FIELDS,
+  LLM_ONLY_IDS,
   contractRegistry,
   type ContractSchemaId,
-} from '../src/wire/index.ts';
+} from './registry.ts';
 
 type JsonSchema = Record<string, unknown>;
 
@@ -46,7 +46,11 @@ const errorResponses = {
 };
 
 export function buildOpenApi(): JsonSchema {
-  const components = emit((id) => `#/components/schemas/${id}`);
+  // LLM-only schemas never cross HTTP, so the API spec leaves them out.
+  const llmOnly = new Set<string>(LLM_ONLY_IDS);
+  const components = Object.fromEntries(
+    Object.entries(emit((id) => `#/components/schemas/${id}`)).filter(([id]) => !llmOnly.has(id)),
+  );
   for (const schema of Object.values(components)) {
     delete schema.$schema;
     delete schema.$id;

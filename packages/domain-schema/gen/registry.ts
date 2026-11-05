@@ -1,18 +1,14 @@
 // Every named contract schema, by id. `gen` emits one `generated/<id>.schema.json` per entry, plus
 // the OpenAPI `components.schemas`. A private registry keeps anything else out of `generated/`.
 import { z } from 'zod';
-import * as enums from './enums.ts';
-import * as envelopes from './envelopes.ts';
-import { ExtractionSchema } from './extraction.ts';
-import { PresentationCard, PresentationModel } from './presentation.ts';
-import {
-  CritiqueIssue,
-  FactualClaim,
-  Recommendation,
-  RecommendationSet,
-} from './recommendation.ts';
-import { RuleViolation } from './rule-violation.ts';
-import { DateRange, Departure, TripProfile, Traveler } from './trip-profile.ts';
+import * as envelopes from '../src/wire/http/envelopes.ts';
+import { ExtractionSchema } from '../src/wire/llm/extraction.ts';
+import { RecommendationSet } from '../src/wire/llm/recommendation-set.ts';
+import * as enums from '../src/wire/models/enums.ts';
+import { PresentationCard, PresentationModel } from '../src/wire/models/presentation.ts';
+import { CritiqueIssue, FactualClaim, Recommendation } from '../src/wire/models/recommendation.ts';
+import { RuleViolation } from '../src/wire/models/rule-violation.ts';
+import { DateRange, Departure, TripProfile, Traveler } from '../src/wire/models/trip-profile.ts';
 
 /** Registration order is emission order; keep it stable so `generated/` diffs stay small. */
 export const CONTRACT_SCHEMAS = {
@@ -58,4 +54,13 @@ export const LLM_FACING_IDS = [
   'ExtractionSchema',
   'RecommendationSet',
   'PresentationModel',
+] as const satisfies readonly ContractSchemaId[];
+
+/**
+ * Schemas only a model fills in. They never cross HTTP, so they stay out of `openapi.yaml`, but
+ * still get a `generated/<id>.schema.json` because every backend gives them to its model.
+ */
+export const LLM_ONLY_IDS = [
+  'ExtractionSchema',
+  'RecommendationSet',
 ] as const satisfies readonly ContractSchemaId[];

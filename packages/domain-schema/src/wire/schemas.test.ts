@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { CONTRACT_SCHEMAS } from '../../gen/registry.ts';
 import { SAMPLES } from '../../tests/support/samples.ts';
-import { CONTRACT_SCHEMAS, EXPERIENCES, RuleCode, RuleViolation } from './index.ts';
+import { EXPERIENCES, RuleCode, RuleViolation } from './index.ts';
 
 const ids = Object.keys(CONTRACT_SCHEMAS) as (keyof typeof CONTRACT_SCHEMAS)[];
 

@@ -247,6 +247,7 @@ WU-01 ─┬─ WU-02 ─┐
 - Any one stub field changed to an invalid value makes the suite fail.
 
 **Notes:**
+- From the wire reorganization: when this unit is done, set the Conformance suite row to Built in the README's "How interchangeability is checked" table. The Pact row stays Planned until WU-12.
 - From WU-05: the fixtures are in `packages/domain-schema/fixtures/rules/`, and `rules.md` gives the format. Decide how they reach a backend: no endpoint evaluates a given profile deterministically, and `/extract` puts the LLM in between, with cassettes specific to each backend. Canned stubs can't return each fixture's expected violations, so this unit's scope and Definition of done can't both hold for rule fixtures as written. A rule-evaluation endpoint would be a §5 contract change. See [the WU-05 plan](plans/WU-05.md), R1.
 - From WU-02: replace the `test:contract` stub in the root `package.json`.
 - From WU-04: use the same validator setup as `packages/domain-schema/src/wire/parity.test.ts` (Ajv 2020 in strict mode + `ajv-formats`, both in the catalog). Load every `generated/*.schema.json` first, because their `$id`s and `$ref`s are relative.
@@ -306,6 +307,7 @@ WU-01 ─┬─ WU-02 ─┐
 **Definition of done:** all AC IDs from `extraction.md` are covered by passing tests.
 
 **Notes:**
+- From the wire reorganization: when this unit is done, set the Extract and Clarify rows to Built in the README's "From natural language to recommendations" table.
 - Check `finishReason === 'content-filter'` before reading `.output`, and map it to `502 LLM_REFUSAL`. Set `maxOutputTokens` for both calls (extraction and clarification). See [ADR 0001](decisions/0001-structured-output.md), Q5.
 - From WU-05: past dates return `needs_clarification` through `DATE_NOT_PAST`, never an HTTP error. A flexible month with no year means its next occurrence, and the rules never flag it as past. Violation order is part of the contract (`rules.md`). `normalize` doesn't trim strings; `evaluateRules` judges them.
 - From WU-04: `clarificationQuestion` must be non-empty on the wire, so an empty model reply counts as a failure (retry once, then 502). The extraction prompt must cover `departure` (`city`, `mode`, `maxStops`, where `0` = non-stop).
@@ -335,6 +337,7 @@ WU-01 ─┬─ WU-02 ─┐
 **Definition of done:** no recommendation path can return an unlabeled factual claim (a test asserts this).
 
 **Notes:**
+- From the wire reorganization: when this unit is done, set the Recommend and Critique rows to Built in the README's "From natural language to recommendations" table.
 - Same as WU-09: check `finishReason` before `.output`, and set `maxOutputTokens` for recommend and critic. See [ADR 0001](decisions/0001-structured-output.md), Q4–Q5.
 - From WU-05: define what `/recommend` does with a profile that isn't `ready`; CLAUDE.md §5 and §7 don't say. Read a month-only date as its next occurrence.
 - From WU-04: this is where `departure.mode` and `departure.maxStops` start affecting recommendations. `routes.json` only holds non-stop routes, so only `maxStops: 0` can back a `'fixture'` claim; anything else stays `'unverified'`. `maxStops` only means something when `mode` is `plane`, and there is no rule for that in the MVP.
@@ -360,6 +363,7 @@ WU-01 ─┬─ WU-02 ─┐
 **Definition of done:** a non-TS client (e.g. `curl` piped to a JSON validator) can consume the stream; record how in Notes.
 
 **Notes:**
+- From the wire reorganization: when this unit is done, set the Present row to Built in the README's "From natural language to recommendations" table.
 - Serve with `createTextStreamResponse({ stream: toTextStream({ stream: result.stream }) })`; the methods on the `streamText` result are deprecated. Mid-stream errors (`onError`) were not covered by the spike, so test them here. See [ADR 0001](decisions/0001-structured-output.md), Q1/Q7.
 
 ---
@@ -383,6 +387,7 @@ WU-01 ─┬─ WU-02 ─┐
 **Definition of done:** the web app has no imports from `backends/` or `@vp/domain-schema/rules` (lint enforced), and the pact is verified.
 
 **Notes:**
+- From the wire reorganization: when this unit is done, set the Pact row to Built in the README's "How interchangeability is checked" table.
 - Pin `@ai-sdk/react 4.0.158` (and `react`/`react-dom 19.3.1`) to match ADR 0001; use `useObject`, not `experimental_useObject`. See [ADR 0001](decisions/0001-structured-output.md), "Versions tested".
 - From WU-04: `tsconfig.json` must extend the base, and Next must handle `.ts` contract imports (same check as WU-06). `apps/` may import wire schemas at runtime (CLAUDE.md §4.2). Leave `currentProfile` out on the first turn; `null` gets a 422. Build every mock with `buildFixture`.
 - From WU-02: add `webServer` to `apps/web-nextjs/playwright.config.ts`, and install Chromium in CI (`pnpm exec playwright install --with-deps chromium`) together with the first spec. Once specs exist, drop `--pass-with-no-tests` from the web `test:functional` script so an empty glob cannot pass. Replace the `test:contract` stub if WU-07 has not already. `@axe-core/playwright` is already installed.
@@ -448,6 +453,7 @@ WU-01 ─┬─ WU-02 ─┐
 - Journeys pass three consecutive runs (flakiness check).
 
 **Notes:**
+- From the wire reorganization: when this unit is done, set the Journeys row to Built in the README's "How interchangeability is checked" table. WU-16 may then drop the Status column.
 - From WU-02: replace the `verify:integrated` and `verify:full` stubs. `test:journeys` already runs Playwright; drop its `--pass-with-no-tests` once journeys exist.
 
 ---
@@ -471,6 +477,7 @@ WU-01 ─┬─ WU-02 ─┐
 ## Backlog (not scheduled)
 - `api-fastapi` implementation, verified by the same contract suite and journeys
 - `api-go` implementation, the same
+- `mobile-react-native` client, with its own consumer pact verified by every backend
 - Local Docker Pact Broker + `can-i-deploy`
 - Opt-in LLM quality evals (`pnpm eval`)
 - Performance testing, once a deployed environment exists

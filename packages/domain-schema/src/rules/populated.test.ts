@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildFixture, TripProfile } from '../wire/index.ts';
+import { buildFixture } from '../../tests/support/build-fixture.ts';
+import { TripProfile } from '../wire/index.ts';
 import { countPopulatedFields } from './index.ts';
 
 const count = (profile: unknown): number =>
