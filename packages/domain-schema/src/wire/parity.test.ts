@@ -4,8 +4,8 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { describe, expect, it } from 'vitest';
 import { buildJsonSchemas } from '../../gen/artifacts.ts';
+import { CONTRACT_SCHEMAS, type ContractSchemaId } from '../../gen/registry.ts';
 import { SAMPLES } from '../../tests/support/samples.ts';
-import { CONTRACT_SCHEMAS, type ContractSchemaId } from './index.ts';
 
 // Under `moduleResolution: bundler` these CJS packages can surface as namespace objects.
 interface AjvLike {

@@ -1,14 +1,14 @@
 // Every named contract schema, by id. `gen` emits one `generated/<id>.schema.json` per entry, plus
 // the OpenAPI `components.schemas`. A private registry keeps anything else out of `generated/`.
 import { z } from 'zod';
-import * as envelopes from './http/envelopes.ts';
-import { ExtractionSchema } from './llm/extraction.ts';
-import { RecommendationSet } from './llm/recommendation-set.ts';
-import * as enums from './models/enums.ts';
-import { PresentationCard, PresentationModel } from './models/presentation.ts';
-import { CritiqueIssue, FactualClaim, Recommendation } from './models/recommendation.ts';
-import { RuleViolation } from './models/rule-violation.ts';
-import { DateRange, Departure, TripProfile, Traveler } from './models/trip-profile.ts';
+import * as envelopes from '../src/wire/http/envelopes.ts';
+import { ExtractionSchema } from '../src/wire/llm/extraction.ts';
+import { RecommendationSet } from '../src/wire/llm/recommendation-set.ts';
+import * as enums from '../src/wire/models/enums.ts';
+import { PresentationCard, PresentationModel } from '../src/wire/models/presentation.ts';
+import { CritiqueIssue, FactualClaim, Recommendation } from '../src/wire/models/recommendation.ts';
+import { RuleViolation } from '../src/wire/models/rule-violation.ts';
+import { DateRange, Departure, TripProfile, Traveler } from '../src/wire/models/trip-profile.ts';
 
 /** Registration order is emission order; keep it stable so `generated/` diffs stay small. */
 export const CONTRACT_SCHEMAS = {

@@ -8,10 +8,3 @@ export * from './models/presentation.ts';
 export * from './http/envelopes.ts';
 export * from './llm/extraction.ts';
 export * from './llm/recommendation-set.ts';
-export {
-  CONTRACT_SCHEMAS,
-  LLM_FACING_IDS,
-  LLM_ONLY_IDS,
-  contractRegistry,
-  type ContractSchemaId,
-} from './registry.ts';

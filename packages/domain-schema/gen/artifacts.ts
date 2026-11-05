@@ -3,14 +3,13 @@
 // can compare it with what is committed.
 import { stringify } from 'yaml';
 import { z } from 'zod';
+import { CONTRACT_VERSION, MIN_POPULATED_FIELDS } from '../src/wire/index.ts';
 import {
   CONTRACT_SCHEMAS,
-  CONTRACT_VERSION,
   LLM_ONLY_IDS,
-  MIN_POPULATED_FIELDS,
   contractRegistry,
   type ContractSchemaId,
-} from '../src/wire/index.ts';
+} from './registry.ts';
 
 type JsonSchema = Record<string, unknown>;
 

@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
-import { CONTRACT_SCHEMAS, CONTRACT_VERSION, LLM_ONLY_IDS } from '../src/wire/index.ts';
+import { CONTRACT_VERSION } from '../src/wire/index.ts';
 import { buildArtifacts, buildJsonSchemas, buildOpenApi } from './artifacts.ts';
+import { CONTRACT_SCHEMAS, LLM_ONLY_IDS } from './registry.ts';
 
 const collectRefs = (node: unknown, out: string[] = []): string[] => {
   if (Array.isArray(node)) node.forEach((n) => collectRefs(n, out));

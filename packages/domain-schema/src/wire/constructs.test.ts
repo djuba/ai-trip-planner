@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { buildJsonSchemas } from '../../gen/artifacts.ts';
-import { CONTRACT_SCHEMAS, LLM_FACING_IDS } from './registry.ts';
+import { CONTRACT_SCHEMAS, LLM_FACING_IDS } from '../../gen/registry.ts';
 
 type JsonSchema = Record<string, unknown>;
 
