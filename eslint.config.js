@@ -56,6 +56,34 @@ export const usecasesRestrictedImports = {
   ],
 };
 
+// Test helpers stay out of shipped code; tests reach them through the ./testing export (§4.2).
+export const testingRestrictedImports = {
+  patterns: [
+    {
+      regex: '^@vp/domain-schema/testing(/|$)',
+      message: '@vp/domain-schema/testing is for test code only.',
+    },
+    {
+      regex: '(^|/)domain-schema/tests/',
+      message: 'domain-schema test helpers are for test code only.',
+    },
+  ],
+};
+
+// Only route handlers in src/app may use Next.js; all other backend logic stays portable (§9).
+export const backendNextRestrictedImports = {
+  patterns: [
+    {
+      regex: '^next(/|$)',
+      message: 'Only src/app may import Next.js; route handlers are the adapters.',
+    },
+  ],
+};
+
+// A later no-restricted-imports block replaces an earlier one for the same file, so each block
+// below lists every pattern that applies to its files.
+const TEST_FILES = ['**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}', '**/tests/**'];
+
 // The contract source is bundled into the browser (WU-12), so it must not reach for Node APIs.
 // Its gen/ tooling and tests may (WU-04 plan A9).
 export const contractSourceRestrictedImports = {
@@ -114,6 +142,38 @@ export default tseslint.config(
     },
   },
   {
+    files: ['apps/**/*.{ts,tsx,js,mjs}'],
+    ignores: TEST_FILES,
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { patterns: [...appsRestrictedImports.patterns, ...testingRestrictedImports.patterns] },
+      ],
+    },
+  },
+  {
+    files: ['backends/**/*.{ts,tsx,js,mjs}'],
+    ignores: TEST_FILES,
+    rules: {
+      'no-restricted-imports': ['error', testingRestrictedImports],
+    },
+  },
+  {
+    files: ['backends/api-nextjs/src/**/*.{ts,tsx}'],
+    ignores: [...TEST_FILES, 'backends/api-nextjs/src/app/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            ...testingRestrictedImports.patterns,
+            ...backendNextRestrictedImports.patterns,
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['packages/domain-schema/src/**/*.ts'],
     ignores: ['**/*.test.ts'],
     rules: {
@@ -125,7 +185,10 @@ export default tseslint.config(
     files: ['backends/api-nextjs/src/usecases/**/*.ts'],
     ignores: ['**/*.test.ts'],
     rules: {
-      'no-restricted-imports': ['error', usecasesRestrictedImports],
+      'no-restricted-imports': [
+        'error',
+        { patterns: [...testingRestrictedImports.patterns, ...usecasesRestrictedImports.patterns] },
+      ],
     },
   },
   {

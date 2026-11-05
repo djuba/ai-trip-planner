@@ -81,7 +81,7 @@ vacation-planner-polyglot/
   "./testing": "./tests/support/build-fixture.ts"  // test code ONLY
 }
 ```
-`apps/web-nextjs` may import `@vp/domain-schema/wire`: its schemas (for the final `safeParse` of streamed data) and its types (prefer `import type`). Its tests may import `buildFixture` from `@vp/domain-schema/testing`. It never imports `rules`. An ESLint `no-restricted-imports` rule blocks `@vp/domain-schema/rules` in `apps/`. `web-nextjs/next.config` lists the package in `transpilePackages`.
+`apps/web-nextjs` may import `@vp/domain-schema/wire`: its schemas (for the final `safeParse` of streamed data) and its types (prefer `import type`). Its tests may import `buildFixture` from `@vp/domain-schema/testing`. It never imports `rules`. ESLint `no-restricted-imports` rules block `@vp/domain-schema/rules` in `apps/`, and `@vp/domain-schema/testing` in non-test code under `apps/` and `backends/`. `web-nextjs/next.config` lists the package in `transpilePackages`.
 
 ### 4.3 Domain model (wire shape)
 All dates are ISO-8601 `YYYY-MM-DD` strings. No `Date` objects cross the wire.
@@ -292,7 +292,7 @@ Verified against `ai 7.0.154` / `@ai-sdk/anthropic 4.0.89`. Re-check the ADR on 
 ## 9. Engineering rules
 
 - **No coupling between web and API:** no Server Actions, no importing backend code into `apps/`, no shared runtime state. `apps/web-nextjs` never holds an API key.
-- `backends/api-nextjs` exposes **Route Handlers only** (`app/v1/**/route.ts`), with no pages. Business logic lives in plain TS modules (`src/usecases/`, `src/llm/`) that do not import from `next/*`; route handlers are thin adapters (parse → call → serialize). That keeps the logic portable and unit-testable.
+- `backends/api-nextjs` exposes **Route Handlers only** (`app/v1/**/route.ts`), with no pages. Business logic lives in plain TS modules (`src/usecases/`, `src/llm/`) that do not import from `next/*` (lint enforced across `src/`, except `src/app/` and tests); route handlers are thin adapters (parse → call → serialize). That keeps the logic portable and unit-testable.
 - No god modules: one use case per module; the LLM provider sits behind a small `LlmClient` interface so `mock`/`replay` can swap in.
 - **Dependency rule (lint enforced):** `src/usecases/` owns the `LlmClient` interface and must not import `next`, `ai`, `@ai-sdk/*` or `src/llm/`. `src/llm/` implements the interface. Tests are exempt, so they can use the AI SDK mock model.
 - UI: Tailwind + shadcn/ui only. **No inline `style={}`**, no CSS-in-JS.
