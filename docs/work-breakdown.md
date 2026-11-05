@@ -307,6 +307,7 @@ WU-01 ─┬─ WU-02 ─┐
 **Definition of done:** all AC IDs from `extraction.md` are covered by passing tests.
 
 **Notes:**
+- From the wire reorganization: when this unit is done, set the Extract and Clarify rows to Built in the README's "From natural language to recommendations" table.
 - Check `finishReason === 'content-filter'` before reading `.output`, and map it to `502 LLM_REFUSAL`. Set `maxOutputTokens` for both calls (extraction and clarification). See [ADR 0001](decisions/0001-structured-output.md), Q5.
 - From WU-05: past dates return `needs_clarification` through `DATE_NOT_PAST`, never an HTTP error. A flexible month with no year means its next occurrence, and the rules never flag it as past. Violation order is part of the contract (`rules.md`). `normalize` doesn't trim strings; `evaluateRules` judges them.
 - From WU-04: `clarificationQuestion` must be non-empty on the wire, so an empty model reply counts as a failure (retry once, then 502). The extraction prompt must cover `departure` (`city`, `mode`, `maxStops`, where `0` = non-stop).
@@ -336,6 +337,7 @@ WU-01 ─┬─ WU-02 ─┐
 **Definition of done:** no recommendation path can return an unlabeled factual claim (a test asserts this).
 
 **Notes:**
+- From the wire reorganization: when this unit is done, set the Recommend and Critique rows to Built in the README's "From natural language to recommendations" table.
 - Same as WU-09: check `finishReason` before `.output`, and set `maxOutputTokens` for recommend and critic. See [ADR 0001](decisions/0001-structured-output.md), Q4–Q5.
 - From WU-05: define what `/recommend` does with a profile that isn't `ready`; CLAUDE.md §5 and §7 don't say. Read a month-only date as its next occurrence.
 - From WU-04: this is where `departure.mode` and `departure.maxStops` start affecting recommendations. `routes.json` only holds non-stop routes, so only `maxStops: 0` can back a `'fixture'` claim; anything else stays `'unverified'`. `maxStops` only means something when `mode` is `plane`, and there is no rule for that in the MVP.
@@ -361,6 +363,7 @@ WU-01 ─┬─ WU-02 ─┐
 **Definition of done:** a non-TS client (e.g. `curl` piped to a JSON validator) can consume the stream; record how in Notes.
 
 **Notes:**
+- From the wire reorganization: when this unit is done, set the Present row to Built in the README's "From natural language to recommendations" table.
 - Serve with `createTextStreamResponse({ stream: toTextStream({ stream: result.stream }) })`; the methods on the `streamText` result are deprecated. Mid-stream errors (`onError`) were not covered by the spike, so test them here. See [ADR 0001](decisions/0001-structured-output.md), Q1/Q7.
 
 ---

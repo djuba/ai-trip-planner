@@ -4,7 +4,7 @@ Governs every build session. When this file conflicts with a recalled habit, thi
 
 ## 1. What this project is
 
-A portfolio app that turns natural-language travel requests into structured, validated vacation recommendations. Its main goal is to learn and demonstrate several tech stacks, which works because each side of the system is interchangeable behind one HTTP contract. A TypeScript, Python (FastAPI) or Go backend can serve the web client without any frontend change, and the same contract leaves room for more clients, such as a future React Native app. A real product would likely run the other way, with one backend and several clients.
+A portfolio app that turns natural-language travel requests into structured, validated vacation recommendations. Its main goal is to learn and demonstrate several tech stacks, which works because each side of the system is interchangeable behind one HTTP contract. A TypeScript, Python (FastAPI) or Go backend can serve the web client without any frontend change, and the same contract leaves room for more clients, such as a future React Native app. It's also a good showcase for LLM integration: travel requests are messy and open-ended, so a model turns them into structured data, while ordinary code validates that data and decides what happens next. A real product would likely run the other way, with one backend and several clients.
 
 **Portability is proven by tests, not by intent.** A backend is "conformant" only when it passes the contract suite in `tests/contract` (see §6.5).
 
