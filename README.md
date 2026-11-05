@@ -1,6 +1,20 @@
 # AI Vacation Planner (polyglot monorepo)
 
-A portfolio app that turns natural-language travel requests into structured, validated vacation recommendations. Its main goal is to show that the system is backend-swappable: the web client talks only to an HTTP contract, so a TypeScript, Python (FastAPI) or Go backend can serve it without any frontend change. Portability is proven by the contract test suite, not by intent.
+A portfolio app that turns natural-language travel requests into structured, validated vacation recommendations. Its main goal is to learn and demonstrate several tech stacks, which works because each side of the system is interchangeable behind one HTTP contract. A TypeScript, Python (FastAPI) or Go backend can serve the web client without any frontend change, and the same contract leaves room for more clients, such as a future React Native app. A real product would likely run the other way, with one backend and several clients. A backend counts as interchangeable only when it passes the contract test suite.
+
+## How interchangeability is checked
+
+| Check | What it confirms | Where | Status |
+|---|---|---|---|
+| Import boundaries | The web app can't import backend code or `rules` | `eslint.config.js`, `scripts/tests/integration/lint-boundaries.test.ts` | Built |
+| Drift check | The generated files match the Zod schemas | `pnpm --filter @vp/domain-schema gen:check` | Built |
+| Schema parity | Zod and the generated JSON Schema accept and reject the same payloads | `packages/domain-schema/src/wire/parity.test.ts` | Built |
+| Shared rule cases | Every backend can run the same rule test cases | `packages/domain-schema/fixtures/rules/` | Built; only TypeScript runs them so far |
+| Conformance suite | A backend's responses match the contract | `tests/contract/conformance/` | Planned (WU-07) |
+| Pact | A backend does what the web client expects | `contracts/pacts/`, `tests/contract/pact-verify.test.ts` | Planned (WU-07, WU-12) |
+| Journeys | The whole system works from the user's side | `tests/journeys/` | Planned (WU-15) |
+
+Only the TypeScript backend is planned so far, and FastAPI and Go are in the backlog. So interchangeability isn't proven yet: these checks are what a second backend would have to pass.
 
 ## Prerequisites
 

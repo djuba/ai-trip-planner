@@ -4,7 +4,7 @@ Governs every build session. When this file conflicts with a recalled habit, thi
 
 ## 1. What this project is
 
-A portfolio app that turns natural-language travel requests into structured, validated vacation recommendations. Its main goal is to show that the system is **backend-swappable**: the web client talks only to an HTTP contract, so a TypeScript, Python (FastAPI) or Go backend can serve it without any frontend change.
+A portfolio app that turns natural-language travel requests into structured, validated vacation recommendations. Its main goal is to learn and demonstrate several tech stacks, which works because each side of the system is interchangeable behind one HTTP contract. A TypeScript, Python (FastAPI) or Go backend can serve the web client without any frontend change, and the same contract leaves room for more clients, such as a future React Native app. A real product would likely run the other way, with one backend and several clients.
 
 **Portability is proven by tests, not by intent.** A backend is "conformant" only when it passes the contract suite in `tests/contract` (see §6.5).
 
@@ -13,8 +13,9 @@ A portfolio app that turns natural-language travel requests into structured, val
 ```
 vacation-planner-polyglot/
 ├── apps/
-│   └── web-nextjs/              # Next.js App Router client. Talks HTTP only.
-│       └── tests/functional/    # Playwright, API mocked at the network edge
+│   ├── web-nextjs/              # Next.js App Router client. Talks HTTP only.
+│   │   └── tests/functional/    # Playwright, API mocked at the network edge
+│   └── mobile-react-native/     # future — README + .gitkeep only until started
 ├── backends/
 │   ├── api-nextjs/              # TS reference backend (Route Handlers only)
 │   │   └── tests/{integration,functional}/  # unit tests sit beside the code (§6.3)
@@ -296,7 +297,7 @@ Verified against `ai 7.0.154` / `@ai-sdk/anthropic 4.0.89`. Re-check the ADR on 
 - **Dependency rule (lint enforced):** `src/usecases/` owns the `LlmClient` interface and must not import `next`, `ai`, `@ai-sdk/*` or `src/llm/`. `src/llm/` implements the interface. Tests are exempt, so they can use the AI SDK mock model.
 - UI: Tailwind + shadcn/ui only. **No inline `style={}`**, no CSS-in-JS.
 - Secrets in `.env.local` (git-ignored); `.env.example` is committed and kept current. Cassettes must never contain API keys; the recorder strips auth headers, and `gitleaks` runs on commit.
-- Do not write placeholder implementations for `api-fastapi`/`api-go` until asked; keep them to a README stating the contract they must satisfy (§6.5).
+- Do not write placeholder implementations for `api-fastapi`/`api-go`/`mobile-react-native` until asked; keep them to a README stating the contract they must satisfy (§6.5).
 - A change is not done until its tests exist at the right layer (§6.2–6.3) and `pnpm verify` passes. Report failing tests honestly, with output.
 
 ## 10. Commits & history

@@ -247,6 +247,7 @@ WU-01 ─┬─ WU-02 ─┐
 - Any one stub field changed to an invalid value makes the suite fail.
 
 **Notes:**
+- From the wire reorganization: when this unit is done, set the Conformance suite row to Built in the README's "How interchangeability is checked" table. The Pact row stays Planned until WU-12.
 - From WU-05: the fixtures are in `packages/domain-schema/fixtures/rules/`, and `rules.md` gives the format. Decide how they reach a backend: no endpoint evaluates a given profile deterministically, and `/extract` puts the LLM in between, with cassettes specific to each backend. Canned stubs can't return each fixture's expected violations, so this unit's scope and Definition of done can't both hold for rule fixtures as written. A rule-evaluation endpoint would be a §5 contract change. See [the WU-05 plan](plans/WU-05.md), R1.
 - From WU-02: replace the `test:contract` stub in the root `package.json`.
 - From WU-04: use the same validator setup as `packages/domain-schema/src/wire/parity.test.ts` (Ajv 2020 in strict mode + `ajv-formats`, both in the catalog). Load every `generated/*.schema.json` first, because their `$id`s and `$ref`s are relative.
@@ -383,6 +384,7 @@ WU-01 ─┬─ WU-02 ─┐
 **Definition of done:** the web app has no imports from `backends/` or `@vp/domain-schema/rules` (lint enforced), and the pact is verified.
 
 **Notes:**
+- From the wire reorganization: when this unit is done, set the Pact row to Built in the README's "How interchangeability is checked" table.
 - Pin `@ai-sdk/react 4.0.158` (and `react`/`react-dom 19.3.1`) to match ADR 0001; use `useObject`, not `experimental_useObject`. See [ADR 0001](decisions/0001-structured-output.md), "Versions tested".
 - From WU-04: `tsconfig.json` must extend the base, and Next must handle `.ts` contract imports (same check as WU-06). `apps/` may import wire schemas at runtime (CLAUDE.md §4.2). Leave `currentProfile` out on the first turn; `null` gets a 422. Build every mock with `buildFixture`.
 - From WU-02: add `webServer` to `apps/web-nextjs/playwright.config.ts`, and install Chromium in CI (`pnpm exec playwright install --with-deps chromium`) together with the first spec. Once specs exist, drop `--pass-with-no-tests` from the web `test:functional` script so an empty glob cannot pass. Replace the `test:contract` stub if WU-07 has not already. `@axe-core/playwright` is already installed.
@@ -448,6 +450,7 @@ WU-01 ─┬─ WU-02 ─┐
 - Journeys pass three consecutive runs (flakiness check).
 
 **Notes:**
+- From the wire reorganization: when this unit is done, set the Journeys row to Built in the README's "How interchangeability is checked" table. WU-16 may then drop the Status column.
 - From WU-02: replace the `verify:integrated` and `verify:full` stubs. `test:journeys` already runs Playwright; drop its `--pass-with-no-tests` once journeys exist.
 
 ---
@@ -471,6 +474,7 @@ WU-01 ─┬─ WU-02 ─┐
 ## Backlog (not scheduled)
 - `api-fastapi` implementation, verified by the same contract suite and journeys
 - `api-go` implementation, the same
+- `mobile-react-native` client, with its own consumer pact verified by every backend
 - Local Docker Pact Broker + `can-i-deploy`
 - Opt-in LLM quality evals (`pnpm eval`)
 - Performance testing, once a deployed environment exists
