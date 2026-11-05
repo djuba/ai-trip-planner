@@ -8,7 +8,6 @@ export * from './models/presentation.ts';
 export * from './http/envelopes.ts';
 export * from './llm/extraction.ts';
 export * from './llm/recommendation-set.ts';
-export { buildFixture } from './build-fixture.ts';
 export {
   CONTRACT_SCHEMAS,
   LLM_FACING_IDS,

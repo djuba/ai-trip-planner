@@ -2,7 +2,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { buildFixture, TripProfile } from '../wire/index.ts';
+import { buildFixture } from '../../tests/support/build-fixture.ts';
+import { TripProfile } from '../wire/index.ts';
 import { evaluateRules } from './index.ts';
 
 const REF = '2027-03-01';

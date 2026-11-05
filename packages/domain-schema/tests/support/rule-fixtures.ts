@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { z } from 'zod';
-import { buildFixture, RuleViolation, TripProfile } from '../../src/wire/index.ts';
+import { RuleViolation, TripProfile } from '../../src/wire/index.ts';
+import { buildFixture } from './build-fixture.ts';
 
 export const RULE_FIXTURE_DIR = fileURLToPath(new URL('../../fixtures/rules/', import.meta.url));
 

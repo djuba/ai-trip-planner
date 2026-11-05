@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildFixture, ExtractionSchema, TripProfile } from '../wire/index.ts';
+import { buildFixture } from '../../tests/support/build-fixture.ts';
+import { ExtractionSchema, TripProfile } from '../wire/index.ts';
 import { normalize } from './index.ts';
 
 const allNull = {

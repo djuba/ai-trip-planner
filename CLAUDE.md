@@ -27,7 +27,7 @@ vacation-planner-polyglot/
 │       ├── generated/           # JSON Schema + openapi.yaml — generated, COMMITTED
 │       ├── rules.md             # Language-neutral invariant catalog (source of truth for rules)
 │       ├── fixtures/            # Contract cases: input JSON → expected output JSON
-│       └── tests/support/       # TS test helpers (fixture loader, samples)
+│       └── tests/support/       # TS test helpers (buildFixture, fixture loader, samples)
 ├── contracts/
 │   └── pacts/                   # Consumer pact files written by web tests — COMMITTED
 ├── tests/
@@ -75,11 +75,12 @@ vacation-planner-polyglot/
 ### 4.2 Package exports (enforced)
 ```jsonc
 "exports": {
-  "./wire":  "./src/wire/index.ts",   // web + backends may import
-  "./rules": "./src/rules/index.ts"   // backends ONLY — web must not import
+  "./wire":    "./src/wire/index.ts",              // web + backends may import
+  "./rules":   "./src/rules/index.ts",             // backends ONLY — web must not import
+  "./testing": "./tests/support/build-fixture.ts"  // test code ONLY
 }
 ```
-`apps/web-nextjs` may import `@vp/domain-schema/wire`: its schemas (for the final `safeParse` of streamed data), its types (prefer `import type`) and `buildFixture`. It never imports `rules`. An ESLint `no-restricted-imports` rule blocks `@vp/domain-schema/rules` in `apps/`. `web-nextjs/next.config` lists the package in `transpilePackages`.
+`apps/web-nextjs` may import `@vp/domain-schema/wire`: its schemas (for the final `safeParse` of streamed data) and its types (prefer `import type`). Its tests may import `buildFixture` from `@vp/domain-schema/testing`. It never imports `rules`. An ESLint `no-restricted-imports` rule blocks `@vp/domain-schema/rules` in `apps/`. `web-nextjs/next.config` lists the package in `transpilePackages`.
 
 ### 4.3 Domain model (wire shape)
 All dates are ISO-8601 `YYYY-MM-DD` strings. No `Date` objects cross the wire.
