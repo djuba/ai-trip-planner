@@ -3,7 +3,7 @@
 // tuple, record, numeric/length/pattern constraints or string formats. `normalize()` (WU-05)
 // turns it into a `TripProfile`.
 import { z } from 'zod';
-import { Climate, Experience, TravelMode, UserType } from './enums.ts';
+import { Climate, Experience, TravelMode, UserType } from '../models/enums.ts';
 
 export const ExtractionSchema = z.object({
   departure: z

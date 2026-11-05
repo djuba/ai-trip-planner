@@ -22,7 +22,7 @@ vacation-planner-polyglot/
 │   └── api-go/                  # future — README + .gitkeep only until started
 ├── packages/
 │   └── domain-schema/           # THE CONTRACT (see §4)
-│       ├── src/wire/            # Zod schemas for request/response payloads
+│       ├── src/wire/            # Zod schemas: http/ (bodies), models/ (shared), llm/ (model-only)
 │       ├── src/rules/           # TS implementation of invariant rules (backend-only)
 │       ├── generated/           # JSON Schema + openapi.yaml — generated, COMMITTED
 │       ├── rules.md             # Language-neutral invariant catalog (source of truth for rules)
@@ -68,7 +68,7 @@ vacation-planner-polyglot/
 ## 4. The contract (`packages/domain-schema`)
 
 ### 4.1 Source of truth
-- **Shapes:** Zod in `src/wire/` is where shapes are written. `z.toJSONSchema()` emits `generated/*.schema.json` and `generated/openapi.yaml`. Python/Go generate their models from `generated/`, never from TS.
+- **Shapes:** Zod in `src/wire/` is where shapes are written. `z.toJSONSchema()` emits `generated/*.schema.json` and `generated/openapi.yaml`. Python/Go generate their models from `generated/`, never from TS. Schemas only a model fills in (`src/wire/llm/`) never cross HTTP, so they get a `.schema.json` but stay out of `openapi.yaml`.
 - **Invariants:** `rules.md` is the source of truth. Each rule has a stable code, a plain-English definition, and fixture cases. `src/rules/` is just the TS implementation of it.
 - **Use only JSON-Schema-expressible constructs in wire schemas:** no `.transform()`, `.refine()`, `.superRefine()`, `z.date()`, `z.bigint()`, or `.default()` that changes meaning. Cross-field rules go in `src/rules/`, never in the wire schema.
 
@@ -112,7 +112,7 @@ The enum is closed and versioned. Adding a value is a `feat(domain-schema)`; rem
 
 **Profile fields the model extracts (everything reachable from `ExtractionSchema`, i.e. `TripProfile`) carry no range or format constraints on the wire**, even when no rule checks them yet. Their checks are rules, so a `needs_clarification` response can carry the bad value, and the client can send it back. Other fields may carry constraints that are the server's own guarantee (e.g. `referenceDate` is a date, `clarificationQuestion` is non-empty).
 
-Rules never throw. Each violation is `{ code, path, params }`: `path` is a JSON Pointer into the profile, and `params` is typed per code (see `src/wire/rule-violation.ts`). **Messages are not part of the contract**; clients and the LLM clarification prompt render text from `code` + `params`.
+Rules never throw. Each violation is `{ code, path, params }`: `path` is a JSON Pointer into the profile, and `params` is typed per code (see `src/wire/models/rule-violation.ts`). **Messages are not part of the contract**; clients and the LLM clarification prompt render text from `code` + `params`.
 
 ### 4.6 Invariant catalog (mirror of `rules.md`)
 | Code | Rule |

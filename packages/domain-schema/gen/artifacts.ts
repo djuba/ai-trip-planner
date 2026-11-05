@@ -6,6 +6,7 @@ import { z } from 'zod';
 import {
   CONTRACT_SCHEMAS,
   CONTRACT_VERSION,
+  LLM_ONLY_IDS,
   MIN_POPULATED_FIELDS,
   contractRegistry,
   type ContractSchemaId,
@@ -46,7 +47,11 @@ const errorResponses = {
 };
 
 export function buildOpenApi(): JsonSchema {
-  const components = emit((id) => `#/components/schemas/${id}`);
+  // LLM-only schemas never cross HTTP, so the API spec leaves them out.
+  const llmOnly = new Set<string>(LLM_ONLY_IDS);
+  const components = Object.fromEntries(
+    Object.entries(emit((id) => `#/components/schemas/${id}`)).filter(([id]) => !llmOnly.has(id)),
+  );
   for (const schema of Object.values(components)) {
     delete schema.$schema;
     delete schema.$id;

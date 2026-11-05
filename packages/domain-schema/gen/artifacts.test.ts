@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
-import { CONTRACT_SCHEMAS, CONTRACT_VERSION } from '../src/wire/index.ts';
+import { CONTRACT_SCHEMAS, CONTRACT_VERSION, LLM_ONLY_IDS } from '../src/wire/index.ts';
 import { buildArtifacts, buildJsonSchemas, buildOpenApi } from './artifacts.ts';
 
 const collectRefs = (node: unknown, out: string[] = []): string[] => {
@@ -77,6 +77,15 @@ describe('OpenAPI document', () => {
       '/v1/trip/present',
       '/v1/trip/recommend',
     ]);
+  });
+
+  it('leaves LLM-only schemas out of components but keeps their JSON Schema files', () => {
+    const { schemas } = doc.components as { schemas: Record<string, unknown> };
+    for (const id of LLM_ONLY_IDS) {
+      expect(schemas[id], id).toBeUndefined();
+      expect(buildArtifacts().has(`${id}.schema.json`), id).toBe(true);
+    }
+    expect(schemas.PresentationModel).toBeDefined();
   });
 
   it('resolves every #/components $ref', () => {

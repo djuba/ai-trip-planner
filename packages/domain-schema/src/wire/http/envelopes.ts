@@ -1,9 +1,9 @@
 // Request and response bodies of the v1 HTTP API (CLAUDE.md §5).
 import { z } from 'zod';
-import { BackendName, ErrorCode } from './enums.ts';
-import { CritiqueIssue, Recommendation } from './recommendation.ts';
-import { RuleViolation } from './rule-violation.ts';
-import { TripProfile } from './trip-profile.ts';
+import { BackendName, ErrorCode } from '../models/enums.ts';
+import { CritiqueIssue, Recommendation } from '../models/recommendation.ts';
+import { RuleViolation } from '../models/rule-violation.ts';
+import { TripProfile } from '../models/trip-profile.ts';
 
 /** The client's local date, `YYYY-MM-DD`. Rules compare against it, never the server clock (§4.6). */
 const ReferenceDate = z.iso.date();

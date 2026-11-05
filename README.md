@@ -26,7 +26,10 @@ Use pnpm only; do not use npm or Yarn.
 
 | Looking for | Location |
 |---|---|
-| The HTTP contract: request and response shapes | `packages/domain-schema/src/wire/`, generated into `generated/` |
+| HTTP request and response bodies | `packages/domain-schema/src/wire/http/` |
+| Shared types inside those bodies | `packages/domain-schema/src/wire/models/` |
+| Formats only the LLM fills in, which never cross HTTP | `packages/domain-schema/src/wire/llm/` |
+| Generated JSON Schema and OpenAPI | `packages/domain-schema/generated/` |
 | Business rules | `packages/domain-schema/rules.md` (the spec) and `src/rules/` (the TS implementation) |
 | Language-neutral rule test cases | `packages/domain-schema/fixtures/rules/` |
 | API endpoints | `backends/api-nextjs/app/v1/**/route.ts` |
