@@ -8,6 +8,7 @@ playwright-report/
 test-results/
 blob-report/
 .next/
+next-env.d.ts
 dist/
 
 # hand-authored docs keep compact tables; Claude Code harness config is tool-managed

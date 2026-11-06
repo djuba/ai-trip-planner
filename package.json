@@ -9,6 +9,7 @@
   },
   "scripts": {
     "prepare": "lefthook install",
+    "dev": "pnpm -r --parallel --if-present dev",
     "typecheck": "tsc --noEmit -p tsconfig.json && pnpm -r typecheck",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
