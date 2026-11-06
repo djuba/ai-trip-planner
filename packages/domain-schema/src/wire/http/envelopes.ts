@@ -52,7 +52,7 @@ export const HealthResponse = z.object({
 });
 export type HealthResponse = z.infer<typeof HealthResponse>;
 
-/** Body of every 422, 502 and 500. `message` is for people and logs, not for branching. */
+/** Body of every 413, 422, 502 and 500. `message` is for people and logs, not for branching. */
 export const ErrorResponse = z.object({
   error: z.object({ code: ErrorCode, message: z.string() }),
 });

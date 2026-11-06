@@ -152,7 +152,7 @@ ExtractResponse =
   | { status: 'ready',               profile: TripProfile }
 ```
 
-Status codes: `200` = handled (including `needs_clarification`); `422` = request body fails the contract; `502` = upstream LLM failure or refusal; `500` = bug. Error body: `{ error: { code, message } }`.
+Status codes: `200` = handled (including `needs_clarification`); `413` = request body over `MAX_REQUEST_BODY_BYTES` (a shared contract constant, code `PAYLOAD_TOO_LARGE`); `422` = request body fails the contract; `502` = upstream LLM failure or refusal; `500` = bug. Error body: `{ error: { code, message } }`.
 
 **Streaming wire format:** `/present` streams raw JSON text that, when complete, parses as `PresentationModel`. This is what `useObject` consumes, and any language can produce it. Do not use AI-SDK-specific data-stream framing on this endpoint; that would tie the client to a TS backend. The client must treat every streamed field as possibly `undefined` until the stream finishes, then run a final `safeParse`.
 

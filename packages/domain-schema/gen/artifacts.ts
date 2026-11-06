@@ -3,7 +3,11 @@
 // can compare it with what is committed.
 import { stringify } from 'yaml';
 import { z } from 'zod';
-import { CONTRACT_VERSION, MIN_POPULATED_FIELDS } from '../src/wire/index.ts';
+import {
+  CONTRACT_VERSION,
+  MAX_REQUEST_BODY_BYTES,
+  MIN_POPULATED_FIELDS,
+} from '../src/wire/index.ts';
 import {
   CONTRACT_SCHEMAS,
   LLM_ONLY_IDS,
@@ -40,6 +44,7 @@ const jsonBody = (id: ContractSchemaId, description: string) => ({
   content: { 'application/json': { schema: ref(id) } },
 });
 const errorResponses = {
+  '413': { $ref: '#/components/responses/PayloadTooLarge' },
   '422': { $ref: '#/components/responses/ValidationFailed' },
   '500': { $ref: '#/components/responses/InternalError' },
   '502': { $ref: '#/components/responses/UpstreamFailure' },
@@ -130,6 +135,10 @@ export function buildOpenApi(): JsonSchema {
     components: {
       schemas: components,
       responses: {
+        PayloadTooLarge: jsonBody(
+          'ErrorResponse',
+          `Request body over ${MAX_REQUEST_BODY_BYTES} bytes (PAYLOAD_TOO_LARGE)`,
+        ),
         ValidationFailed: jsonBody(
           'ErrorResponse',
           'Request body fails the contract (VALIDATION_FAILED)',
@@ -142,7 +151,11 @@ export function buildOpenApi(): JsonSchema {
 }
 
 export function buildConstants() {
-  return { contractVersion: CONTRACT_VERSION, minPopulatedFields: MIN_POPULATED_FIELDS };
+  return {
+    contractVersion: CONTRACT_VERSION,
+    minPopulatedFields: MIN_POPULATED_FIELDS,
+    maxRequestBodyBytes: MAX_REQUEST_BODY_BYTES,
+  };
 }
 
 /** Every generated file, keyed by its path relative to `generated/`. */

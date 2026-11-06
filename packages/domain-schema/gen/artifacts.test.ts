@@ -59,6 +59,7 @@ describe('buildArtifacts', () => {
     expect(JSON.parse(files.get('constants.json') ?? '')).toEqual({
       contractVersion: CONTRACT_VERSION,
       minPopulatedFields: 3,
+      maxRequestBodyBytes: 1_048_576,
     });
   });
 });
@@ -78,6 +79,14 @@ describe('OpenAPI document', () => {
       '/v1/trip/present',
       '/v1/trip/recommend',
     ]);
+  });
+
+  it('declares a 413 on every POST, and not on GET /v1/health', () => {
+    const paths = doc.paths as Record<string, { post?: { responses: object } }>;
+    for (const path of ['/v1/trip/extract', '/v1/trip/recommend', '/v1/trip/present']) {
+      expect(paths[path]?.post?.responses, path).toHaveProperty('413');
+    }
+    expect(JSON.stringify(paths['/v1/health'])).not.toContain('413');
   });
 
   it('leaves LLM-only schemas out of components but keeps their JSON Schema files', () => {

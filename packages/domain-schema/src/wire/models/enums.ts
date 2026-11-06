@@ -39,8 +39,12 @@ export const RuleCode = z.enum([
 ]);
 export type RuleCode = z.infer<typeof RuleCode>;
 
-/** Error envelope codes (§5): 422 → VALIDATION_FAILED; 502 → LLM_*; 500 → INTERNAL_ERROR. */
+/**
+ * Error envelope codes (§5): 413 → PAYLOAD_TOO_LARGE; 422 → VALIDATION_FAILED; 502 → LLM_*;
+ * 500 → INTERNAL_ERROR.
+ */
 export const ErrorCode = z.enum([
+  'PAYLOAD_TOO_LARGE',
   'VALIDATION_FAILED',
   'LLM_REFUSAL',
   'LLM_UPSTREAM_ERROR',

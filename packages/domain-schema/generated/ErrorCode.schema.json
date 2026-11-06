@@ -3,6 +3,7 @@
   "$id": "ErrorCode.schema.json",
   "type": "string",
   "enum": [
+    "PAYLOAD_TOO_LARGE",
     "VALIDATION_FAILED",
     "LLM_REFUSAL",
     "LLM_UPSTREAM_ERROR",

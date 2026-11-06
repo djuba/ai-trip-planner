@@ -62,7 +62,13 @@ export const SAMPLES: Record<ContractSchemaId, SampleSet> = {
     invalid: ['child_age_range', 'MONTH_RANGE', 1],
   },
   ErrorCode: {
-    valid: ['VALIDATION_FAILED', 'LLM_REFUSAL', 'LLM_UPSTREAM_ERROR', 'INTERNAL_ERROR'],
+    valid: [
+      'PAYLOAD_TOO_LARGE',
+      'VALIDATION_FAILED',
+      'LLM_REFUSAL',
+      'LLM_UPSTREAM_ERROR',
+      'INTERNAL_ERROR',
+    ],
     invalid: ['NOT_FOUND', null],
   },
   ClaimKind: { valid: ['flight', 'other'], invalid: ['hotel', null] },
