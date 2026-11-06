@@ -22,7 +22,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-03 | AI SDK structured-output spike | WU-01 | done |
 | WU-04 | Contract wire schemas & generation | WU-02, WU-03 | done |
 | WU-05 | Invariant rules & fixtures | WU-04 | done |
-| WU-06 | `api-nextjs` skeleton | WU-04 | todo |
+| WU-06 | `api-nextjs` skeleton | WU-04 | in-progress |
 | WU-07 | Contract suite (provider side) | WU-05, WU-06 | todo |
 | WU-08 | `LlmClient` with record / replay / mock | WU-03, WU-06 | todo |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08 | todo |
@@ -100,6 +100,7 @@ WU-01 ─┬─ WU-02 ─┐
 - Gate stubs (`gen:check`, `test:contract`, `verify:integrated`, `verify:full`) call `scripts/skip.mjs`, which names the WU that makes each one real. Notes on WU-04/06/07/12/15 say what to replace.
 - The script is named `audit:prod`, because `pnpm audit` always runs pnpm's built-in command.
 - Usage: main/Opus 88 req, 95k out; wu-implementer/Sonnet 4 req, 2k out; wu-reviewer/Sonnet 6 req, 4k out.
+- From WU-06: Next API functional tests now run in the `functional-api` Vitest project, which builds the app once per run (`vitest.config.ts`). The `functional` project no longer collects them.
 
 ---
 
@@ -201,7 +202,7 @@ WU-01 ─┬─ WU-02 ─┐
 ---
 
 ## WU-06 — `api-nextjs` skeleton
-**Status:** todo · **Depends on:** WU-04 · **Commits:**
+**Status:** in-progress · **Depends on:** WU-04 · **Commits:**
 
 **Goal:** a running, decoupled API service with the HTTP plumbing and the functional-test harness in place, and no AI yet.
 
@@ -251,6 +252,7 @@ WU-01 ─┬─ WU-02 ─┐
 - From WU-05: the fixtures are in `packages/domain-schema/fixtures/rules/`, and `rules.md` gives the format. Decide how they reach a backend: no endpoint evaluates a given profile deterministically, and `/extract` puts the LLM in between, with cassettes specific to each backend. Canned stubs can't return each fixture's expected violations, so this unit's scope and Definition of done can't both hold for rule fixtures as written. A rule-evaluation endpoint would be a §5 contract change. See [the WU-05 plan](plans/WU-05.md), R1.
 - From WU-02: replace the `test:contract` stub in the root `package.json`.
 - From WU-04: use the same validator setup as `packages/domain-schema/src/wire/parity.test.ts` (Ajv 2020 in strict mode + `ajv-formats`, both in the catalog). Load every `generated/*.schema.json` first, because their `$id`s and `$ref`s are relative.
+- From WU-06: test the 413 boundary over real HTTP using `maxRequestBodyBytes` from `generated/constants.json`; so far it is only proven at the integration layer. Stubs use `postRoute` and `jsonResponse`, and must export `OPTIONS = preflight` or AC-API-10 fails. The harness in `backends/api-nextjs/tests/support` can't be imported from a black-box suite, so this unit needs its own way to start the server. See the [plan](plans/WU-06.md).
 
 ---
 
@@ -283,6 +285,7 @@ WU-01 ─┬─ WU-02 ─┐
 - Record streams without awaiting the body before returning the response; otherwise the stream arrives as one chunk. Replay should re-emit SSE events as separate chunks.
 - Integration tests assert `result.warnings` is empty, so a silently dropped option fails a test.
 - Reference implementation: `spikes/structured-output/src/capture-fetch.ts`.
+- From WU-06: throw `LlmError` from `src/usecases/errors.ts`; the adapter maps it to a 502. Config already provides `llmMode`, `models` and `anthropicApiKey` (`src/config.ts`).
 
 ---
 
@@ -311,6 +314,7 @@ WU-01 ─┬─ WU-02 ─┐
 - Check `finishReason === 'content-filter'` before reading `.output`, and map it to `502 LLM_REFUSAL`. Set `maxOutputTokens` for both calls (extraction and clarification). See [ADR 0001](decisions/0001-structured-output.md), Q5.
 - From WU-05: past dates return `needs_clarification` through `DATE_NOT_PAST`, never an HTTP error. A flexible month with no year means its next occurrence, and the rules never flag it as past. Violation order is part of the contract (`rules.md`). `normalize` doesn't trim strings; `evaluateRules` judges them.
 - From WU-04: `clarificationQuestion` must be non-empty on the wire, so an empty model reply counts as a failure (retry once, then 502). The extraction prompt must cover `departure` (`city`, `mode`, `maxStops`, where `0` = non-stop).
+- From WU-06: the new route must export `OPTIONS = preflight` (AC-API-10), and goes in the functional tests.
 
 ---
 
@@ -341,6 +345,7 @@ WU-01 ─┬─ WU-02 ─┐
 - Same as WU-09: check `finishReason` before `.output`, and set `maxOutputTokens` for recommend and critic. See [ADR 0001](decisions/0001-structured-output.md), Q4–Q5.
 - From WU-05: define what `/recommend` does with a profile that isn't `ready`; CLAUDE.md §5 and §7 don't say. Read a month-only date as its next occurrence.
 - From WU-04: this is where `departure.mode` and `departure.maxStops` start affecting recommendations. `routes.json` only holds non-stop routes, so only `maxStops: 0` can back a `'fixture'` claim; anything else stays `'unverified'`. `maxStops` only means something when `mode` is `plane`, and there is no rule for that in the MVP.
+- From WU-06: the new route must export `OPTIONS = preflight` (AC-API-10), and goes in the functional tests.
 
 ---
 
@@ -365,6 +370,7 @@ WU-01 ─┬─ WU-02 ─┐
 **Notes:**
 - From the wire reorganization: when this unit is done, set the Present row to Built in the README's "From natural language to recommendations" table.
 - Serve with `createTextStreamResponse({ stream: toTextStream({ stream: result.stream }) })`; the methods on the `streamText` result are deprecated. Mid-stream errors (`onError`) were not covered by the spike, so test them here. See [ADR 0001](decisions/0001-structured-output.md), Q1/Q7.
+- From WU-06: the new route must export `OPTIONS = preflight` (AC-API-10), and goes in the functional tests. `route()` passes a streaming `Response` through unbuffered (AC-API-12), so return the stream response directly.
 
 ---
 
@@ -391,6 +397,7 @@ WU-01 ─┬─ WU-02 ─┐
 - Pin `@ai-sdk/react 4.0.158` (and `react`/`react-dom 19.3.1`) to match ADR 0001; use `useObject`, not `experimental_useObject`. See [ADR 0001](decisions/0001-structured-output.md), "Versions tested".
 - From WU-04: `tsconfig.json` must extend the base, and Next must handle `.ts` contract imports (same check as WU-06). `apps/` may import wire schemas at runtime (CLAUDE.md §4.2). Leave `currentProfile` out on the first turn; `null` gets a 422. Build every mock with `buildFixture`.
 - From WU-02: add `webServer` to `apps/web-nextjs/playwright.config.ts`, and install Chromium in CI (`pnpm exec playwright install --with-deps chromium`) together with the first spec. Once specs exist, drop `--pass-with-no-tests` from the web `test:functional` script so an empty glob cannot pass. Replace the `test:contract` stub if WU-07 has not already. `@axe-core/playwright` is already installed.
+- From WU-06: the `.ts` contract imports work under Turbopack with `transpilePackages`. Set `agentRules: false` in `next.config`, or `next dev` writes an `AGENTS.md` when it detects a coding agent. Treat a 413 (`PAYLOAD_TOO_LARGE`) as "message too long". See the [plan](plans/WU-06.md).
 
 ---
 
