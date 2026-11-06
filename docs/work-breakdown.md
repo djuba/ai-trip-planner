@@ -22,7 +22,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-03 | AI SDK structured-output spike | WU-01 | done |
 | WU-04 | Contract wire schemas & generation | WU-02, WU-03 | done |
 | WU-05 | Invariant rules & fixtures | WU-04 | done |
-| WU-06 | `api-nextjs` skeleton | WU-04 | in-progress |
+| WU-06 | `api-nextjs` skeleton | WU-04 | done |
 | WU-07 | Contract suite (provider side) | WU-05, WU-06 | todo |
 | WU-08 | `LlmClient` with record / replay / mock | WU-03, WU-06 | todo |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08 | todo |
@@ -202,7 +202,7 @@ WU-01 ─┬─ WU-02 ─┐
 ---
 
 ## WU-06 — `api-nextjs` skeleton
-**Status:** in-progress · **Depends on:** WU-04 · **Commits:**
+**Status:** done · **Depends on:** WU-04 · **Commits:** [PR #11](https://github.com/djuba/vacation-planner-polyglot/pull/11)
 
 **Goal:** a running, decoupled API service with the HTTP plumbing and the functional-test harness in place, and no AI yet.
 
@@ -228,6 +228,10 @@ WU-01 ─┬─ WU-02 ─┐
 - From WU-04: `tsconfig.json` must extend the base, because contract imports end in `.ts` (`allowImportingTsExtensions`). Check that Next's `transpilePackages` handles those imports; if it doesn't, fall back to `tsx` for `gen` and extensionless imports ([plan](plans/WU-04.md), R1). Cap request body size at the HTTP layer, since `ExtractRequest.message` has no maximum length (A8).
 - From WU-02: add `vitest: catalog:` to `api-nextjs` devDependencies. The Vitest `functional` project already collects `tests/functional/**/*.test.ts`, with a 60 s test timeout (`vitest.config.ts`).
 - From the test-layout refactor: unit tests sit beside the code, and integration and functional tests go in `backends/api-nextjs/tests/{integration,functional}/`. Add `tests` to its `tsconfig.json` `include`.
+- Next compiles the contract's `.ts` imports through `transpilePackages`, which closes the WU-04 risk. A 1 MiB request cap is now a contract constant, `MAX_REQUEST_BODY_BYTES`, with a `413 PAYLOAD_TOO_LARGE` response (`CONTRACT_VERSION` 0.2.0).
+- Next logs a throw from `register()` and keeps serving, so `src/instrumentation.ts` calls `process.exit(1)`. Keep its `if (process.env.NEXT_RUNTIME === 'nodejs')` form; an early return brings back a Turbopack Edge warning. `register()` doesn't run during a build.
+- `next build` now runs in `pnpm verify` and `pre-push`. It ran out of memory once on a 3.9 GB machine with Chrome open, and passed after Chrome closed. See the [plan](plans/WU-06.md), X10.
+- Usage: main/Opus 42 req, 99k out; wu-implementer/Sonnet 5 req, 6k out; wu-reviewer/Sonnet 8 req, 7k out.
 
 ---
 
