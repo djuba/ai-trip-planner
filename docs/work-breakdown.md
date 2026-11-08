@@ -258,7 +258,7 @@ WU-01 ─┬─ WU-02 ─┐
 - From WU-04: use the same validator setup as `packages/domain-schema/src/wire/parity.test.ts` (Ajv 2020 in strict mode + `ajv-formats`, both in the catalog). Load every `generated/*.schema.json` first, because their `$id`s and `$ref`s are relative.
 - From WU-06: test the 413 boundary over real HTTP using `maxRequestBodyBytes` from `generated/constants.json`; so far it is only proven at the integration layer. Stubs use `postRoute` and `jsonResponse`, and must export `OPTIONS = preflight` or AC-API-10 fails. The harness in `backends/api-nextjs/tests/support` can't be imported from a black-box suite, so this unit needs its own way to start the server. See the [plan](plans/WU-06.md).
 - From WU-07: the rule-fixture half of this scope ("drives every `domain-schema/fixtures` case at `API_BASE_URL`") was replaced by per-backend HTTP fixture tests plus a shared JUnit results check, built in WU-09. See [ADR 0002](decisions/0002-rule-parity-across-backends.md).
-- Stacked on WU-06 (PR #11) while `main` is on hold; the PR targets `wu/WU-06-api-nextjs-skeleton` and has no CI until retargeted. Pact needs the Visual C++ runtime on Windows (plan X1). Ctrl-C cleanup of the runner is unproven (X6).
+- Stacked on WU-06 (PR #11) while `main` is on hold; the PR targets `wu/WU-06-api-nextjs-skeleton` and has no CI until retargeted. Pact needs the Visual C++ runtime on Windows (plan X1). Ctrl-C cleanup of the runner was proven by hand only (X6).
 - Usage: main/Opus 109 req, 132k out; wu-implementer/Sonnet 22 req, 34k out; wu-reviewer/Opus 11 req, 18k out; wu-reviewer/Sonnet 6 req, 3k out.
 
 ---
