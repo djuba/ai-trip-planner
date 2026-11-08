@@ -27,9 +27,9 @@ Model output is treated as untrusted input: every response is checked against it
 | Import boundaries | The web app can't import backend code or `rules` | `eslint.config.js`, `scripts/tests/integration/lint-boundaries.test.ts` | Built |
 | Drift check | The generated files match the Zod schemas | `pnpm --filter @vp/domain-schema gen:check` | Built |
 | Schema parity | Zod and the generated JSON Schema accept and reject the same payloads | `packages/domain-schema/src/wire/parity.test.ts` | Built |
-| Shared rule cases | Every backend can run the same rule test cases | `packages/domain-schema/fixtures/rules/` | Built; only TypeScript runs them so far |
-| Conformance suite | A backend's responses match the contract | `tests/contract/conformance/` | Planned (WU-07) |
-| Pact | A backend does what the web client expects | `contracts/pacts/`, `tests/contract/pact-verify.test.ts` | Planned (WU-07, WU-12) |
+| Shared rule cases | Every backend returns the same violations for the same rule test cases | `packages/domain-schema/fixtures/rules/`; each backend's `/extract` integration tests, checked by their JUnit results ([ADR 0002](docs/decisions/0002-rule-parity-across-backends.md)) | Cases built; TypeScript runs them as unit tests. HTTP tests and results check planned (WU-09) |
+| Conformance suite | A backend's responses match the contract | `tests/contract/conformance/`, run by `pnpm test:contract` | Built; runs against stub endpoints until WU-09–11 |
+| Pact | A backend does what the web client expects | `contracts/pacts/`, `tests/contract/pact-verify.test.ts` | Verifier built; consumer pacts planned (WU-12) |
 | Journeys | The whole system works from the user's side | `tests/journeys/` | Planned (WU-15) |
 
 Only the TypeScript backend is planned so far, and FastAPI and Go are in the backlog. So interchangeability isn't proven yet: these checks are what a second backend would have to pass.
