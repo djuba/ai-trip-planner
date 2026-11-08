@@ -37,6 +37,21 @@ export const journeysRestrictedImports = {
   ],
 };
 
+// The provider contract suite is black-box: it reads generated JSON and talks HTTP, so it judges
+// every backend alike (CLAUDE.md §6.5; WU-07 plan D2).
+export const contractSuiteRestrictedImports = {
+  patterns: [
+    {
+      regex: '^@vp/',
+      message: 'tests/contract is black-box; read generated/*.json from disk, never import TS.',
+    },
+    {
+      regex: '(^|/)(apps|backends|packages)/',
+      message: 'tests/contract is black-box; read generated/*.json from disk, never import TS.',
+    },
+  ],
+};
+
 // Use cases are the inner layer: they depend on the LlmClient interface they own, never on a
 // framework, the AI SDK or its implementation in src/llm (CLAUDE.md §9).
 export const usecasesRestrictedImports = {
@@ -196,6 +211,12 @@ export default tseslint.config(
     files: ['tests/journeys/**/*.{ts,tsx,js,mjs}'],
     rules: {
       'no-restricted-imports': ['error', journeysRestrictedImports],
+    },
+  },
+  {
+    files: ['tests/contract/**/*.{ts,tsx,js,mjs}'],
+    rules: {
+      'no-restricted-imports': ['error', contractSuiteRestrictedImports],
     },
   },
   prettier,

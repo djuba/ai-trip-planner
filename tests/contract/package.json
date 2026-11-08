@@ -7,6 +7,10 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "typescript": "catalog:"
+    "@types/node": "catalog:",
+    "ajv": "catalog:",
+    "ajv-formats": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

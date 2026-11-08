@@ -183,6 +183,37 @@ const cases: { file: string; code: string; blocked: boolean; rule?: string }[] =
   },
 ];
 
+// The provider contract suite is black-box (WU-07 plan D2).
+const contractSuiteCases: { file: string; code: string; blocked: boolean }[] = [
+  {
+    file: 'tests/contract/support/probe.ts',
+    code: "import '@vp/domain-schema/wire';",
+    blocked: true,
+  },
+  {
+    file: 'tests/contract/conformance/probe.test.ts',
+    code: "import type { X } from '@vp/domain-schema/wire';\nexport type Y = X;",
+    blocked: true,
+  },
+  {
+    file: 'tests/contract/support/probe.ts',
+    code: "import '../../../packages/domain-schema/src/wire/index.ts';",
+    blocked: true,
+  },
+  {
+    file: 'tests/contract/support/probe.ts',
+    code: "import '../../../backends/api-nextjs/src/http/route.ts';",
+    blocked: true,
+  },
+  {
+    file: 'tests/contract/support/probe.ts',
+    code: "import '../../../apps/web-nextjs/src/index.ts';",
+    blocked: true,
+  },
+  { file: 'tests/contract/support/probe.ts', code: "import 'ajv';", blocked: false },
+  { file: 'tests/contract/support/probe.ts', code: "import './http.ts';", blocked: false },
+];
+
 const eslint = new ESLint({
   overrideConfig: [{ files: ['**/*.{ts,tsx}'], ...tseslint.configs.disableTypeChecked }],
 });
@@ -204,5 +235,18 @@ describe('import boundaries (eslint no-restricted-imports / -globals)', () => {
       const hits = messages.filter((m) => m.ruleId === rule);
       expect(hits.length > 0).toBe(blocked);
     },
+  );
+});
+
+describe('AC-CONTRACT-10: tests/contract imports no workspace code', () => {
+  it.each(contractSuiteCases)(
+    'AC-CONTRACT-10: $file: $code → blocked=$blocked',
+    async ({ file, code, blocked }) => {
+      const [result] = await eslint.lintText(code, { filePath: file });
+      const messages = result?.messages ?? [];
+      expect(messages.filter((m) => m.fatal)).toEqual([]);
+      expect(messages.some((m) => m.ruleId === RULE)).toBe(blocked);
+    },
+    60_000,
   );
 });
