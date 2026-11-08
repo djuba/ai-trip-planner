@@ -27,7 +27,7 @@ export type FakeHook = (req: FakeRequest, defaultResponse: FakeResponse) => Fake
 export interface FakeOptions {
   /** Changes the response for one request. */
   hook?: FakeHook;
-  /** Answer 413 as soon as headers arrive, then destroy the socket after writing (plan D6). */
+  /** Answer 413 as soon as headers arrive, before the upload ends, then close (plan D6). */
   early413?: boolean;
   /** The origin that gets CORS headers. */
   origin?: string;
@@ -190,11 +190,13 @@ export async function startFakeBackend(options: FakeOptions = {}): Promise<FakeB
     const oversized = declared > maxBytes;
 
     if (oversized && options.early413) {
+      // Answer before the upload ends, then close gracefully, as real servers do: discard the rest
+      // of the body and let Connection: close end the socket with a FIN. Destroying the socket
+      // while upload data is unread sends a TCP reset that can discard the 413 in transit.
       const fake = describeRequest(req, '', true);
-      send(res, hook(fake, defaultResponse(fake)), () => {
-        // Let the client read the response first; an immediate RST can discard it on Windows.
-        setTimeout(() => req.socket.destroy(), 50);
-      });
+      res.setHeader('connection', 'close');
+      req.resume();
+      send(res, hook(fake, defaultResponse(fake)));
       return;
     }
 
