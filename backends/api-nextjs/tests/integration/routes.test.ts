@@ -1,11 +1,28 @@
 // The real route modules, called directly with real Request objects (CLAUDE.md §6.3).
-import { CONTRACT_VERSION, HealthResponse } from '@vp/domain-schema/wire';
+import {
+  CONTRACT_VERSION,
+  ExtractResponse,
+  HealthResponse,
+  PresentationModel,
+  RecommendResponse,
+} from '@vp/domain-schema/wire';
 import { readdirSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { GET } from '../../src/app/v1/health/route.ts';
+import { POST as extract } from '../../src/app/v1/trip/extract/route.ts';
+import { POST as present } from '../../src/app/v1/trip/present/route.ts';
+import { POST as recommend } from '../../src/app/v1/trip/recommend/route.ts';
 
 const WEB_ORIGIN = 'https://web.example.test';
+const REFERENCE_DATE = '2030-01-01';
+
+const post = (path: string, body: unknown) =>
+  new Request(`http://api.test${path}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 const APP_DIR = fileURLToPath(new URL('../../src/app/', import.meta.url));
 
 const routeFiles = readdirSync(APP_DIR, { recursive: true, encoding: 'utf8' })
@@ -36,8 +53,57 @@ describe('routes', () => {
     });
   });
 
+  it('POST /v1/trip/extract stub returns a schema-valid body', async () => {
+    const response = await extract(
+      post('/v1/trip/extract', { message: 'beach week', referenceDate: REFERENCE_DATE }),
+    );
+    expect(response.status).toBe(200);
+    expect(ExtractResponse.safeParse(await response.json()).success).toBe(true);
+  });
+
+  it('POST /v1/trip/recommend stub returns a schema-valid body', async () => {
+    const response = await recommend(
+      post('/v1/trip/recommend', { profile: {}, referenceDate: REFERENCE_DATE }),
+    );
+    expect(response.status).toBe(200);
+    expect(RecommendResponse.safeParse(await response.json()).success).toBe(true);
+  });
+
+  it('POST /v1/trip/present stub streams text/plain in several chunks that parse as PresentationModel', async () => {
+    const response = await present(post('/v1/trip/present', { profile: {}, recommendations: [] }));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('text/plain; charset=utf-8');
+    expect(response.headers.get('access-control-allow-origin')).toBe(WEB_ORIGIN);
+    const reader = (response.body as ReadableStream<Uint8Array>).getReader();
+    const decoder = new TextDecoder();
+    let chunks = 0;
+    let text = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks += 1;
+      text += decoder.decode(value, { stream: true });
+    }
+    expect(chunks).toBeGreaterThan(1);
+    expect(PresentationModel.safeParse(JSON.parse(text)).success).toBe(true);
+  });
+
+  it.each([
+    ['extract', extract, { message: '', referenceDate: REFERENCE_DATE }],
+    ['recommend', recommend, { profile: {} }],
+    ['present', present, { profile: {} }],
+  ])(
+    'POST /v1/trip/%s rejects a schema-invalid body with 422 VALIDATION_FAILED',
+    async (name, handler, body) => {
+      const response = await handler(post(`/v1/trip/${name}`, body));
+      expect(response.status).toBe(422);
+      expect(await response.json()).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
+    },
+  );
+
   it('finds the route files it is meant to check', () => {
     expect(routeFiles).toContain('v1/health/route.ts');
+    expect(routeFiles).toContain('v1/trip/present/route.ts');
   });
 
   it.each(routeFiles)('AC-API-10: %s exports a working preflight', async (file) => {
