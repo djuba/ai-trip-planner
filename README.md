@@ -39,6 +39,7 @@ Only the TypeScript backend is planned so far, and FastAPI and Go are in the bac
 - Node 24.22.1 (pinned in `.nvmrc`)
 - pnpm 12.15.0, provided through corepack (`corepack enable`)
 - [gitleaks](https://github.com/gitleaks/gitleaks) 8.30.1 on `PATH` for the pre-commit secret scan (`winget install Gitleaks.Gitleaks` or `brew install gitleaks`). Without it, commits are blocked.
+- On Windows, the Microsoft Visual C++ 2015–2022 Redistributable (x64) for the Pact verifier's native library (`winget install Microsoft.VCRedist.2015+.x64`). Without it, `pnpm test:contract` fails with a message saying so.
 
 ## Commands
 

@@ -1,0 +1,29 @@
+{
+  "consumer": { "name": "contract-suite-wiring" },
+  "provider": { "name": "vacation-api" },
+  "interactions": [
+    {
+      "type": "Synchronous/HTTP",
+      "description": "a health check (proves the Pact verifier runs; WU-07 plan D10)",
+      "request": { "method": "GET", "path": "/v1/health" },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": ["application/json"] },
+        "body": {
+          "content": { "status": "ok" },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "matchingRules": {
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [{ "match": "regex", "regex": "^application/json(;.*)?$" }]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "metadata": { "pactSpecification": { "version": "4.0" } }
+}
