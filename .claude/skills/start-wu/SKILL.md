@@ -100,7 +100,7 @@ Work through the plan's checkpoints in order. For each one, follow the steps bel
    - Touch only this checkpoint's files. Work that belongs to a later checkpoint waits for it.
 2. **Gate:** run the checkpoint's gate command yourself. Fix or re-delegate failures. Never weaken a test, threshold or lint rule to get to green.
 3. **Checkpoint review** (unless the checkpoint's review is `skip`):
-   - Write the changes to a scratchpad file: `git diff HEAD -- . ':!pnpm-lock.yaml' ':!packages/domain-schema/generated' ':!.llm-cassettes' ':!contracts/pacts'`, plus the output of `git ls-files --others --exclude-standard`, so the reviewer can see new files.
+   - Write the changes to a scratchpad file: `git diff HEAD -- . ':!pnpm-lock.yaml' ':!spec/generated' ':!.llm-cassettes' ':!contracts/pacts'`, plus the output of `git ls-files --others --exclude-standard`, so the reviewer can see new files.
    - Call the Agent tool with `subagent_type: "wu-reviewer"`, adding `model: "opus"` if the checkpoint's review is `opus`.
    - Prompt: `mode: checkpoint`, the unit ID, the checkpoint ID, the plan path and the diff file path.
    - Triage the result. Don't fix anything from it yet.
@@ -108,7 +108,7 @@ Work through the plan's checkpoints in order. For each one, follow the steps bel
    - **Summary:** what this checkpoint built, and which tasks and ACs it covers.
    - **Gate:** the command run and its result. Report failures honestly.
    - **Checkpoint review:** the triage table, or "skipped (docs-only)".
-   - **Changes:** a `git status --short` style file list with a one-line purpose per file. Flag generated and lock files (`pnpm-lock.yaml`, `generated/`, cassettes, pacts) separately.
+   - **Changes:** a `git status --short` style file list with a one-line purpose per file. Flag generated and lock files (`pnpm-lock.yaml`, `spec/generated/`, cassettes, pacts) separately.
    - **Deviations:** any recorded in this checkpoint, pointing to the plan's deviations section.
    - **Effects on other units:** any Notes this checkpoint's findings call for (see below).
    - **Proposed commit:** the message, and the files it includes.
@@ -126,7 +126,7 @@ Work through the plan's checkpoints in order. For each one, follow the steps bel
 This phase starts after the last code checkpoint is committed (`fine`), or after `CP1`'s gate passes with its changes still uncommitted (`single`).
 - Run `pnpm verify` yourself, and check the unit's Definition of done item by item.
 - **Unit review** (always, whatever the tier):
-  - Write the unit's changes to a scratchpad file, excluding `':!pnpm-lock.yaml' ':!packages/domain-schema/generated' ':!.llm-cassettes' ':!contracts/pacts'`:
+  - Write the unit's changes to a scratchpad file, excluding `':!pnpm-lock.yaml' ':!spec/generated' ':!.llm-cassettes' ':!contracts/pacts'`:
     - `fine`: `git diff main...HEAD -- . <exclusions>`;
     - `single`: `git diff HEAD -- . <exclusions>`, plus the output of `git ls-files --others --exclude-standard`.
   - Call the Agent tool with `subagent_type: "wu-reviewer"`, adding `model: "opus"` if the unit tier is `opus`.

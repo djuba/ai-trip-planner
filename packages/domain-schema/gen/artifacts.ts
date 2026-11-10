@@ -1,4 +1,4 @@
-// Builds every file in `generated/` in memory (CLAUDE.md §4.1). Pure and deterministic: the same
+// Builds every file in `spec/generated/` in memory (CLAUDE.md §4.1). Pure and deterministic: the same
 // schemas always give byte-identical output (LF, 2-space JSON, trailing newline), so `gen --check`
 // can compare it with what is committed.
 import { stringify } from 'yaml';

@@ -1,5 +1,5 @@
 pnpm-lock.yaml
-packages/domain-schema/generated/
+spec/generated/
 contracts/pacts/
 .llm-cassettes/
 spikes/

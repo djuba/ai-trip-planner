@@ -2,7 +2,7 @@
 
 HTTP plumbing of `backends/api-nextjs`: health, body handling, error envelopes, CORS, config and server lifecycle. There is no AI yet. See CLAUDE.md §5.
 
-The cap in AC-API-04 is `MAX_REQUEST_BODY_BYTES`, shared through `generated/constants.json`.
+The cap in AC-API-04 is `MAX_REQUEST_BODY_BYTES`, shared through `spec/generated/constants.json`.
 
 ## Health
 

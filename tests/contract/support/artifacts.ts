@@ -3,9 +3,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-export const GENERATED_DIR = fileURLToPath(
-  new URL('../../../packages/domain-schema/generated/', import.meta.url),
-);
+export const GENERATED_DIR = fileURLToPath(new URL('../../../spec/generated/', import.meta.url));
 export const PACTS_DIR = fileURLToPath(new URL('../../../contracts/pacts/', import.meta.url));
 
 export const readJson = (path: string): unknown => JSON.parse(readFileSync(path, 'utf8'));

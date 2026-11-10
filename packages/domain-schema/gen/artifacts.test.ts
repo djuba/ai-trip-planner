@@ -114,7 +114,10 @@ describe('OpenAPI document', () => {
   });
 
   it('matches the committed openapi.yaml', () => {
-    const onDisk = readFileSync(new URL('../generated/openapi.yaml', import.meta.url), 'utf8');
+    const onDisk = readFileSync(
+      new URL('../../../spec/generated/openapi.yaml', import.meta.url),
+      'utf8',
+    );
     expect(parse(onDisk)).toEqual(doc);
   });
 });

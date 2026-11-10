@@ -1,11 +1,11 @@
-// `gen` writes generated/ from the wire schemas; `gen --check` is the drift check in `pnpm verify`
+// `gen` writes spec/generated/ from the wire schemas; `gen --check` is the drift check in `pnpm verify`
 // (WU-04 plan D12). The check compares in memory, so it needs no git and changes nothing.
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildArtifacts } from './artifacts.ts';
 
-export const GENERATED_DIR = fileURLToPath(new URL('../generated/', import.meta.url));
+export const GENERATED_DIR = fileURLToPath(new URL('../../../spec/generated/', import.meta.url));
 
 export interface Drift {
   missing: string[];
@@ -52,7 +52,7 @@ export function formatDrift(d: Drift): string {
     ...d.changed.map((n) => `  changed: ${n}`),
     ...d.stale.map((n) => `  stale:   ${n}`),
   ];
-  return `generated/ is out of date with src/wire:\n${lines.join('\n')}\nRun \`pnpm --filter @vp/domain-schema gen\` and commit the result.`;
+  return `spec/generated/ is out of date with src/wire:\n${lines.join('\n')}\nRun \`pnpm --filter @vp/domain-schema gen\` and commit the result.`;
 }
 
 async function main(argv: readonly string[]): Promise<number> {
@@ -63,11 +63,11 @@ async function main(argv: readonly string[]): Promise<number> {
       console.error(formatDrift(drift));
       return 1;
     }
-    console.log(`generated/ is up to date (${expected.size} files).`);
+    console.log(`spec/generated/ is up to date (${expected.size} files).`);
     return 0;
   }
   await writeGenerated(GENERATED_DIR, expected);
-  console.log(`Wrote ${expected.size} files to generated/.`);
+  console.log(`Wrote ${expected.size} files to spec/generated/.`);
   return 0;
 }
 

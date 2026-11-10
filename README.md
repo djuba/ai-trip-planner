@@ -27,7 +27,7 @@ Model output is treated as untrusted input: every response is checked against it
 | Import boundaries | The web app can't import backend code or `rules` | `eslint.config.js`, `scripts/tests/integration/lint-boundaries.test.ts` | Built |
 | Drift check | The generated files match the Zod schemas | `pnpm --filter @vp/domain-schema gen:check` | Built |
 | Schema parity | Zod and the generated JSON Schema accept and reject the same payloads | `packages/domain-schema/src/wire/parity.test.ts` | Built |
-| Shared rule cases | Every backend returns the same violations for the same rule test cases | `packages/domain-schema/fixtures/rules/`; each backend's `/extract` integration tests, checked by their JUnit results ([ADR 0002](docs/decisions/0002-rule-parity-across-backends.md)) | Cases built; TypeScript runs them as unit tests. HTTP tests and results check planned (WU-09) |
+| Shared rule cases | Every backend returns the same violations for the same rule test cases | `spec/fixtures/rules/`; each backend's `/extract` integration tests, checked by their JUnit results ([ADR 0002](docs/decisions/0002-rule-parity-across-backends.md)) | Cases built; TypeScript runs them as unit tests. HTTP tests and results check planned (WU-09) |
 | Conformance suite | A backend's responses match the contract | `tests/contract/conformance/`, run by `pnpm test:contract` | Built; runs against stub endpoints until WU-09–11 |
 | Pact | A backend does what the web client expects | `contracts/pacts/`, `tests/contract/pact-verify.test.ts` | Verifier built; consumer pacts planned (WU-12) |
 | Journeys | The whole system works from the user's side | `tests/journeys/` | Planned (WU-15) |
@@ -62,9 +62,9 @@ Use pnpm only; do not use npm or Yarn.
 | HTTP request and response bodies | `packages/domain-schema/src/wire/http/` |
 | Shared types inside those bodies | `packages/domain-schema/src/wire/models/` |
 | Formats only the LLM fills in, which never cross HTTP | `packages/domain-schema/src/wire/llm/` |
-| Generated JSON Schema and OpenAPI | `packages/domain-schema/generated/` |
-| Business rules | `packages/domain-schema/rules.md` (the spec) and `src/rules/` (the TS implementation) |
-| Language-neutral rule test cases | `packages/domain-schema/fixtures/rules/` |
+| Generated JSON Schema and OpenAPI | `spec/generated/` |
+| Business rules | `spec/rules.md` (the spec) and `packages/domain-schema/src/rules/` (the TS implementation) |
+| Language-neutral rule test cases | `spec/fixtures/rules/` |
 | API endpoints | `backends/api-nextjs/app/v1/**/route.ts` |
 | Business logic for each AI stage | `backends/api-nextjs/src/usecases/` |
 | The Anthropic client and record/replay | `backends/api-nextjs/src/llm/` |

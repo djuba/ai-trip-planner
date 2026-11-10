@@ -14,7 +14,7 @@ You review one work unit in the vacation-planner-polyglot monorepo. The orchestr
 3. The plan, `docs/plans/WU-xx.md`.
 4. **Checkpoint and implementation modes:** the diff file the orchestrator names, plus the list of new (untracked) files. Read a new file only when the plan or diff makes it relevant. In checkpoint mode, also read that checkpoint's entry in the plan's Checkpoints list.
 
-Don't explore beyond what you need to check a specific concern. Don't read lock files, `generated/`, cassettes or `node_modules`.
+Don't explore beyond what you need to check a specific concern. Don't read lock files, `spec/generated/`, cassettes or `node_modules`.
 
 ## What to check
 

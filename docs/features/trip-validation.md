@@ -1,6 +1,6 @@
 # Trip validation: acceptance criteria
 
-What `evaluateRules`, `countPopulatedFields` and `normalize` must do. The rules themselves are defined in [`packages/domain-schema/rules.md`](../../packages/domain-schema/rules.md).
+What `evaluateRules`, `countPopulatedFields` and `normalize` must do. The rules themselves are defined in [`spec/rules.md`](../../spec/rules.md).
 
 Unless a criterion says otherwise, each one starts from a profile that is otherwise valid, so the listed violations are the complete expected result. Parameters are written as `{ name: value }`.
 

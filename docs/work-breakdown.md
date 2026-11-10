@@ -319,14 +319,14 @@ WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequ
 **Scope**
 - Time-boxed spike: how Zod `.max()`, Ajv `maxLength`, Python and Go count string length. Pick one definition (likely Unicode code points) and record it.
 - ADR 0003. Resource limits go on the wire (422), while business rules stay off it (CLAUDE.md §4.5). `normalize` discards model-produced values over a cap, so the server never returns a value its own request schema would reject. `ExtractionSchema` gets no caps (ADR 0001). Discard rather than truncate. The length definition from the spike. A **Future hardening** section listing authentication, per-user rate limits and quotas, provider spend limits with a workspace per environment, an on-topic guard step, second-order prompt injection and evals, each pointing to the unit or backlog item that owns it.
-- Cap constants exported from the contract and copied into `generated/constants.json` with `MAX_REQUEST_BODY_BYTES`. They cover `message`, short text (`region`, `departure.city`, `gender`), `dateRange.note`, fixed `start`/`end`, and list counts and item lengths (`unmappedExperiences`, `experiences`, `people`). Set them well above any honest value.
+- Cap constants exported from the contract and copied into `spec/generated/constants.json` with `MAX_REQUEST_BODY_BYTES`. They cover `message`, short text (`region`, `departure.city`, `gender`), `dateRange.note`, fixed `start`/`end`, and list counts and item lengths (`unmappedExperiences`, `experiences`, `people`). Set them well above any honest value.
 - `.max()` / `maxItems` on every string and array reachable from `TripProfile`, and on `ExtractRequest.message`. Every endpoint that accepts a profile gets the caps. Regenerate, and update CLAUDE.md §4.5.
 - `normalize` discards over-cap strings and list items and reports what it discarded.
 - Conformance checks: 200 at exactly the cap, and 422 at the cap plus one, for `message` and at least one profile field.
 
 **Required tests**
-- *Unit:* boundary samples in `samples.ts`, including non-ASCII text, through `schemas.test.ts` and `parity.test.ts`. `normalize` discard cases. The constants appear in `generated/constants.json`.
-- *Unit:* language-neutral normalize fixtures (over-cap value in, field discarded out) so later backends match.
+- *Unit:* boundary samples in `samples.ts`, including non-ASCII text, through `schemas.test.ts` and `parity.test.ts`. `normalize` discard cases. The constants appear in `spec/generated/constants.json`.
+- *Unit:* language-neutral normalize fixtures in `spec/fixtures/normalize/` (over-cap value in, field discarded out) so later backends match.
 - *Contract:* the boundary checks above.
 
 **Definition of done**
@@ -569,7 +569,7 @@ WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequ
 
 **Scope**
 - README: what it is, a quickstart, the architecture diagram, the test pyramid and how to run each gate, the polyglot roadmap, the cost-control approach
-- Contract docs (link to `generated/openapi.yaml`)
+- Contract docs (link to `spec/generated/openapi.yaml`)
 - Decision records index
 
 **Definition of done:** a fresh clone, following only the README, reaches a green `pnpm verify` and a working UI in replay mode.
