@@ -66,6 +66,19 @@ function findCause<E extends Error>(
   return undefined;
 }
 
+/**
+ * The model hit `maxOutputTokens` before finishing. A retry repeats the same capped generation, so
+ * anyone who can trigger the cap would cost two calls instead of one (WU-08 Note from security
+ * planning). It fails at once: a 502 `LLM_UPSTREAM_ERROR` with no new wire code, because a client
+ * can't act on it; the cause is our token cap.
+ */
+class OutputTruncatedError extends Error {
+  constructor(options: ErrorOptions) {
+    super('Model output was cut off at maxOutputTokens', options);
+    this.name = 'OutputTruncatedError';
+  }
+}
+
 type Failure =
   | { kind: 'retryable'; error: Error }
   | { kind: 'final'; error: Error }
@@ -75,6 +88,9 @@ type Failure =
 function classify(error: unknown): Failure {
   const miss = findCause(error, CassetteMissError);
   if (miss !== undefined) return { kind: 'rethrow', error: miss };
+  if (NoObjectGeneratedError.isInstance(error) && error.finishReason === 'length') {
+    return { kind: 'final', error: new OutputTruncatedError({ cause: error }) };
+  }
   if (
     error instanceof OutputInvalidError ||
     NoObjectGeneratedError.isInstance(error) ||

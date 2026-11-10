@@ -27,7 +27,8 @@ The one boundary every pipeline stage uses to call a model (CLAUDE.md §7, §8).
 | What happened | Result | Retried? |
 |---|---|---|
 | Refusal (`finishReason: 'content-filter'`) | `LlmError` `LLM_REFUSAL` → 502 | No |
-| Output that isn't JSON, doesn't match the schema, or is truncated | `LlmError` `LLM_UPSTREAM_ERROR` → 502 | Once |
+| Output that isn't JSON or doesn't match the schema | `LlmError` `LLM_UPSTREAM_ERROR` → 502 | Once |
+| Output cut off at `maxOutputTokens` (`finishReason: 'length'`) | `LlmError` `LLM_UPSTREAM_ERROR` → 502, logged as `OutputTruncatedError` | No: a retry repeats the same capped generation |
 | Retryable HTTP error (e.g. 529, network) | `LlmError` `LLM_UPSTREAM_ERROR` → 502 | Once |
 | Non-retryable HTTP error (4xx) | `LlmError` `LLM_UPSTREAM_ERROR` → 502 | No |
 | Replay cassette miss | `CassetteMissError` ("re-record with `LLM_MODE=record`") → test failure / 500 | No |
@@ -72,3 +73,5 @@ Each attempt logs one line with stage, role, model, attempt, outcome, input/outp
 **AC-LLM-17.** Given each `LLM_MODE`, then `createLlmClient` uses the matching transport: replay never touches the global `fetch`, record and live use the network, models come from config, and mock without responders fails at construction.
 
 **AC-LLM-18.** Given replay or record, then `cassetteDir` defaults to `<workspace root>/.llm-cassettes/api-nextjs` and honours `LLM_CASSETTE_DIR`.
+
+**AC-LLM-19.** Given output cut off at `maxOutputTokens`, then the call fails with `LLM_UPSTREAM_ERROR` after one request, and the attempt is logged with error `OutputTruncatedError`.

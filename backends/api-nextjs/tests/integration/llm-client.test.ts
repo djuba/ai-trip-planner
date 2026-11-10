@@ -130,6 +130,29 @@ describe('AI SDK LlmClient over the Anthropic provider', () => {
     },
   );
 
+  it('AC-LLM-19: output cut off at maxOutputTokens is LLM_UPSTREAM_ERROR after one request', async () => {
+    const truncated = () =>
+      jsonResponse(
+        anthropicMessage({
+          model: 'claude-haiku-5-5',
+          text: '{"city":"Lis',
+          stopReason: 'max_tokens',
+        }),
+      );
+    // A second scripted reply would succeed, so a retry would make this test pass wrongly.
+    const net = scriptedFetch(truncated, ok('claude-haiku-5-5', '{"city":"Lisbon","nights":4}'));
+    const { llm, logs } = client(net.fetch);
+
+    const error = await rejection(llm.generateObject(request()));
+
+    expect(error).toBeInstanceOf(LlmError);
+    expect((error as LlmError).code).toBe('LLM_UPSTREAM_ERROR');
+    expect(net.bodies).toHaveLength(1);
+    expect(logs).toEqual([
+      expect.objectContaining({ outcome: 'error', error: 'OutputTruncatedError' }),
+    ]);
+  });
+
   it('AC-LLM-09: HTTP 529 is retried once, then LLM_UPSTREAM_ERROR', async () => {
     const overloaded = () => anthropicError(529, 'overloaded_error');
     const net = scriptedFetch(overloaded, overloaded);

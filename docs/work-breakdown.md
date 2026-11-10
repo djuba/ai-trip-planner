@@ -299,7 +299,8 @@ WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequ
 - From WU-06: throw `LlmError` from `src/usecases/errors.ts`; the adapter maps it to a 502. Config already provides `llmMode`, `models` and `anthropicApiKey` (`src/config.ts`).
 - From WU-07: the mock `LlmClient` must be able to return a given extraction, so WU-09 can run every rule fixture through `/extract` with it. See [ADR 0002](decisions/0002-rule-parity-across-backends.md).
 - From security planning: the AI SDK client checks `finishReason === 'content-filter'` but not `'length'`. Output cut off at `maxOutputTokens` fails to parse and is retried once, which repeats the same capped generation, so anyone who can trigger the cap costs two calls instead of one. Decide in this unit: either skip the retry on `'length'` and fail with its own 502 error code, or keep the current behavior and record why.
-- Done: stacked on WU-07 (PR #12) while `main` is on hold. See [the plan](plans/WU-08.md) and [`llm-client.md`](features/llm-client.md).
+- Done: built stacked on WU-07 while `main` was on hold, then rebased onto `main` after #11, #12 and #14 merged. See [the plan](plans/WU-08.md) and [`llm-client.md`](features/llm-client.md).
+- Decided (the security-planning Note above): output cut off at `maxOutputTokens` is not retried. It fails at once as `LLM_UPSTREAM_ERROR` (502), logged as `OutputTruncatedError`, with no new wire code ([plan](plans/WU-08.md), deviation 12; AC-LLM-19).
 - Learned:
   - The SDK passes an error thrown from a custom `fetch` through unwrapped, so a cassette miss reaches the caller as is.
   - `Output.object` validates through Standard Schema, not `safeParse`, so the adapter's own `safeParse` is a real second check.
