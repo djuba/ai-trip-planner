@@ -12,6 +12,7 @@ const excludeEverywhere = [
 ];
 
 const FUNCTIONAL = '**/tests/functional/**/*.test.{ts,tsx}';
+const FUNCTIONAL_API = 'backends/api-nextjs/tests/functional/**/*.test.ts';
 const INTEGRATION = '**/tests/integration/**/*.test.{ts,tsx}';
 
 export default defineConfig({
@@ -38,8 +39,20 @@ export default defineConfig({
         test: {
           name: 'functional',
           include: [FUNCTIONAL],
-          exclude: excludeEverywhere,
+          exclude: [...excludeEverywhere, FUNCTIONAL_API],
           testTimeout: 60_000,
+        },
+      },
+      {
+        // Its own project so only these tests pay for `next build`, which runs once per run.
+        extends: true,
+        test: {
+          name: 'functional-api',
+          include: [FUNCTIONAL_API],
+          exclude: excludeEverywhere,
+          globalSetup: ['backends/api-nextjs/tests/support/build-once.ts'],
+          testTimeout: 60_000,
+          hookTimeout: 60_000,
         },
       },
     ],

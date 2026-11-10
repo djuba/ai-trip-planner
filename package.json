@@ -9,6 +9,7 @@
   },
   "scripts": {
     "prepare": "lefthook install",
+    "dev": "pnpm -r --parallel --if-present dev",
     "typecheck": "tsc --noEmit -p tsconfig.json && pnpm -r typecheck",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -19,7 +20,7 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:coverage": "vitest run --project unit --project integration --coverage",
-    "test:functional": "vitest run --project functional && pnpm --filter @vp/web-nextjs test:functional",
+    "test:functional": "vitest run --project functional --project functional-api && pnpm --filter @vp/web-nextjs test:functional",
     "test:contract": "node scripts/skip.mjs \"contract tests (Pact consumer + provider, schema conformance)\" WU-07/WU-12",
     "test:journeys": "pnpm --filter @vp/journeys test",
     "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm gen:check && pnpm audit:prod && pnpm test:coverage && pnpm test:functional && pnpm test:contract",
