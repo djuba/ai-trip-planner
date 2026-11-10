@@ -60,7 +60,7 @@ vacation-planner-polyglot/
 | Unit tests | `pnpm test:unit` |
 | Integration tests | `pnpm test:integration` |
 | Functional tests | `pnpm test:functional` |
-| Contract tests (consumer + provider) | `pnpm test:contract` (provider side uses `API_BASE_URL`, default `http://localhost:4000`) |
+| Contract tests (consumer + provider) | `pnpm test:contract` (builds and starts its own api-nextjs); `pnpm test:contract:external` tests the backend at `API_BASE_URL` instead |
 | Journeys | `pnpm test:journeys --grep "@smoke\|@critical"` (or `@full`) |
 | **Project gate** (≈ MR gate) | `pnpm verify` |
 | **Integrated gate** (≈ deploy gate) | `pnpm verify:integrated` |
@@ -196,7 +196,7 @@ What belongs where:
   - *Unit:* every rule code, with at least one passing and one failing fixture, including edge cases (age 17 vs 18, end date equal to start, leap days, flexible dates with month only); `normalize`; the populated-field counter; `gen` producing JSON Schema that round-trips the fixtures.
 - **`backends/api-nextjs`**
   - *Unit:* prompt builders, merge/normalize, the critic's deterministic checks, the critic loop's iteration cap, presentation mapping, error mapping, each use case with a mock `LlmClient`.
-  - *Integration:* the `LlmClient` adapter against the real AI SDK provider plus replay cassettes (structured-output parsing, refusal → `LLM_REFUSAL`, malformed output → retry then 502); route handlers invoked with real `Request` objects (body parsing, 422 shape errors, CORS headers, stream headers).
+  - *Integration:* the `LlmClient` adapter against the real AI SDK provider plus replay cassettes (structured-output parsing, refusal → `LLM_REFUSAL`, malformed output → retry then 502); route handlers invoked with real `Request` objects (body parsing, 422 shape errors, CORS headers, stream headers); **every rule fixture through `/extract` with a mock `LlmClient`** (§6.5).
   - *Functional:* boot the built app on a random port and drive it over real HTTP with `LLM_MODE=replay`: extract → `needs_clarification`, extract → `ready`, recommend, the `/present` stream ending in a schema-valid object, upstream failure → 502.
 - **`apps/web-nextjs`**
   - *Unit:* the conversation-state reducer, view-model mapping, and components (render states, partial-stream rendering with `undefined` fields).
@@ -213,9 +213,11 @@ Coverage is a floor, not a goal (Vitest, v8 provider, unit + integration combine
 Two complementary halves:
 
 1. **Consumer-driven (Pact):** web API-client tests run against a Pact mock server and write `contracts/pacts/web-nextjs-vacation-api.json` (committed). `tests/contract/pact-verify.test.ts` replays that pact against **any** backend at `API_BASE_URL`. The Pact verifier is language-neutral, so the FastAPI and Go backends are verified by the same pact without rewriting the tests.
-2. **Schema-first conformance:** `tests/contract/conformance/**` sends every `domain-schema/fixtures` case to `API_BASE_URL` and validates responses against `generated/*.schema.json`. It covers what Pact handles poorly: every rule code, 422 shape errors, `needs_clarification` vs `ready` routing, and the `/present` stream ending in a valid `PresentationModel`.
+2. **Schema-first conformance:** `tests/contract/conformance/**` drives the backend under test over HTTP and validates responses against `generated/*.schema.json` with Ajv. It is black-box: it reads only generated JSON and imports no workspace code (lint enforced). It covers what Pact handles poorly: health and `contractVersion`, 422 shape errors, 413 at `MAX_REQUEST_BODY_BYTES`, response schemas, `needs_clarification` vs `ready` routing, CORS, and the `/present` stream ending in a valid `PresentationModel`. Checks require only what §5 specifies (e.g. any 2xx preflight, media types without parameters), so a correct backend in any language passes.
 
-A backend runs both halves with `LLM_MODE=replay` and must pass both before it counts as conformant. There is no broker yet: pact files are committed and verification runs locally. `can-i-deploy` with a local Docker Pact Broker is an optional later phase.
+**Rule parity** ([ADR 0002](docs/decisions/0002-rule-parity-across-backends.md)): each backend's integration suite sends every `domain-schema/fixtures/rules` case through its real `/extract` HTTP path, with a mock `LlmClient` returning the fixture's profile. It asserts that the normalized profile equals the fixture's profile, compares violations exactly and in order, and titles each test `RULE-FIXTURE <file>/<id>`. A shared script in `tests/contract/` reads the backend's JUnit XML report and fails unless every fixture `id` passed. The comparison's strictness is the one thing no test checks, so each language uses one shared fixture helper and code review covers it.
+
+A backend runs both halves with `LLM_MODE=replay`, and its rule-fixture results pass the shared check, before it counts as conformant. There is no broker yet: pact files are committed and verification runs locally. `can-i-deploy` with a local Docker Pact Broker is an optional later phase.
 
 **Contract testing uses only open-source, local tooling: no subscriptions, accounts or hosted services.** PactFlow, including its bi-directional contract testing (BDCT), is out of scope. The schema-first conformance suite is this repo's replacement for BDCT; do not add PactFlow or any hosted broker.
 

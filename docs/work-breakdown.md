@@ -23,7 +23,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-04 | Contract wire schemas & generation | WU-02, WU-03 | done |
 | WU-05 | Invariant rules & fixtures | WU-04 | done |
 | WU-06 | `api-nextjs` skeleton | WU-04 | done |
-| WU-07 | Contract suite (provider side) | WU-05, WU-06 | todo |
+| WU-07 | Contract suite (provider side) | WU-05, WU-06 | done |
 | WU-08 | `LlmClient` with record / replay / mock | WU-03, WU-06 | todo |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08 | todo |
 | WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09 | todo |
@@ -236,7 +236,7 @@ WU-01 ─┬─ WU-02 ─┐
 ---
 
 ## WU-07 — Contract suite (provider side)
-**Status:** todo · **Depends on:** WU-05, WU-06 · **Commits:**
+**Status:** done · **Depends on:** WU-05, WU-06 · **Commits:** [PR #12](https://github.com/djuba/vacation-planner-polyglot/pull/12)
 
 **Goal:** a black-box suite that can prove any backend conforms. Written before the endpoints exist, so it starts red.
 
@@ -257,6 +257,9 @@ WU-01 ─┬─ WU-02 ─┐
 - From WU-02: replace the `test:contract` stub in the root `package.json`.
 - From WU-04: use the same validator setup as `packages/domain-schema/src/wire/parity.test.ts` (Ajv 2020 in strict mode + `ajv-formats`, both in the catalog). Load every `generated/*.schema.json` first, because their `$id`s and `$ref`s are relative.
 - From WU-06: test the 413 boundary over real HTTP using `maxRequestBodyBytes` from `generated/constants.json`; so far it is only proven at the integration layer. Stubs use `postRoute` and `jsonResponse`, and must export `OPTIONS = preflight` or AC-API-10 fails. The harness in `backends/api-nextjs/tests/support` can't be imported from a black-box suite, so this unit needs its own way to start the server. See the [plan](plans/WU-06.md).
+- From WU-07: the rule-fixture half of this scope ("drives every `domain-schema/fixtures` case at `API_BASE_URL`") was replaced by per-backend HTTP fixture tests plus a shared JUnit results check, built in WU-09. See [ADR 0002](decisions/0002-rule-parity-across-backends.md).
+- Stacked on WU-06 (PR #11) while `main` is on hold; the PR targets `wu/WU-06-api-nextjs-skeleton` and has no CI until retargeted. Pact needs the Visual C++ runtime on Windows (plan X1). Ctrl-C cleanup of the runner was proven by hand only (X6).
+- Usage: main/Opus 109 req, 132k out; wu-implementer/Sonnet 22 req, 34k out; wu-reviewer/Opus 11 req, 18k out; wu-reviewer/Sonnet 6 req, 3k out.
 
 ---
 
@@ -290,6 +293,7 @@ WU-01 ─┬─ WU-02 ─┐
 - Integration tests assert `result.warnings` is empty, so a silently dropped option fails a test.
 - Reference implementation: `spikes/structured-output/src/capture-fetch.ts`.
 - From WU-06: throw `LlmError` from `src/usecases/errors.ts`; the adapter maps it to a 502. Config already provides `llmMode`, `models` and `anthropicApiKey` (`src/config.ts`).
+- From WU-07: the mock `LlmClient` must be able to return a given extraction, so WU-09 can run every rule fixture through `/extract` with it. See [ADR 0002](decisions/0002-rule-parity-across-backends.md).
 
 ---
 
@@ -319,6 +323,8 @@ WU-01 ─┬─ WU-02 ─┐
 - From WU-05: past dates return `needs_clarification` through `DATE_NOT_PAST`, never an HTTP error. A flexible month with no year means its next occurrence, and the rules never flag it as past. Violation order is part of the contract (`rules.md`). `normalize` doesn't trim strings; `evaluateRules` judges them.
 - From WU-04: `clarificationQuestion` must be non-empty on the wire, so an empty model reply counts as a failure (retry once, then 502). The extraction prompt must cover `departure` (`city`, `mode`, `maxStops`, where `0` = non-stop).
 - From WU-06: the new route must export `OPTIONS = preflight` (AC-API-10), and goes in the functional tests.
+- From WU-07: run every rule fixture through `/extract` at the integration layer, with the mock `LlmClient` returning the fixture's profile. Compare violations exactly and in order, assert the normalized profile equals the fixture's profile, and title each test `RULE-FIXTURE <file>/<id>`. Write a JUnit report and build `tests/contract/rule-results.ts`, which fails unless every fixture `id` passed. See [ADR 0002](decisions/0002-rule-parity-across-backends.md).
+- From WU-07: add conformance routing checks (`needs_clarification` vs `ready`) to `tests/contract/conformance/`, with replay cassettes. Record cassettes for the AC-CONTRACT-05 `/extract` request, then delete the `/extract` stub and its `src/stubs/canned.ts` entry. See [`contract-suite.md`](features/contract-suite.md).
 
 ---
 
@@ -350,6 +356,7 @@ WU-01 ─┬─ WU-02 ─┐
 - From WU-05: define what `/recommend` does with a profile that isn't `ready`; CLAUDE.md §5 and §7 don't say. Read a month-only date as its next occurrence.
 - From WU-04: this is where `departure.mode` and `departure.maxStops` start affecting recommendations. `routes.json` only holds non-stop routes, so only `maxStops: 0` can back a `'fixture'` claim; anything else stays `'unverified'`. `maxStops` only means something when `mode` is `plane`, and there is no rule for that in the MVP.
 - From WU-06: the new route must export `OPTIONS = preflight` (AC-API-10), and goes in the functional tests.
+- From WU-07: record cassettes for the AC-CONTRACT-05 `/recommend` request, then delete the `/recommend` stub and its `canned.ts` entry.
 
 ---
 
@@ -375,6 +382,7 @@ WU-01 ─┬─ WU-02 ─┐
 - From the wire reorganization: when this unit is done, set the Present row to Built in the README's "From natural language to recommendations" table.
 - Serve with `createTextStreamResponse({ stream: toTextStream({ stream: result.stream }) })`; the methods on the `streamText` result are deprecated. Mid-stream errors (`onError`) were not covered by the spike, so test them here. See [ADR 0001](decisions/0001-structured-output.md), Q1/Q7.
 - From WU-06: the new route must export `OPTIONS = preflight` (AC-API-10), and goes in the functional tests. `route()` passes a streaming `Response` through unbuffered (AC-API-12), so return the stream response directly.
+- From WU-07: record cassettes for the AC-CONTRACT-06 `/present` request, then delete the `/present` stub and `src/stubs/canned.ts`.
 
 ---
 
@@ -402,6 +410,7 @@ WU-01 ─┬─ WU-02 ─┐
 - From WU-04: `tsconfig.json` must extend the base, and Next must handle `.ts` contract imports (same check as WU-06). `apps/` may import wire schemas at runtime (CLAUDE.md §4.2). Leave `currentProfile` out on the first turn; `null` gets a 422. Build every mock with `buildFixture`.
 - From WU-02: add `webServer` to `apps/web-nextjs/playwright.config.ts`, and install Chromium in CI (`pnpm exec playwright install --with-deps chromium`) together with the first spec. Once specs exist, drop `--pass-with-no-tests` from the web `test:functional` script so an empty glob cannot pass. Replace the `test:contract` stub if WU-07 has not already. `@axe-core/playwright` is already installed.
 - From WU-06: the `.ts` contract imports work under Turbopack with `transpilePackages`. Set `agentRules: false` in `next.config`, or `next dev` writes an `AGENTS.md` when it detects a coding agent. Treat a 413 (`PAYLOAD_TOO_LARGE`) as "message too long". See the [plan](plans/WU-06.md).
+- From WU-07: the Pact consumer writes `contracts/pacts/web-nextjs-vacation-api.json` for provider `vacation-api`. `tests/contract/pact-verify.test.ts` picks it up with no change, and its skip goes away. On Windows, Pact needs the Visual C++ runtime (README Prerequisites).
 
 ---
 
@@ -466,6 +475,7 @@ WU-01 ─┬─ WU-02 ─┐
 **Notes:**
 - From the wire reorganization: when this unit is done, set the Journeys row to Built in the README's "How interchangeability is checked" table. WU-16 may then drop the Status column.
 - From WU-02: replace the `verify:integrated` and `verify:full` stubs. `test:journeys` already runs Playwright; drop its `--pass-with-no-tests` once journeys exist.
+- From WU-07: add `BACKEND=` selection to `scripts/run-contract.ts`; today it only starts api-nextjs, and `--external` covers any other backend.
 
 ---
 

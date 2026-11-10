@@ -14,6 +14,8 @@ const excludeEverywhere = [
 const FUNCTIONAL = '**/tests/functional/**/*.test.{ts,tsx}';
 const FUNCTIONAL_API = 'backends/api-nextjs/tests/functional/**/*.test.ts';
 const INTEGRATION = '**/tests/integration/**/*.test.{ts,tsx}';
+// Provider contract tests need a running backend; scripts/run-contract.ts provides one (§6.5).
+const CONTRACT = ['tests/contract/conformance/**/*.test.ts', 'tests/contract/pact-verify.test.ts'];
 
 export default defineConfig({
   test: {
@@ -23,7 +25,7 @@ export default defineConfig({
         test: {
           name: 'unit',
           include: ['**/*.test.{ts,tsx}'],
-          exclude: [...excludeEverywhere, INTEGRATION, FUNCTIONAL],
+          exclude: [...excludeEverywhere, INTEGRATION, FUNCTIONAL, ...CONTRACT],
         },
       },
       {
@@ -41,6 +43,15 @@ export default defineConfig({
           include: [FUNCTIONAL],
           exclude: [...excludeEverywhere, FUNCTIONAL_API],
           testTimeout: 60_000,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'contract',
+          include: CONTRACT,
+          exclude: excludeEverywhere,
+          testTimeout: 30_000,
         },
       },
       {
