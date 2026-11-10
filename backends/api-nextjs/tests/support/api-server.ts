@@ -9,6 +9,9 @@ import { fileURLToPath } from 'node:url';
 
 export const BACKEND_DIR = fileURLToPath(new URL('../../', import.meta.url));
 export const NEXT_BIN = createRequire(import.meta.url).resolve('next/dist/bin/next');
+export const CASSETTE_DIR = fileURLToPath(
+  new URL('../../../../.llm-cassettes/api-nextjs', import.meta.url),
+);
 
 const HEALTH_ATTEMPTS = 300;
 const HEALTH_INTERVAL_MS = 100;
@@ -28,6 +31,7 @@ export const baseEnv = (): NodeJS.ProcessEnv => ({
   MODEL_CRITIC: 'test-model-critic',
   WEB_ORIGIN: 'http://localhost:3000',
   ANTHROPIC_API_KEY: '',
+  LLM_CASSETTE_DIR: CASSETTE_DIR,
 });
 
 async function freePort(): Promise<number> {
