@@ -24,7 +24,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-05 | Invariant rules & fixtures | WU-04 | done |
 | WU-06 | `api-nextjs` skeleton | WU-04 | done |
 | WU-07 | Contract suite (provider side) | WU-05, WU-06 | done |
-| WU-08 | `LlmClient` with record / replay / mock | WU-03, WU-06 | in-progress |
+| WU-08 | `LlmClient` with record / replay / mock | WU-03, WU-06 | done |
 | WU-17 | Input and output limits (prompt-injection hardening) | WU-05, WU-07 | todo |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | todo |
 | WU-18 | Eval harness + adversarial cases | WU-09 | todo |
@@ -268,7 +268,7 @@ WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequ
 ---
 
 ## WU-08 — `LlmClient` with record / replay / mock
-**Status:** in-progress · **Depends on:** WU-03, WU-06 · **Commits:**
+**Status:** done · **Depends on:** WU-03, WU-06 · **Commits:** [PR #13](https://github.com/djuba/vacation-planner-polyglot/pull/13)
 
 **Goal:** a deterministic, cost-free LLM boundary for all tests (CLAUDE.md §6.1, §8.3).
 
@@ -299,6 +299,14 @@ WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequ
 - From WU-06: throw `LlmError` from `src/usecases/errors.ts`; the adapter maps it to a 502. Config already provides `llmMode`, `models` and `anthropicApiKey` (`src/config.ts`).
 - From WU-07: the mock `LlmClient` must be able to return a given extraction, so WU-09 can run every rule fixture through `/extract` with it. See [ADR 0002](decisions/0002-rule-parity-across-backends.md).
 - From security planning: the AI SDK client checks `finishReason === 'content-filter'` but not `'length'`. Output cut off at `maxOutputTokens` fails to parse and is retried once, which repeats the same capped generation, so anyone who can trigger the cap costs two calls instead of one. Decide in this unit: either skip the retry on `'length'` and fail with its own 502 error code, or keep the current behavior and record why.
+- Done: stacked on WU-07 (PR #12) while `main` is on hold. See [the plan](plans/WU-08.md) and [`llm-client.md`](features/llm-client.md).
+- Learned:
+  - The SDK passes an error thrown from a custom `fetch` through unwrapped, so a cassette miss reaches the caller as is.
+  - `Output.object` validates through Standard Schema, not `safeParse`, so the adapter's own `safeParse` is a real second check.
+  - `config.ts` is also compiled for the Edge runtime (through `instrumentation.ts`), so it must stay free of Node APIs.
+  - `gitleaks` reads a hash under a field named `key` as an API key, so cassettes carry no `key` field.
+  - A live Haiku call takes more than Vitest's default 5 s timeout.
+- Usage: main/Opus 148 req, 195k out; wu-implementer/Sonnet 11 req, 14k out; wu-reviewer/Opus 23 req, 29k out.
 
 ---
 
