@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "catalog:",
     "@vp/domain-schema": "workspace:*",
+    "ai": "catalog:",
     "next": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",

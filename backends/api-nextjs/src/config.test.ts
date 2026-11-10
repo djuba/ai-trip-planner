@@ -98,3 +98,10 @@ describe('loadConfig', () => {
     );
   });
 });
+
+describe('loadConfig cassetteDir', () => {
+  it('AC-LLM-18: LLM_CASSETTE_DIR is passed through as given; blank means unset', () => {
+    expect(loadConfig({ ...base, LLM_CASSETTE_DIR: ' tapes ' }).cassetteDir).toBe('tapes');
+    expect(loadConfig({ ...base, LLM_CASSETTE_DIR: '' })).not.toHaveProperty('cassetteDir');
+  });
+});

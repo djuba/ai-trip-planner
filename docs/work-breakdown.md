@@ -24,7 +24,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-05 | Invariant rules & fixtures | WU-04 | done |
 | WU-06 | `api-nextjs` skeleton | WU-04 | done |
 | WU-07 | Contract suite (provider side) | WU-05, WU-06 | done |
-| WU-08 | `LlmClient` with record / replay / mock | WU-03, WU-06 | todo |
+| WU-08 | `LlmClient` with record / replay / mock | WU-03, WU-06 | done |
 | WU-17 | Input and output limits (prompt-injection hardening) | WU-05, WU-07 | todo |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | todo |
 | WU-18 | Eval harness + adversarial cases | WU-09 | todo |
@@ -268,7 +268,7 @@ WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequ
 ---
 
 ## WU-08 — `LlmClient` with record / replay / mock
-**Status:** todo · **Depends on:** WU-03, WU-06 · **Commits:**
+**Status:** done · **Depends on:** WU-03, WU-06 · **Commits:** [PR #13](https://github.com/djuba/vacation-planner-polyglot/pull/13)
 
 **Goal:** a deterministic, cost-free LLM boundary for all tests (CLAUDE.md §6.1, §8.3).
 
@@ -299,6 +299,15 @@ WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequ
 - From WU-06: throw `LlmError` from `src/usecases/errors.ts`; the adapter maps it to a 502. Config already provides `llmMode`, `models` and `anthropicApiKey` (`src/config.ts`).
 - From WU-07: the mock `LlmClient` must be able to return a given extraction, so WU-09 can run every rule fixture through `/extract` with it. See [ADR 0002](decisions/0002-rule-parity-across-backends.md).
 - From security planning: the AI SDK client checks `finishReason === 'content-filter'` but not `'length'`. Output cut off at `maxOutputTokens` fails to parse and is retried once, which repeats the same capped generation, so anyone who can trigger the cap costs two calls instead of one. Decide in this unit: either skip the retry on `'length'` and fail with its own 502 error code, or keep the current behavior and record why.
+- Done: built stacked on WU-07 while `main` was on hold, then rebased onto `main` after #11, #12 and #14 merged. See [the plan](plans/WU-08.md) and [`llm-client.md`](features/llm-client.md).
+- Decided (the security-planning Note above): output cut off at `maxOutputTokens` is not retried. It fails at once as `LLM_UPSTREAM_ERROR` (502), logged as `OutputTruncatedError`, with no new wire code ([plan](plans/WU-08.md), deviation 12; AC-LLM-19).
+- Learned:
+  - The SDK passes an error thrown from a custom `fetch` through unwrapped, so a cassette miss reaches the caller as is.
+  - `Output.object` validates through Standard Schema, not `safeParse`, so the adapter's own `safeParse` is a real second check.
+  - `config.ts` is also compiled for the Edge runtime (through `instrumentation.ts`), so it must stay free of Node APIs.
+  - `gitleaks` reads a hash under a field named `key` as an API key, so cassettes carry no `key` field.
+  - A live Haiku call takes more than Vitest's default 5 s timeout.
+- Usage: main/Opus 148 req, 195k out; wu-implementer/Sonnet 11 req, 14k out; wu-reviewer/Opus 23 req, 29k out.
 
 ---
 
@@ -363,6 +372,9 @@ WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequ
 - From security planning: treat every user-controlled string as untrusted data in prompts. That covers the message, the client-supplied `currentProfile` and the violation params. They go only in the user message, serialized as JSON in a clearly delimited data block, and the static system prompt says the block is data, not instructions. Build this as one shared prompt-data helper that WU-10 and WU-11 reuse. Unit-test each prompt builder: every profile string appears only inside the data block.
 - From security planning: size the extraction call's `maxOutputTokens` from the WU-17 caps (every field at its cap, plus a margin), and the clarification call's for a question of a sentence or two. Log what `normalize` discarded as a security signal.
 - From security planning: add a containment test, an integration test with a cassette recorded from a real injection attempt (a message telling the model to put off-topic content in free-text fields and in the clarification question). Assert the response is wire-valid, nothing exceeds a cap, and the clarification question is within its limit. It proves containment, not that the model resists; WU-18 measures that.
+- From WU-08: `tests/support/api-server.ts`'s `baseEnv` uses `test-model-*` model IDs and forces `LLM_MODE=replay`, and `pnpm record:cassettes` runs only the integration project. The model is part of the cassette key, so before recording any server-side cassette, switch `baseEnv` to the real §8.1 IDs and give recording a path to the spawned server. Recommended: `startApi` passes record mode and the key through when `recordingAllowed()`, and `record:cassettes` accepts `--project functional-api`. See [`llm-client.md`](features/llm-client.md) and the WU-08 implementation review (#3).
+- From WU-08: the routes need a seam to inject a mock `LlmClient` (`createMockLlmClient` + `mockObject` from `src/llm`) for the rule-fixture test. Build the real client with `createLlmClient(getConfig())`. An unresolvable cassette directory now fails there, not at startup ([plan](plans/WU-08.md), deviation 3).
+- From WU-08: this is the first unit where `next build` bundles `src/llm`, including `ai/test` through `mock.ts`. If that breaks the build or the bundle, keep `mock.ts` out of the route's import graph ([plan](plans/WU-08.md), R2).
 
 ---
 
@@ -450,6 +462,8 @@ WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequ
 - From WU-06: the new route must export `OPTIONS = preflight` (AC-API-10), and goes in the functional tests. `route()` passes a streaming `Response` through unbuffered (AC-API-12), so return the stream response directly.
 - From WU-07: record cassettes for the AC-CONTRACT-06 `/present` request, then delete the `/present` stub and `src/stubs/canned.ts`.
 - From security planning: the profile and `recommendations` in the request are client-supplied, so they go into the prompt through the WU-09 prompt-data helper. The stream reaches the client as it's generated, so over-cap text can't be discarded afterwards. `maxOutputTokens` is the main bound here, with per-field caps on the `PresentationModel` wire schema checked by the final parse. Add a containment test and `/present` cases to WU-18's eval set.
+- From WU-08: add `streamObject` to the `LlmClient` interface here, together with its mid-stream error semantics. That changes the interface, so this unit's review tier is `opus`. Record and replay of SSE are already proven (AC-LLM-12, [`llm-client.md`](features/llm-client.md)).
+- From WU-08: the recorder writes any 2xx response. An SSE body can still fail partway through (`event: error`) after a 200, so skip writing a stream cassette that contains `event: error` or has no `message_stop` (WU-08 implementation review #6).
 
 ---
 
@@ -544,6 +558,7 @@ WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequ
 - From the wire reorganization: when this unit is done, set the Journeys row to Built in the README's "How interchangeability is checked" table. WU-16 may then drop the Status column.
 - From WU-02: replace the `verify:integrated` and `verify:full` stubs. `test:journeys` already runs Playwright; drop its `--pass-with-no-tests` once journeys exist.
 - From WU-07: add `BACKEND=` selection to `scripts/run-contract.ts`; today it only starts api-nextjs, and `--external` covers any other backend.
+- From WU-08: add `record:cassettes --prune` to delete cassettes no test replays any more ([plan](plans/WU-08.md), R5). A dead-proxy "network off" check can't cover `test:contract`: Pact's native verifier routes even loopback requests through the proxy and ignores `NO_PROXY`, so use a real network-off run ([plan](plans/WU-08.md), deviation 7).
 
 ---
 

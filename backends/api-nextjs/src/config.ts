@@ -3,6 +3,11 @@ export interface Config {
   models: { fast: string; reasoning: string; critic: string };
   webOrigin: string;
   anthropicApiKey?: string;
+  /**
+   * LLM_CASSETTE_DIR as given. src/llm resolves it, or the default, at client construction, so this
+   * module stays free of Node APIs: instrumentation.ts also compiles it for the Edge runtime.
+   */
+  cassetteDir?: string;
 }
 
 /** Names the bad variables only. Values are never included: they may hold the API key. */
@@ -84,6 +89,8 @@ export function loadConfig(env: Env): Config {
     fail('ANTHROPIC_API_KEY', 'required when LLM_MODE is live or record');
   }
 
+  const cassetteDir = read(env, 'LLM_CASSETTE_DIR');
+
   if (problems.length > 0) throw new ConfigError(problems);
 
   return {
@@ -91,6 +98,7 @@ export function loadConfig(env: Env): Config {
     models,
     webOrigin,
     ...(anthropicApiKey !== undefined ? { anthropicApiKey } : {}),
+    ...(cassetteDir !== undefined ? { cassetteDir } : {}),
   };
 }
 

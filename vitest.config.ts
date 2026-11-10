@@ -2,6 +2,7 @@
 // One root config so unit + integration coverage is measured in a single run across packages.
 // Playwright owns `*.spec.ts` (web functional, journeys); Vitest never collects those.
 import { configDefaults, defineConfig } from 'vitest/config';
+import { recordingAllowed } from './scripts/test-support/llm-guard.ts';
 
 const excludeEverywhere = [
   ...configDefaults.exclude,
@@ -17,13 +18,19 @@ const INTEGRATION = '**/tests/integration/**/*.test.{ts,tsx}';
 // Provider contract tests need a running backend; scripts/run-contract.ts provides one (§6.5).
 const CONTRACT = ['tests/contract/conformance/**/*.test.ts', 'tests/contract/pact-verify.test.ts'];
 
+// No gated test calls a live LLM (§6.1; WU-08 plan D10). Only `pnpm record:cassettes` lifts these.
+const BLOCK_NETWORK = ['scripts/test-support/block-network.ts'];
+const llmEnv: Record<string, string> = recordingAllowed(process.env) ? {} : { LLM_MODE: 'replay' };
+
 export default defineConfig({
   test: {
+    env: llmEnv,
     projects: [
       {
         extends: true,
         test: {
           name: 'unit',
+          setupFiles: BLOCK_NETWORK,
           include: ['**/*.test.{ts,tsx}'],
           exclude: [...excludeEverywhere, INTEGRATION, FUNCTIONAL, ...CONTRACT],
         },
@@ -32,6 +39,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'integration',
+          setupFiles: BLOCK_NETWORK,
           include: [INTEGRATION],
           exclude: [...excludeEverywhere, FUNCTIONAL],
         },
@@ -40,6 +48,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'functional',
+          setupFiles: BLOCK_NETWORK,
           include: [FUNCTIONAL],
           exclude: [...excludeEverywhere, FUNCTIONAL_API],
           testTimeout: 60_000,
@@ -49,6 +58,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'contract',
+          // No network guard: it must reach any API_BASE_URL host (plan D10, review #4).
           include: CONTRACT,
           exclude: excludeEverywhere,
           testTimeout: 30_000,
@@ -59,6 +69,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'functional-api',
+          setupFiles: BLOCK_NETWORK,
           include: [FUNCTIONAL_API],
           exclude: excludeEverywhere,
           globalSetup: ['backends/api-nextjs/tests/support/build-once.ts'],
