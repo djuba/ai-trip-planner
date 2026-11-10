@@ -1,4 +1,4 @@
-// Loader for the language-neutral rule fixtures in `fixtures/rules/` (rules.md, "Fixture format").
+// Loader for the language-neutral rule fixtures in `spec/fixtures/rules/` (`spec/rules.md`, "Fixture format").
 // The Zod schema below is test-only: fixtures are not an HTTP payload, so it is not contract surface.
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -8,7 +8,9 @@ import { z } from 'zod';
 import { RuleViolation, TripProfile } from '../../src/wire/index.ts';
 import { buildFixture } from './build-fixture.ts';
 
-export const RULE_FIXTURE_DIR = fileURLToPath(new URL('../../fixtures/rules/', import.meta.url));
+export const RULE_FIXTURE_DIR = fileURLToPath(
+  new URL('../../../../spec/fixtures/rules/', import.meta.url),
+);
 
 export const RuleFixtureCase = z.object({
   id: z.string(),

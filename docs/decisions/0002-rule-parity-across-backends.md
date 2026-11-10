@@ -4,7 +4,7 @@
 
 ## Context
 
-Every backend must implement the invariant rules in `packages/domain-schema/rules.md` identically, including violation `params` and order: order feeds the clarification prompt and therefore the cassette keys. The rules come with language-neutral fixture cases (`fixtures/rules/*.json`, `profile` + `referenceDate` → `expectedViolations`).
+Every backend must implement the invariant rules in `spec/rules.md` identically, including violation `params` and order: order feeds the clarification prompt and therefore the cassette keys. The rules come with language-neutral fixture cases (`fixtures/rules/*.json`, `profile` + `referenceDate` → `expectedViolations`).
 
 CLAUDE.md §6.5 originally had the black-box conformance suite send every fixture case to the backend over HTTP. No endpoint can do that deterministically. `/extract` puts the LLM between the input and the rules, and its replay cassettes are specific to each backend, because they hash each backend's own prompt. Canned stubs can't return each fixture's violations either (WU-05 R1).
 

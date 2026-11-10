@@ -15,9 +15,9 @@ import { RuleCode } from '../wire/index.ts';
 const read = (url: string): string =>
   readFileSync(fileURLToPath(new URL(url, import.meta.url)), 'utf8');
 
-const rulesMd = read('../../rules.md');
+const rulesMd = read('../../../../spec/rules.md');
 const validationMd = read('../../../../docs/features/trip-validation.md');
-const generatedDir = fileURLToPath(new URL('../../generated/', import.meta.url));
+const generatedDir = fileURLToPath(new URL('../../../../spec/generated/', import.meta.url));
 const rulesDir = fileURLToPath(new URL('./', import.meta.url));
 
 const fixtureFiles = loadAllRuleFixtures();

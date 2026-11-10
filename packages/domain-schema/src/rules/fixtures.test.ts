@@ -1,4 +1,4 @@
-// Table-driven run of fixtures/rules/*.json against evaluateRules. Expectations are written from
+// Table-driven run of spec/fixtures/rules/*.json against evaluateRules. Expectations are written from
 // rules.md, not from the implementation: a mismatch is a finding, never a reason to edit a case.
 import { describe, expect, it } from 'vitest';
 import { loadAllRuleFixtures } from '../../tests/support/rule-fixtures.ts';

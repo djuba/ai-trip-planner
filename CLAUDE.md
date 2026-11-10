@@ -22,13 +22,14 @@ vacation-planner-polyglot/
 │   ├── api-fastapi/             # future — README + .gitkeep only until started
 │   └── api-go/                  # future — README + .gitkeep only until started
 ├── packages/
-│   └── domain-schema/           # THE CONTRACT (see §4)
+│   └── domain-schema/           # TS source of the contract; generates spec/ (see §4)
 │       ├── src/wire/            # Zod schemas: http/ (bodies), models/ (shared), llm/ (model-only)
 │       ├── src/rules/           # TS implementation of invariant rules (backend-only)
-│       ├── generated/           # JSON Schema + openapi.yaml — generated, COMMITTED
-│       ├── rules.md             # Language-neutral invariant catalog (source of truth for rules)
-│       ├── fixtures/            # Contract cases: input JSON → expected output JSON
 │       └── tests/support/       # TS test helpers (buildFixture, fixture loader, samples)
+├── spec/                        # LANGUAGE-NEUTRAL SPEC: what every backend must satisfy (see §4)
+│   ├── generated/               # JSON Schema + openapi.yaml + constants.json — generated, COMMITTED
+│   ├── rules.md                 # Invariant catalog (source of truth for rules)
+│   └── fixtures/                # Rule cases: input JSON → expected output JSON
 ├── contracts/
 │   └── pacts/                   # Consumer pact files written by web tests — COMMITTED
 ├── tests/
@@ -66,11 +67,13 @@ vacation-planner-polyglot/
 | **Integrated gate** (≈ deploy gate) | `pnpm verify:integrated` |
 | **Nightly-equivalent** | `pnpm verify:full` |
 
-## 4. The contract (`packages/domain-schema`)
+## 4. The contract (`packages/domain-schema` → `spec/`)
+
+The contract has two homes. `packages/domain-schema` is the TS package where shapes are written and the rules are implemented for TS backends. `spec/` holds everything language-neutral: the generated schemas and constants, the rule catalog and the rule fixtures. Other languages read `spec/` as plain files and never depend on the TS package. (`contracts/pacts/` and `tests/contract/` are contract *testing*, §6.5.)
 
 ### 4.1 Source of truth
-- **Shapes:** Zod in `src/wire/` is where shapes are written. `z.toJSONSchema()` emits `generated/*.schema.json` and `generated/openapi.yaml`. Python/Go generate their models from `generated/`, never from TS. Schemas only a model fills in (`src/wire/llm/`) never cross HTTP, so they get a `.schema.json` but stay out of `openapi.yaml`.
-- **Invariants:** `rules.md` is the source of truth. Each rule has a stable code, a plain-English definition, and fixture cases. `src/rules/` is just the TS implementation of it.
+- **Shapes:** Zod in `packages/domain-schema/src/wire/` is where shapes are written. `z.toJSONSchema()` emits `spec/generated/*.schema.json` and `spec/generated/openapi.yaml`. Python/Go generate their models from `spec/generated/`, never from TS. Schemas only a model fills in (`src/wire/llm/`) never cross HTTP, so they get a `.schema.json` but stay out of `openapi.yaml`.
+- **Invariants:** `spec/rules.md` is the source of truth. Each rule has a stable code, a plain-English definition, and fixture cases in `spec/fixtures/rules/`. `packages/domain-schema/src/rules/` is just the TS implementation of it.
 - **Use only JSON-Schema-expressible constructs in wire schemas:** no `.transform()`, `.refine()`, `.superRefine()`, `z.date()`, `z.bigint()`, or `.default()` that changes meaning. Cross-field rules go in `src/rules/`, never in the wire schema.
 
 ### 4.2 Package exports (enforced)
@@ -116,7 +119,7 @@ The enum is closed and versioned. Adding a value is a `feat(domain-schema)`; rem
 
 Rules never throw. Each violation is `{ code, path, params }`: `path` is a JSON Pointer into the profile, and `params` is typed per code (see `src/wire/models/rule-violation.ts`). **Messages are not part of the contract**; clients and the LLM clarification prompt render text from `code` + `params`.
 
-### 4.6 Invariant catalog (mirror of `rules.md`)
+### 4.6 Invariant catalog (mirror of `spec/rules.md`)
 | Code | Rule |
 |---|---|
 | `CHILD_AGE_RANGE` | `userType='child'` ⇒ `age` is null or `0 ≤ age < 18` |
@@ -131,7 +134,7 @@ Rules never throw. Each violation is `{ code, path, params }`: `path` is a JSON 
 `referenceDate` is supplied in the request (client's local date), so rules stay deterministic and testable. Backends never read the system clock inside rules.
 
 ### 4.7 "Populated field" — exact definition
-A top-level field counts as populated when it is: a non-empty trimmed string (trimming means Unicode `White_Space`, see `rules.md`); a `departure` with a non-empty trimmed `city`; a `dateRange` of kind `fixed`, or `flexible` with at least `month` or `year`; or a non-empty array (`experiences`, `people`). `unmappedExperiences` never counts. `MIN_POPULATED_FIELDS = 3`, and it is exported as a constant from the contract (and copied into `generated/constants.json`) so all backends share it.
+A top-level field counts as populated when it is: a non-empty trimmed string (trimming means Unicode `White_Space`, see `spec/rules.md`); a `departure` with a non-empty trimmed `city`; a `dateRange` of kind `fixed`, or `flexible` with at least `month` or `year`; or a non-empty array (`experiences`, `people`). `unmappedExperiences` never counts. `MIN_POPULATED_FIELDS = 3`, and it is exported as a constant from the contract (and copied into `spec/generated/constants.json`) so all backends share it.
 
 ## 5. HTTP API (v1)
 
@@ -213,9 +216,9 @@ Coverage is a floor, not a goal (Vitest, v8 provider, unit + integration combine
 Two complementary halves:
 
 1. **Consumer-driven (Pact):** web API-client tests run against a Pact mock server and write `contracts/pacts/web-nextjs-vacation-api.json` (committed). `tests/contract/pact-verify.test.ts` replays that pact against **any** backend at `API_BASE_URL`. The Pact verifier is language-neutral, so the FastAPI and Go backends are verified by the same pact without rewriting the tests.
-2. **Schema-first conformance:** `tests/contract/conformance/**` drives the backend under test over HTTP and validates responses against `generated/*.schema.json` with Ajv. It is black-box: it reads only generated JSON and imports no workspace code (lint enforced). It covers what Pact handles poorly: health and `contractVersion`, 422 shape errors, 413 at `MAX_REQUEST_BODY_BYTES`, response schemas, `needs_clarification` vs `ready` routing, CORS, and the `/present` stream ending in a valid `PresentationModel`. Checks require only what §5 specifies (e.g. any 2xx preflight, media types without parameters), so a correct backend in any language passes.
+2. **Schema-first conformance:** `tests/contract/conformance/**` drives the backend under test over HTTP and validates responses against `spec/generated/*.schema.json` with Ajv. It is black-box: it reads only generated JSON and imports no workspace code (lint enforced). It covers what Pact handles poorly: health and `contractVersion`, 422 shape errors, 413 at `MAX_REQUEST_BODY_BYTES`, response schemas, `needs_clarification` vs `ready` routing, CORS, and the `/present` stream ending in a valid `PresentationModel`. Checks require only what §5 specifies (e.g. any 2xx preflight, media types without parameters), so a correct backend in any language passes.
 
-**Rule parity** ([ADR 0002](docs/decisions/0002-rule-parity-across-backends.md)): each backend's integration suite sends every `domain-schema/fixtures/rules` case through its real `/extract` HTTP path, with a mock `LlmClient` returning the fixture's profile. It asserts that the normalized profile equals the fixture's profile, compares violations exactly and in order, and titles each test `RULE-FIXTURE <file>/<id>`. A shared script in `tests/contract/` reads the backend's JUnit XML report and fails unless every fixture `id` passed. The comparison's strictness is the one thing no test checks, so each language uses one shared fixture helper and code review covers it.
+**Rule parity** ([ADR 0002](docs/decisions/0002-rule-parity-across-backends.md)): each backend's integration suite sends every `spec/fixtures/rules` case through its real `/extract` HTTP path, with a mock `LlmClient` returning the fixture's profile. It asserts that the normalized profile equals the fixture's profile, compares violations exactly and in order, and titles each test `RULE-FIXTURE <file>/<id>`. A shared script in `tests/contract/` reads the backend's JUnit XML report and fails unless every fixture `id` passed. The comparison's strictness is the one thing no test checks, so each language uses one shared fixture helper and code review covers it.
 
 A backend runs both halves with `LLM_MODE=replay`, and its rule-fixture results pass the shared check, before it counts as conformant. There is no broker yet: pact files are committed and verification runs locally. `can-i-deploy` with a local Docker Pact Broker is an optional later phase.
 
@@ -242,7 +245,7 @@ A backend runs both halves with `LLM_MODE=replay`, and its rule-fixture results 
 | Gate | Command | Runs | Hook |
 |---|---|---|---|
 | Pre-commit | (lefthook) | lint + format on staged files, `gitleaks` secret scan | `pre-commit` |
-| **Project gate** (≈ MR) | `pnpm verify` | typecheck, lint, `gen` drift check (no diff in `generated/`), `pnpm audit --prod`, unit, integration, functional, contract (consumer + provider vs. api-nextjs), coverage thresholds | `pre-push` |
+| **Project gate** (≈ MR) | `pnpm verify` | typecheck, lint, `gen` drift check (no diff in `spec/generated/`), `pnpm audit --prod`, unit, integration, functional, contract (consumer + provider vs. api-nextjs), coverage thresholds | `pre-push` |
 | **Integrated gate** (≈ deploy) | `pnpm verify:integrated` | build all, start the full stack, journeys `@smoke` + `@critical` | manual / before tagging a release |
 | **Full** (≈ nightly) | `pnpm verify:full` | journeys `@full` across every implemented backend; provider contract tests against every implemented backend | manual |
 
@@ -311,7 +314,7 @@ Format: `type(scope): imperative summary` — ≤72 chars, lowercase type.
 - **Types:** `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `build`, `ci`, `chore`
 - **Scopes (enforced list):** `web`, `api-nextjs`, `api-fastapi`, `api-go`, `domain-schema`, `contract`, `journeys`, `usecases`, `repo`
 - **Breaking contract changes:** `feat(domain-schema)!: …` plus a `BREAKING CHANGE:` footer, and bump `contractVersion`.
-- One logical change per commit. Tests go in the same commit as the behavior they cover. Regenerate `generated/` and re-record affected cassettes/pacts in the same commit as the change that caused them.
+- One logical change per commit. Tests go in the same commit as the behavior they cover. Regenerate `spec/generated/` and re-record affected cassettes/pacts in the same commit as the change that caused them.
 - Never commit without the user's explicit approval of the specific changes (§12). Commit messages end with the attribution trailer configured for the session.
 
 History is searchable by scope: `git log --oneline --grep "^feat(domain-schema)"`.

@@ -1,4 +1,4 @@
-// Shared constants (CLAUDE.md §4.7), also written to generated/constants.json for other backends.
+// Shared constants (CLAUDE.md §4.7), also written to spec/generated/constants.json for other backends.
 
 /** Semantic version of the HTTP contract, reported by `GET /v1/health`. */
 export const CONTRACT_VERSION = '0.2.0';

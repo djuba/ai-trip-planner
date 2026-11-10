@@ -1,6 +1,6 @@
 # Provider contract suite
 
-The black-box suite that decides whether a backend conforms to the HTTP contract (CLAUDE.md §5, §6.5). It lives in `tests/contract/`, reads only `packages/domain-schema/generated/*.json`, and talks to the backend over HTTP. It imports no workspace code, so it judges a TypeScript, Python or Go backend the same way.
+The black-box suite that decides whether a backend conforms to the HTTP contract (CLAUDE.md §5, §6.5). It lives in `tests/contract/`, reads only `spec/generated/*.json`, and talks to the backend over HTTP. It imports no workspace code, so it judges a TypeScript, Python or Go backend the same way.
 
 Run it with `pnpm test:contract`, which builds and starts api-nextjs, or with `pnpm test:contract:external`, which tests the backend at `API_BASE_URL`. The runner stops the server it started on exit, on Ctrl-C and on `SIGTERM`. The signal path has no automated test, because Windows can't deliver a console Ctrl-C from a test, so a forced kill of the runner (`taskkill /F`) can leave `next start` holding its port.
 

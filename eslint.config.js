@@ -128,7 +128,7 @@ export default tseslint.config(
       '**/coverage/**',
       '**/playwright-report/**',
       '**/test-results/**',
-      'packages/domain-schema/generated/**',
+      'spec/generated/**',
       'contracts/pacts/**',
       '.llm-cassettes/**',
       // Non-production spikes are not linted (docs/decisions/; WU-03).
