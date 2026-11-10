@@ -25,8 +25,10 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-06 | `api-nextjs` skeleton | WU-04 | done |
 | WU-07 | Contract suite (provider side) | WU-05, WU-06 | done |
 | WU-08 | `LlmClient` with record / replay / mock | WU-03, WU-06 | todo |
-| WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08 | todo |
-| WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09 | todo |
+| WU-17 | Input and output limits (prompt-injection hardening) | WU-05, WU-07 | todo |
+| WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | todo |
+| WU-18 | Eval harness + adversarial cases | WU-09 | todo |
+| WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | todo |
 | WU-11 | Present stream + `/v1/trip/present` | WU-10 | todo |
 | WU-12 | Web shell, API client, Pact consumer | WU-04, WU-07 | todo |
 | WU-13 | Conversation & clarification UI | WU-09, WU-12 | todo |
@@ -37,10 +39,12 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 ```
 WU-01 ─┬─ WU-02 ─┐
        └─ WU-03 ─┴─ WU-04 ─┬─ WU-05 ─┐
-                           ├─ WU-06 ─┴─ WU-07 ─┬─ WU-09 ─ WU-10 ─ WU-11 ─┐
-                           │   WU-03,06 ─ WU-08 ┘                         │
-                           └──────────── WU-12 (needs WU-07) ─ WU-13 ─────┴─ WU-14 ─ WU-15 ─ WU-16
+                           ├─ WU-06 ─┴─ WU-07 ─── WU-17 ─┬─ WU-09 ─ WU-18 ─ WU-10 ─ WU-11 ─┐
+                           │   WU-03,06 ─ WU-08 ─────────┘                                 │
+                           └──────────── WU-12 (needs WU-07) ─ WU-13 (needs WU-09) ────────┴─ WU-14 ─ WU-15 ─ WU-16
 ```
+
+WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequence. This table and the sections below list them in build order.
 
 ---
 
@@ -294,11 +298,42 @@ WU-01 ─┬─ WU-02 ─┐
 - Reference implementation: `spikes/structured-output/src/capture-fetch.ts`.
 - From WU-06: throw `LlmError` from `src/usecases/errors.ts`; the adapter maps it to a 502. Config already provides `llmMode`, `models` and `anthropicApiKey` (`src/config.ts`).
 - From WU-07: the mock `LlmClient` must be able to return a given extraction, so WU-09 can run every rule fixture through `/extract` with it. See [ADR 0002](decisions/0002-rule-parity-across-backends.md).
+- From security planning: the AI SDK client checks `finishReason === 'content-filter'` but not `'length'`. Output cut off at `maxOutputTokens` fails to parse and is retried once, which repeats the same capped generation, so anyone who can trigger the cap costs two calls instead of one. Decide in this unit: either skip the retry on `'length'` and fail with its own 502 error code, or keep the current behavior and record why.
+
+---
+
+## WU-17 — Input and output limits (prompt-injection hardening)
+**Status:** todo · **Depends on:** WU-05, WU-07 · **Commits:**
+
+**Goal:** limit what prompt injection and API abuse can achieve. Every free-text value the API accepts or returns has a cap. Oversized input is rejected at the wire, and an injected instruction that gets past the model can yield only a few short strings, never free-form output paid for with our tokens.
+
+**Scope**
+- Time-boxed spike: how Zod `.max()`, Ajv `maxLength`, Python and Go count string length. Pick one definition (likely Unicode code points) and record it.
+- ADR 0003. Resource limits go on the wire (422), while business rules stay off it (CLAUDE.md §4.5). `normalize` discards model-produced values over a cap, so the server never returns a value its own request schema would reject. `ExtractionSchema` gets no caps (ADR 0001). Discard rather than truncate. The length definition from the spike. A **Future hardening** section listing authentication, per-user rate limits and quotas, provider spend limits with a workspace per environment, an on-topic guard step, second-order prompt injection and evals, each pointing to the unit or backlog item that owns it.
+- Cap constants exported from the contract and copied into `generated/constants.json` with `MAX_REQUEST_BODY_BYTES`. They cover `message`, short text (`region`, `departure.city`, `gender`), `dateRange.note`, fixed `start`/`end`, and list counts and item lengths (`unmappedExperiences`, `experiences`, `people`). Set them well above any honest value.
+- `.max()` / `maxItems` on every string and array reachable from `TripProfile`, and on `ExtractRequest.message`. Every endpoint that accepts a profile gets the caps. Regenerate, and update CLAUDE.md §4.5.
+- `normalize` discards over-cap strings and list items and reports what it discarded.
+- Conformance checks: 200 at exactly the cap, and 422 at the cap plus one, for `message` and at least one profile field.
+
+**Required tests**
+- *Unit:* boundary samples in `samples.ts`, including non-ASCII text, through `schemas.test.ts` and `parity.test.ts`. `normalize` discard cases. The constants appear in `generated/constants.json`.
+- *Unit:* language-neutral normalize fixtures (over-cap value in, field discarded out) so later backends match.
+- *Contract:* the boundary checks above.
+
+**Definition of done**
+- Every string and array reachable from `TripProfile`, and `ExtractRequest.message`, is capped by a shared constant.
+- A test asserts that `normalize` output always parses against `TripProfile`, including from over-cap input.
+- ADR 0003 is accepted.
+
+**Notes:**
+- From security planning: this is a contract change, so the review tier is Opus (CLAUDE.md §12, 4a).
+- `RecommendationSet` and `PresentationModel` strings are out of scope here; WU-10 and WU-11 cap them.
+- The web input's `maxlength` comes from the same constant (WU-13).
 
 ---
 
 ## WU-09 — Extract stage + `/v1/trip/extract`
-**Status:** todo · **Depends on:** WU-05, WU-07, WU-08 · **Commits:**
+**Status:** todo · **Depends on:** WU-05, WU-07, WU-08, WU-17 · **Commits:**
 
 **Goal:** natural language → `TripProfile` → `ready` or `needs_clarification`, end to end on the API.
 
@@ -325,11 +360,39 @@ WU-01 ─┬─ WU-02 ─┐
 - From WU-06: the new route must export `OPTIONS = preflight` (AC-API-10), and goes in the functional tests.
 - From WU-07: run every rule fixture through `/extract` at the integration layer, with the mock `LlmClient` returning the fixture's profile. Compare violations exactly and in order, assert the normalized profile equals the fixture's profile, and title each test `RULE-FIXTURE <file>/<id>`. Write a JUnit report and build `tests/contract/rule-results.ts`, which fails unless every fixture `id` passed. See [ADR 0002](decisions/0002-rule-parity-across-backends.md).
 - From WU-07: add conformance routing checks (`needs_clarification` vs `ready`) to `tests/contract/conformance/`, with replay cassettes. Record cassettes for the AC-CONTRACT-05 `/extract` request, then delete the `/extract` stub and its `src/stubs/canned.ts` entry. See [`contract-suite.md`](features/contract-suite.md).
+- From security planning: treat every user-controlled string as untrusted data in prompts. That covers the message, the client-supplied `currentProfile` and the violation params. They go only in the user message, serialized as JSON in a clearly delimited data block, and the static system prompt says the block is data, not instructions. Build this as one shared prompt-data helper that WU-10 and WU-11 reuse. Unit-test each prompt builder: every profile string appears only inside the data block.
+- From security planning: size the extraction call's `maxOutputTokens` from the WU-17 caps (every field at its cap, plus a margin), and the clarification call's for a question of a sentence or two. Log what `normalize` discarded as a security signal.
+- From security planning: add a containment test, an integration test with a cassette recorded from a real injection attempt (a message telling the model to put off-topic content in free-text fields and in the clarification question). Assert the response is wire-valid, nothing exceeds a cap, and the clarification question is within its limit. It proves containment, not that the model resists; WU-18 measures that.
+
+---
+
+## WU-18 — Eval harness + adversarial cases
+**Status:** todo · **Depends on:** WU-09 · **Commits:**
+
+**Goal:** measure with live calls how well the prompts resist prompt injection and off-topic use, and how good extraction is (CLAUDE.md §6.8). It runs before WU-10, so the recommend and present prompts are written with these checks already in place.
+
+**Scope**
+- `pnpm eval`: opt-in, live and never part of a gate. It requires the same explicit opt-in as other live calls and reports token usage and cost.
+- Extraction quality cases, drawn from the `extraction.md` ACs
+- Adversarial cases: instructions in the message to put off-topic content in free-text fields or the clarification question, and instructions planted in `currentProfile` strings
+- Deterministic scoring first: values over a cap or discarded by `normalize`, field content unrelated to its purpose (for example a `region` that isn't a place), a clarification question that doesn't address the violations. An LLM judge only where code can't decide.
+- A results record per run (date, models, prompt hash, scores), so runs can be compared
+
+**Required tests**
+- *Unit:* each scorer, against hand-written passing and failing outputs; the eval refuses to run without the opt-in.
+
+**Definition of done:** `pnpm eval` runs the extraction and adversarial sets, no gate runs it, and the first run's results are recorded in Notes.
+
+**Notes:**
+- From security planning: WU-10 and WU-11 add cases for their stages (profile strings in `/recommend`, `recommendations` in `/present`).
+- Evals don't block merges, so a prompt change can weaken injection resistance between runs. The gated containment (WU-17 caps, the WU-09 prompt-data helper, output checks) bounds the damage either way.
+- Every run costs money, so get approval for its budget first.
+- If the results show the model is often fooled, consider the on-topic guard step from ADR 0003's Future hardening section.
 
 ---
 
 ## WU-10 — Recommend + critic + `/v1/trip/recommend`
-**Status:** todo · **Depends on:** WU-09 · **Commits:**
+**Status:** todo · **Depends on:** WU-09, WU-18 · **Commits:**
 
 **Goal:** valid profile → critic-checked recommendations, with honest verification labels.
 
@@ -357,6 +420,9 @@ WU-01 ─┬─ WU-02 ─┐
 - From WU-04: this is where `departure.mode` and `departure.maxStops` start affecting recommendations. `routes.json` only holds non-stop routes, so only `maxStops: 0` can back a `'fixture'` claim; anything else stays `'unverified'`. `maxStops` only means something when `mode` is `plane`, and there is no rule for that in the MVP.
 - From WU-06: the new route must export `OPTIONS = preflight` (AC-API-10), and goes in the functional tests.
 - From WU-07: record cassettes for the AC-CONTRACT-05 `/recommend` request, then delete the `/recommend` stub and its `canned.ts` entry.
+- From security planning: the client can post any profile to `/recommend` directly, so its strings are untrusted here even though WU-17 caps them. Pass the profile to the recommend and critic prompts through the WU-09 prompt-data helper.
+- From security planning: cap `RecommendationSet` strings the same way WU-17 caps the profile. The schema given to the model stays unconstrained (ADR 0001), the wire schema carries the caps (`/present` takes `recommendations` back from the client), and code discards over-cap model values before responding. Size `maxOutputTokens` from those caps.
+- From security planning: add a containment test with an injection cassette (instructions planted in profile strings), and add `/recommend` cases to WU-18's eval set.
 
 ---
 
@@ -383,6 +449,7 @@ WU-01 ─┬─ WU-02 ─┐
 - Serve with `createTextStreamResponse({ stream: toTextStream({ stream: result.stream }) })`; the methods on the `streamText` result are deprecated. Mid-stream errors (`onError`) were not covered by the spike, so test them here. See [ADR 0001](decisions/0001-structured-output.md), Q1/Q7.
 - From WU-06: the new route must export `OPTIONS = preflight` (AC-API-10), and goes in the functional tests. `route()` passes a streaming `Response` through unbuffered (AC-API-12), so return the stream response directly.
 - From WU-07: record cassettes for the AC-CONTRACT-06 `/present` request, then delete the `/present` stub and `src/stubs/canned.ts`.
+- From security planning: the profile and `recommendations` in the request are client-supplied, so they go into the prompt through the WU-09 prompt-data helper. The stream reaches the client as it's generated, so over-cap text can't be discarded afterwards. `maxOutputTokens` is the main bound here, with per-field caps on the `PresentationModel` wire schema checked by the final parse. Add a containment test and `/present` cases to WU-18's eval set.
 
 ---
 
@@ -432,6 +499,7 @@ WU-01 ─┬─ WU-02 ─┐
 **Definition of done:** all `conversation-ui.md` ACs pass; no axe violations.
 
 **Notes:**
+- From security planning: set the message input's `maxlength` from WU-17's shared cap constant, and show the remaining length, so an honest user never gets a 422.
 
 ---
 
@@ -500,5 +568,5 @@ WU-01 ─┬─ WU-02 ─┐
 - `api-go` implementation, the same
 - `mobile-react-native` client, with its own consumer pact verified by every backend
 - Local Docker Pact Broker + `can-i-deploy`
-- Opt-in LLM quality evals (`pnpm eval`)
+- Abuse controls from ADR 0003's Future hardening section (written in WU-17): authentication, per-user rate limits and quotas, provider spend limits with a workspace per environment, and an on-topic guard step (it may move into WU-18 if the evals show it's needed). Most need user identity or a deployed environment.
 - Performance testing, once a deployed environment exists
