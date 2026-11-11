@@ -25,7 +25,8 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-06 | `api-nextjs` skeleton | WU-04 | done |
 | WU-07 | Contract suite (provider side) | WU-05, WU-06 | done |
 | WU-08 | `LlmClient` with record / replay / mock | WU-03, WU-06 | done |
-| WU-17 | Input and output limits (prompt-injection hardening) | WU-05, WU-07 | todo |
+| WU-19 | Refocus: spec-first, one implementation | WU-08 | todo |
+| WU-17 | Input and output limits (prompt-injection hardening) | WU-05, WU-07, WU-19 | todo |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | todo |
 | WU-18 | Eval harness + adversarial cases | WU-09 | todo |
 | WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | todo |
@@ -39,12 +40,12 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 ```
 WU-01 ─┬─ WU-02 ─┐
        └─ WU-03 ─┴─ WU-04 ─┬─ WU-05 ─┐
-                           ├─ WU-06 ─┴─ WU-07 ─── WU-17 ─┬─ WU-09 ─ WU-18 ─ WU-10 ─ WU-11 ─┐
-                           │   WU-03,06 ─ WU-08 ─────────┘                                 │
-                           └──────────── WU-12 (needs WU-07) ─ WU-13 (needs WU-09) ────────┴─ WU-14 ─ WU-15 ─ WU-16
+                           ├─ WU-06 ─┴─ WU-07 ──────────┬─ WU-17 ─ WU-09 ─ WU-18 ─ WU-10 ─ WU-11 ─┐
+                           │   WU-03,06 ─ WU-08 ─ WU-19 ┘                                         │
+                           └──────────── WU-12 (needs WU-07) ─ WU-13 (needs WU-09) ───────────────┴─ WU-14 ─ WU-15 ─ WU-16
 ```
 
-WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequence. This table and the sections below list them in build order.
+WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out of sequence. This table and the sections below list them in build order. WU-19 comes before WU-17: WU-17 depends on it.
 
 ---
 
@@ -311,14 +312,87 @@ WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequ
 
 ---
 
+## WU-19 — Refocus: spec-first, one implementation
+**Status:** todo · **Depends on:** WU-08 · **Commits:**
+
+**Goal:** cut the complexity that only pays off with a second backend, and keep what is worth having with one. The repo becomes a spec-first app with one TypeScript implementation. Portability stays a property of the design, checked by black-box tests, but it is no longer the headline or a planned deliverable. Anything removed here can come back if a second backend is ever built.
+
+**Direction.** Each piece is kept only if it is worth having even when no second backend ever exists:
+- **Kept:**
+  - `spec/rules.md`, the rule fixtures and `catalog.test.ts`: a business-readable rule catalog with executable examples, kept in sync by a test;
+  - `spec/generated/` (OpenAPI, JSON Schema, constants) and `parity.test.ts`: published API docs and schemas any future client can use;
+  - the black-box conformance suite and `test:contract:external`, which can also check a deployed backend;
+  - the web ↔ API split, Zod and Pact.
+- **Removed:** the placeholder backends and every check or gate that exists only to compare backends.
+
+**Patterns to name** in the ADR and README, precisely:
+- Specification by Example (executable specification), the idea under BDD. Not full BDD, which means Gherkin scenarios written together with the business.
+- Shared test vectors.
+- Spec-first (contract-first) API design.
+- Consumer-driven contracts.
+- Ports and adapters.
+
+**Scope**
+- **ADR 0003, "Spec-first, one implementation":**
+  - the keep/drop test above and the decision;
+  - the patterns;
+  - the costs it accepts (the catalog test, the fixture loader);
+  - what stays unproven (portability, until a second implementation exists);
+  - an **If a second backend is added** section listing what to re-add: cross-backend fixture checks (ADR 0002's JUnit results check and `RULE-FIXTURE` naming), `BACKEND=` selection in `scripts/run-contract.ts` and the journeys stack, a multi-backend `verify:full`, `HealthResponse.backend`, the backend's commit scope, and its README in `backends/`.
+
+  It supersedes ADR 0002's multi-backend parts; mark that in ADR 0002's status.
+- **CLAUDE.md:**
+  - §1: rewrite the pitch;
+  - §2: the layout, without the placeholder folders;
+  - §4 intro and §4.1: no "every backend" or "Python/Go generate…" wording;
+  - §6.5: conformance framed as a black-box check of the running backend, and the rule-parity paragraph replaced by the plain fixtures-through-`/extract` test;
+  - §6.6 and §6.7: no `BACKEND=` or "every implemented backend";
+  - §9: drop the placeholder-implementation rule;
+  - §10: drop the `api-fastapi`/`api-go` scopes and the "once Python/Go join" aside;
+  - the title.
+- **Contract: remove `HealthResponse.backend`** (and the `BackendName` schema). With one implementation it identifies nothing.
+  - This is a breaking change under CLAUDE.md §4.3: a `feat(domain-schema)!` commit with a `BREAKING CHANGE:` footer and a `contractVersion` bump.
+  - Regenerate `spec/generated/`, and update `/v1/health`, its tests, and the conformance health check and its self-test.
+  - Update CLAUDE.md §5's endpoint table.
+- **README:** describe the project as it is and is intended to be, without the history of what was removed (that lives in ADR 0003):
+  - new title and pitch;
+  - replace "How interchangeability is checked" with a short **Design and tradeoffs** section on the current choices: why the spec is language-neutral, what that costs, what isn't proven, and the patterns.
+- **Remove:**
+  - `backends/api-fastapi/` and `backends/api-go/`;
+  - `apps/mobile-react-native/` (a README-only placeholder; the mobile idea stays in the backlog);
+  - the `api-fastapi` and `api-go` scopes in `commitlint.config.js`.
+- **Fix `scripts/tests/functional/git-hooks.test.ts`:** start child processes without inherited `GIT_*` variables. Run from a worktree's `pre-push` hook, its `git init` and `git add` act on the real repository: on 2026-11-10 that set `core.bare = true` and staged a stray `config.ts`.
+- **Rename the GitHub repository to `ai-trip-planner`:**
+  - the user renames it, or the main agent runs `gh repo rename ai-trip-planner` with explicit approval at that step;
+  - update the local remote, the root `package.json` `name`, and the docs that name the repo.
+
+  Existing PR links keep working through GitHub's redirect. Keep the local folder name, because Claude Code transcripts, project memory and `wu-usage.mjs` are keyed by it.
+
+**Required tests**
+- *Functional:* `git-hooks.test.ts` runs its git commands with `GIT_DIR` set to a different repository and asserts that repository is untouched.
+- Commitlint still rejects an unknown scope (its existing test, if any, updated for the scope list).
+- *Unit and contract:* the health response no longer has `backend`, and `contractVersion` matches the bumped value.
+
+**Definition of done**
+- `pnpm verify` passes.
+- `HealthResponse` has no `backend` field, and `contractVersion` is bumped.
+- `git grep -n -i -E "fastapi|api-go|polyglot|every backend"` finds matches only in history: done units, old plans, ADR 0002 and the new ADR.
+- The repo is named `ai-trip-planner` on GitHub and the local remote points at it.
+
+**Notes:**
+- From refocus planning: removing `HealthResponse.backend` is a contract change, so the review tier is Opus (CLAUDE.md §12, 4a). The breaking change belongs in its own commit, so granularity is likely `fine`: the contract change, the docs and removals, and the hook-test fix as separate checkpoints. Confirm in the plan.
+- Takes ADR 0003; WU-17's ADR becomes 0004.
+
+---
+
 ## WU-17 — Input and output limits (prompt-injection hardening)
-**Status:** todo · **Depends on:** WU-05, WU-07 · **Commits:**
+**Status:** todo · **Depends on:** WU-05, WU-07, WU-19 · **Commits:**
 
 **Goal:** limit what prompt injection and API abuse can achieve. Every free-text value the API accepts or returns has a cap. Oversized input is rejected at the wire, and an injected instruction that gets past the model can yield only a few short strings, never free-form output paid for with our tokens.
 
 **Scope**
 - Time-boxed spike: how Zod `.max()`, Ajv `maxLength`, Python and Go count string length. Pick one definition (likely Unicode code points) and record it.
-- ADR 0003. Resource limits go on the wire (422), while business rules stay off it (CLAUDE.md §4.5). `normalize` discards model-produced values over a cap, so the server never returns a value its own request schema would reject. `ExtractionSchema` gets no caps (ADR 0001). Discard rather than truncate. The length definition from the spike. A **Future hardening** section listing authentication, per-user rate limits and quotas, provider spend limits with a workspace per environment, an on-topic guard step, second-order prompt injection and evals, each pointing to the unit or backlog item that owns it.
+- ADR 0004. Resource limits go on the wire (422), while business rules stay off it (CLAUDE.md §4.5). `normalize` discards model-produced values over a cap, so the server never returns a value its own request schema would reject. `ExtractionSchema` gets no caps (ADR 0001). Discard rather than truncate. The length definition from the spike. A **Future hardening** section listing authentication, per-user rate limits and quotas, provider spend limits with a workspace per environment, an on-topic guard step, second-order prompt injection and evals, each pointing to the unit or backlog item that owns it.
 - Cap constants exported from the contract and copied into `spec/generated/constants.json` with `MAX_REQUEST_BODY_BYTES`. They cover `message`, short text (`region`, `departure.city`, `gender`), `dateRange.note`, fixed `start`/`end`, and list counts and item lengths (`unmappedExperiences`, `experiences`, `people`). Set them well above any honest value.
 - `.max()` / `maxItems` on every string and array reachable from `TripProfile`, and on `ExtractRequest.message`. Every endpoint that accepts a profile gets the caps. Regenerate, and update CLAUDE.md §4.5.
 - `normalize` discards over-cap strings and list items and reports what it discarded.
@@ -332,12 +406,14 @@ WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequ
 **Definition of done**
 - Every string and array reachable from `TripProfile`, and `ExtractRequest.message`, is capped by a shared constant.
 - A test asserts that `normalize` output always parses against `TripProfile`, including from over-cap input.
-- ADR 0003 is accepted.
+- ADR 0004 is accepted.
 
 **Notes:**
 - From security planning: this is a contract change, so the review tier is Opus (CLAUDE.md §12, 4a).
 - `RecommendationSet` and `PresentationModel` strings are out of scope here; WU-10 and WU-11 cap them.
 - The web input's `maxlength` comes from the same constant (WU-13).
+- From WU-19: drop Python and Go from the spike. It still matters for TS: Zod `.max()` and Ajv `maxLength` may count length differently (UTF-16 code units vs code points), and `parity.test.ts` compares them. Settle the definition for those two, and state it in ADR 0004.
+- From WU-19: the normalize discard cases can be plain TS unit tests instead of `spec/fixtures/normalize/`, since no other backend needs to match them. Decide in this unit's plan, and record the reason.
 
 ---
 
@@ -375,6 +451,7 @@ WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequ
 - From WU-08: `tests/support/api-server.ts`'s `baseEnv` uses `test-model-*` model IDs and forces `LLM_MODE=replay`, and `pnpm record:cassettes` runs only the integration project. The model is part of the cassette key, so before recording any server-side cassette, switch `baseEnv` to the real §8.1 IDs and give recording a path to the spawned server. Recommended: `startApi` passes record mode and the key through when `recordingAllowed()`, and `record:cassettes` accepts `--project functional-api`. See [`llm-client.md`](features/llm-client.md) and the WU-08 implementation review (#3).
 - From WU-08: the routes need a seam to inject a mock `LlmClient` (`createMockLlmClient` + `mockObject` from `src/llm`) for the rule-fixture test. Build the real client with `createLlmClient(getConfig())`. An unresolvable cassette directory now fails there, not at startup ([plan](plans/WU-08.md), deviation 3).
 - From WU-08: this is the first unit where `next build` bundles `src/llm`, including `ai/test` through `mock.ts`. If that breaks the build or the bundle, keep `mock.ts` out of the route's import graph ([plan](plans/WU-08.md), R2).
+- From WU-19: this replaces the WU-07 rule-fixture note above. Still run every rule fixture through `/extract` with the mock `LlmClient`: assert the normalized profile is unchanged, and compare violations exactly and in order. Drop the `RULE-FIXTURE <file>/<id>` naming, the JUnit report and `tests/contract/rule-results.ts`; they exist only to compare backends (ADR 0003, "If a second backend is added").
 
 ---
 
@@ -399,7 +476,7 @@ WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequ
 - From security planning: WU-10 and WU-11 add cases for their stages (profile strings in `/recommend`, `recommendations` in `/present`).
 - Evals don't block merges, so a prompt change can weaken injection resistance between runs. The gated containment (WU-17 caps, the WU-09 prompt-data helper, output checks) bounds the damage either way.
 - Every run costs money, so get approval for its budget first.
-- If the results show the model is often fooled, consider the on-topic guard step from ADR 0003's Future hardening section.
+- If the results show the model is often fooled, consider the on-topic guard step from ADR 0004's Future hardening section.
 
 ---
 
@@ -558,6 +635,7 @@ WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequ
 - From the wire reorganization: when this unit is done, set the Journeys row to Built in the README's "How interchangeability is checked" table. WU-16 may then drop the Status column.
 - From WU-02: replace the `verify:integrated` and `verify:full` stubs. `test:journeys` already runs Playwright; drop its `--pass-with-no-tests` once journeys exist.
 - From WU-07: add `BACKEND=` selection to `scripts/run-contract.ts`; today it only starts api-nextjs, and `--external` covers any other backend.
+- From WU-19: this replaces the WU-07 `BACKEND=` note above. The stack script starts `api-nextjs` only, and `verify:full` runs journeys `@full` plus the provider contract tests against `api-nextjs`. The "How interchangeability is checked" table from the wire-reorganization note is replaced by WU-19's README section, so update that section instead.
 - From WU-08: add `record:cassettes --prune` to delete cassettes no test replays any more ([plan](plans/WU-08.md), R5). A dead-proxy "network off" check can't cover `test:contract`: Pact's native verifier routes even loopback requests through the proxy and ignores `NO_PROXY`, so use a real network-off run ([plan](plans/WU-08.md), deviation 7).
 
 ---
@@ -568,7 +646,7 @@ WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequ
 **Goal:** a reviewer understands the design in five minutes and can run it in ten.
 
 **Scope**
-- README: what it is, a quickstart, the architecture diagram, the test pyramid and how to run each gate, the polyglot roadmap, the cost-control approach
+- README: what it is, a quickstart, the architecture diagram, the test pyramid and how to run each gate, the design-and-tradeoffs section from WU-19, the cost-control approach
 - Contract docs (link to `spec/generated/openapi.yaml`)
 - Decision records index
 
@@ -579,9 +657,7 @@ WU-17 and WU-18 were added after WU-16 was planned, so their IDs are out of sequ
 ---
 
 ## Backlog (not scheduled)
-- `api-fastapi` implementation, verified by the same contract suite and journeys
-- `api-go` implementation, the same
-- `mobile-react-native` client, with its own consumer pact verified by every backend
+- `mobile-react-native` client, with its own consumer pact verified against the backend
 - Local Docker Pact Broker + `can-i-deploy`
-- Abuse controls from ADR 0003's Future hardening section (written in WU-17): authentication, per-user rate limits and quotas, provider spend limits with a workspace per environment, and an on-topic guard step (it may move into WU-18 if the evals show it's needed). Most need user identity or a deployed environment.
+- Abuse controls from ADR 0004's Future hardening section (written in WU-17): authentication, per-user rate limits and quotas, provider spend limits with a workspace per environment, and an on-topic guard step (it may move into WU-18 if the evals show it's needed). Most need user identity or a deployed environment.
 - Performance testing, once a deployed environment exists
