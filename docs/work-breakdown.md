@@ -25,7 +25,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-06 | `api-nextjs` skeleton | WU-04 | done |
 | WU-07 | Contract suite (provider side) | WU-05, WU-06 | done |
 | WU-08 | `LlmClient` with record / replay / mock | WU-03, WU-06 | done |
-| WU-19 | Refocus: spec-first, one implementation | WU-08 | todo |
+| WU-19 | Refocus: spec-first, one implementation | WU-08 | in-progress |
 | WU-17 | Input and output limits (prompt-injection hardening) | WU-05, WU-07, WU-19 | todo |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | todo |
 | WU-18 | Eval harness + adversarial cases | WU-09 | todo |
@@ -313,7 +313,7 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 ---
 
 ## WU-19 — Refocus: spec-first, one implementation
-**Status:** todo · **Depends on:** WU-08 · **Commits:**
+**Status:** in-progress · **Depends on:** WU-08 · **Commits:**
 
 **Goal:** cut the complexity that only pays off with a second backend, and keep what is worth having with one. The repo becomes a spec-first app with one TypeScript implementation. Portability stays a property of the design, checked by black-box tests, but it is no longer the headline or a planned deliverable. Anything removed here can come back if a second backend is ever built.
 
