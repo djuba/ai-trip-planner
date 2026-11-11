@@ -2,26 +2,37 @@
 // real processes against a throwaway git repo: commit-msg rejects/accepts messages, and the
 // gitleaks pre-commit scan blocks a staged secret (WU-02 DoD; CLAUDE.md §6.7, §10).
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
 const isWindows = process.platform === 'win32';
 
+/**
+ * This process's env without any GIT_* variable. A git hook (pre-push runs `pnpm verify`) exports
+ * GIT_DIR, GIT_INDEX_FILE and others, and an inherited one makes git, gitleaks and commitlint act
+ * on the real repository instead of the throwaway one. Windows env keys are case-insensitive.
+ */
+function childEnv(): NodeJS.ProcessEnv {
+  return Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^GIT_/i.test(key)));
+}
+
 function run(cmd: string, args: string[], cwd: string): SpawnSyncReturns<string> {
+  const env = childEnv();
   // pnpm is a .cmd shim on Windows, which needs a shell to launch. A shell gets one quoted
   // command string, never an argument list (Node DEP0190).
   const result =
     isWindows && cmd === 'pnpm'
       ? spawnSync([cmd, ...args.map((a) => `"${a}"`)].join(' '), {
           cwd,
+          env,
           encoding: 'utf8',
           shell: true,
         })
-      : spawnSync(cmd, args, { cwd, encoding: 'utf8' });
+      : spawnSync(cmd, args, { cwd, env, encoding: 'utf8' });
   if (result.error) throw result.error;
   return result;
 }
@@ -149,5 +160,46 @@ describe('pre-commit job: gitleaks', () => {
     const result = gitleaks(dir);
     expect(result.stdout + result.stderr).toMatch(/no leaks found/i);
     expect(result.status).toBe(0);
+  });
+});
+
+// Run from a worktree's pre-push hook, git exports GIT_DIR (and GIT_INDEX_FILE) pointing at the
+// real repository. On 2026-11-10 the inherited GIT_DIR made `git init` here set core.bare = true on
+// it and `git add` stage a stray config.ts. A sentinel repo stands in for the real one.
+describe('isolation from an inherited GIT_DIR', () => {
+  let sentinel: string;
+
+  beforeEach(() => {
+    sentinel = mkdtempSync(join(tmpdir(), 'vp-hooks-sentinel-'));
+    run('git', ['init', '--quiet'], sentinel);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    rmSync(sentinel, { recursive: true, force: true });
+  });
+
+  it('runs git and gitleaks against the throwaway repo, leaving the GIT_DIR repo untouched', () => {
+    vi.stubEnv('GIT_DIR', join(sentinel, '.git'));
+    vi.stubEnv('GIT_INDEX_FILE', join(sentinel, '.git', 'index'));
+
+    run('git', ['init', '--quiet'], dir);
+    writeFileSync(join(dir, 'config.ts'), `export const token = '${FAKE_GITHUB_PAT}';\n`);
+    run('git', ['add', 'config.ts'], dir);
+    const { cmd, args } = argv('pre-commit', 'gitleaks');
+    const scan = run(
+      cmd,
+      args.map((a) => (a.startsWith('scripts/') ? join(repoRoot, a) : a)),
+      dir,
+    );
+    vi.unstubAllEnvs();
+
+    expect(run('git', ['config', '--get', 'core.bare'], sentinel).stdout.trim()).toBe('false');
+    expect(run('git', ['ls-files'], sentinel).stdout).toBe('');
+    expect(existsSync(join(sentinel, 'config.ts'))).toBe(false);
+
+    // The secret is staged only in the throwaway repo, so finding it proves the scan looked there.
+    expect(scan.status).not.toBe(0);
+    expect(scan.stdout + scan.stderr).toMatch(/leaks found/i);
   });
 });
