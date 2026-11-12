@@ -7,6 +7,7 @@ import {
   checkPayloadTooLarge,
   checkSchemaFailure,
 } from '../conformance/checks/errors.ts';
+import { checkMessageCap, checkProfileCaps } from '../conformance/checks/limits.ts';
 import { checkHealth } from '../conformance/checks/health.ts';
 import { checkPresentStream } from '../conformance/checks/present.ts';
 import {
@@ -17,6 +18,7 @@ import {
   RECOMMEND_PATH,
 } from '../conformance/checks/requests.ts';
 import { checkExtractResponse, checkRecommendResponse } from '../conformance/checks/responses.ts';
+import { loadConstants } from '../support/artifacts.ts';
 import { ConformanceError } from '../support/schemas.ts';
 import {
   errorBody,
@@ -39,6 +41,7 @@ const ALL_CHECKS: Record<string, Check> = {
   recommendResponse: checkRecommendResponse,
   present: checkPresentStream,
   responsesCarryCors: (url) => checkResponsesCarryCors(url, ORIGIN),
+  messageCap: checkMessageCap,
   healthPreflight: (url) => checkPreflight(url, HEALTH_PATH, 'GET', ORIGIN),
   ...Object.fromEntries(
     POST_ENDPOINTS.flatMap(({ path }) => [
@@ -46,6 +49,7 @@ const ALL_CHECKS: Record<string, Check> = {
       [`schema ${path}`, (url: string) => checkSchemaFailure(url, path)] as const,
       [`413 ${path}`, (url: string) => checkPayloadTooLarge(url, path)] as const,
       [`preflight ${path}`, (url: string) => checkPreflight(url, path, 'POST', ORIGIN)] as const,
+      [`profile caps ${path}`, (url: string) => checkProfileCaps(url, path)] as const,
     ]),
   ),
 };
@@ -188,3 +192,88 @@ describe('AC-CONTRACT-09: valid variations pass', () => {
     await checkResponsesCarryCors(url, ORIGIN);
   });
 });
+
+describe('AC-LIMITS-11: the cap checks fail a backend that gets a cap wrong', () => {
+  const { maxMessageLength, maxShortTextLength, maxPeople } = loadConstants();
+
+  it('AC-LIMITS-11: a backend that ignores the message cap fails checkMessageCap', async () => {
+    const url = await fake({
+      hook: replace(
+        (r) => r.path === EXTRACT_PATH && !r.oversized,
+        (d) => okFor(EXTRACT_PATH, d),
+      ),
+    });
+    await expect(checkMessageCap(url)).rejects.toThrow(ConformanceError);
+  });
+
+  it('AC-LIMITS-11: a backend that counts UTF-16 units fails checkMessageCap', async () => {
+    const url = await fake({
+      hook: replace(
+        (r) => r.path === EXTRACT_PATH && messageOf(r).length > maxMessageLength,
+        (d) => errorResponse(d, 422, 'VALIDATION_FAILED'),
+      ),
+    });
+    await expect(checkMessageCap(url)).rejects.toThrow(ConformanceError);
+  });
+
+  const overCap: Record<string, (profile: ProfileProbe | undefined) => boolean> = {
+    region: (p) => typeof p?.region === 'string' && [...p.region].length > maxShortTextLength,
+    people: (p) => Array.isArray(p?.people) && p.people.length > maxPeople,
+  };
+
+  describe.each(POST_ENDPOINTS)('$path', ({ path }) => {
+    it.each(Object.keys(overCap))(
+      'AC-LIMITS-11: a backend that ignores the %s cap fails checkProfileCaps',
+      async (field) => {
+        const ignores = overCap[field];
+        if (!ignores) throw new Error(`no probe for ${field}`);
+        const url = await fake({
+          hook: (req, def) =>
+            req.path === path && ignores(profileOf(req)) ? okFor(path, def) : def,
+        });
+        // The at-cap probe must still pass, so the failure is the ignored cap, not a bad body.
+        await expect(checkProfileCaps(url, path)).rejects.toThrow(/expected 422, got 200/);
+      },
+    );
+  });
+});
+
+function messageOf(req: FakeRequest): string {
+  try {
+    const { message } = JSON.parse(req.bodyText) as { message?: unknown };
+    return typeof message === 'string' ? message : '';
+  } catch {
+    return '';
+  }
+}
+
+interface ProfileProbe {
+  region?: unknown;
+  people?: unknown;
+}
+
+function profileOf(req: FakeRequest): ProfileProbe | undefined {
+  try {
+    const body = JSON.parse(req.bodyText) as { currentProfile?: unknown; profile?: unknown };
+    return (body.currentProfile ?? body.profile) as ProfileProbe | undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** A conformant 200 for `path`, as a backend that skipped a cap check would send it. */
+function okFor(path: string, def: FakeResponse): FakeResponse {
+  if (path === PRESENT_PATH) {
+    return {
+      ...def,
+      status: 200,
+      headers: { ...def.headers, 'content-type': 'text/plain; charset=utf-8' },
+      chunks: [JSON.stringify({ headline: 'h', intro: 'i', cards: [] })],
+    };
+  }
+  const body =
+    path === RECOMMEND_PATH
+      ? { recommendations: [], critique: { pass: true, unresolved: [] } }
+      : { status: 'ready', profile: {} };
+  return { ...def, status: 200, chunks: [JSON.stringify(body)] };
+}
