@@ -18,7 +18,7 @@ So a `departure` whose only field was an over-long `city` disappears entirely, e
 
 ## Definitions
 
-**Length.** A string's length is its number of Unicode code points. A lone surrogate counts as one. This is also what `maxLength` means in the generated schemas (JSON Schema counts characters per RFC 8259). It is not the number of UTF-16 code units, so `🌴` has length 1, and it is not the number of graphemes, so `e` followed by U+0301 has length 2.
+**Length.** A string's length is its number of Unicode code points. A lone surrogate counts as one. This is also what `maxLength` means in the generated schemas (JSON Schema counts characters per RFC 8259). It is not the number of UTF-16 code units, so `🌴` has length 1, and it is not the number of graphemes, so `e` followed by U+0301 has length 2. One fixture (`region-at-cap-lone-surrogates`) holds unpaired surrogates, written as JSON `\ud83c` escapes. RFC 8259 leaves their handling to the parser, and some reject them or replace them with U+FFFD, so an implementation whose JSON parser does that may skip that case.
 
 **Over a cap.** A string is over its cap when its length is greater than the cap. A list is over its cap when it has more items than the cap. A value exactly at its cap is kept.
 
