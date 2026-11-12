@@ -58,6 +58,3 @@ export type ClaimKind = z.infer<typeof ClaimKind>;
 /** §7 factual honesty: there is no live data source, so a claim is unverified or fixture-backed. */
 export const Verification = z.enum(['unverified', 'fixture']);
 export type Verification = z.infer<typeof Verification>;
-
-export const BackendName = z.enum(['nextjs', 'fastapi', 'go']);
-export type BackendName = z.infer<typeof BackendName>;

@@ -1,6 +1,6 @@
 // Request and response bodies of the v1 HTTP API (CLAUDE.md §5).
 import { z } from 'zod';
-import { BackendName, ErrorCode } from '../models/enums.ts';
+import { ErrorCode } from '../models/enums.ts';
 import { CritiqueIssue, Recommendation } from '../models/recommendation.ts';
 import { RuleViolation } from '../models/rule-violation.ts';
 import { TripProfile } from '../models/trip-profile.ts';
@@ -47,7 +47,6 @@ export type PresentRequest = z.infer<typeof PresentRequest>;
 
 export const HealthResponse = z.object({
   status: z.literal('ok'),
-  backend: BackendName,
   contractVersion: z.string().min(1),
 });
 export type HealthResponse = z.infer<typeof HealthResponse>;

@@ -7,9 +7,6 @@
       "type": "string",
       "const": "ok"
     },
-    "backend": {
-      "$ref": "BackendName.schema.json"
-    },
     "contractVersion": {
       "type": "string",
       "minLength": 1
@@ -17,7 +14,6 @@
   },
   "required": [
     "status",
-    "backend",
     "contractVersion"
   ]
 }

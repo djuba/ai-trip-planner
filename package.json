@@ -1,5 +1,5 @@
 {
-  "name": "vacation-planner-polyglot",
+  "name": "ai-trip-planner",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -27,7 +27,7 @@
     "test:journeys": "pnpm --filter @vp/journeys test",
     "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm gen:check && pnpm audit:prod && pnpm test:coverage && pnpm test:functional && pnpm test:contract",
     "verify:integrated": "node scripts/skip.mjs \"integrated gate (build all, start stack, journeys @smoke + @critical)\" WU-15",
-    "verify:full": "node scripts/skip.mjs \"full gate (journeys @full and provider contracts on every backend)\" WU-15"
+    "verify:full": "node scripts/skip.mjs \"full gate (journeys @full and provider contracts against api-nextjs)\" WU-15"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",

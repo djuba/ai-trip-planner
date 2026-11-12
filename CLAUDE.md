@@ -1,32 +1,31 @@
-# CLAUDE.md — AI Vacation Planner (Polyglot Monorepo)
+# CLAUDE.md — AI Trip Planner
 
 Governs every build session. When this file conflicts with a recalled habit, this file wins. When it conflicts with the user's latest instruction, ask.
 
 ## 1. What this project is
 
-A portfolio app that turns natural-language travel requests into structured, validated vacation recommendations. Its main goal is to learn and demonstrate several tech stacks, which works because each side of the system is interchangeable behind one HTTP contract. A TypeScript, Python (FastAPI) or Go backend can serve the web client without any frontend change, and the same contract leaves room for more clients, such as a future React Native app. It's also a good showcase for LLM integration: travel requests are messy and open-ended, so a model turns them into structured data, while ordinary code validates that data and decides what happens next. A real product would likely run the other way, with one backend and several clients.
+A portfolio app that turns natural-language travel requests into structured, validated vacation recommendations. It's a showcase for LLM integration: travel requests are messy and open-ended, so a model turns them into structured data, while ordinary code validates that data and decides what happens next.
 
-**Portability is proven by tests, not by intent.** A backend is "conformant" only when it passes the contract suite in `tests/contract` (see §6.5).
+It is built **spec-first, with one implementation** ([ADR 0003](docs/decisions/0003-spec-first-one-implementation.md)). The HTTP contract, the business rules and their examples live as language-neutral files in `spec/`. One TypeScript backend (`backends/api-nextjs`) implements them, and a Next.js web client talks to it over HTTP only. The provider contract tests (§6.5) are black-box: they check the running backend against the spec over HTTP, so another implementation could be checked the same way, and a client can read the spec. No other implementation is planned, so portability stays unproven.
+
+**Conformance is proven by tests, not by intent.** The backend conforms only when it passes the provider contract tests in `tests/contract` and the rule-fixture tests through `/extract` (see §6.5).
 
 ## 2. Repository layout
 
 ```
-vacation-planner-polyglot/
+ai-trip-planner/
 ├── apps/
-│   ├── web-nextjs/              # Next.js App Router client. Talks HTTP only.
-│   │   └── tests/functional/    # Playwright, API mocked at the network edge
-│   └── mobile-react-native/     # future — README + .gitkeep only until started
+│   └── web-nextjs/              # Next.js App Router client. Talks HTTP only.
+│       └── tests/functional/    # Playwright, API mocked at the network edge
 ├── backends/
-│   ├── api-nextjs/              # TS reference backend (Route Handlers only)
-│   │   └── tests/{integration,functional}/  # unit tests sit beside the code (§6.3)
-│   ├── api-fastapi/             # future — README + .gitkeep only until started
-│   └── api-go/                  # future — README + .gitkeep only until started
+│   └── api-nextjs/              # The TypeScript backend (Route Handlers only)
+│       └── tests/{integration,functional}/  # unit tests sit beside the code (§6.3)
 ├── packages/
 │   └── domain-schema/           # TS source of the contract; generates spec/ (see §4)
 │       ├── src/wire/            # Zod schemas: http/ (bodies), models/ (shared), llm/ (model-only)
 │       ├── src/rules/           # TS implementation of invariant rules (backend-only)
 │       └── tests/support/       # TS test helpers (buildFixture, fixture loader, samples)
-├── spec/                        # LANGUAGE-NEUTRAL SPEC: what every backend must satisfy (see §4)
+├── spec/                        # LANGUAGE-NEUTRAL SPEC: what the backend must satisfy (see §4)
 │   ├── generated/               # JSON Schema + openapi.yaml + constants.json — generated, COMMITTED
 │   ├── rules.md                 # Invariant catalog (source of truth for rules)
 │   └── fixtures/                # Rule cases: input JSON → expected output JSON
@@ -69,10 +68,10 @@ vacation-planner-polyglot/
 
 ## 4. The contract (`packages/domain-schema` → `spec/`)
 
-The contract has two homes. `packages/domain-schema` is the TS package where shapes are written and the rules are implemented for TS backends. `spec/` holds everything language-neutral: the generated schemas and constants, the rule catalog and the rule fixtures. Other languages read `spec/` as plain files and never depend on the TS package. (`contracts/pacts/` and `tests/contract/` are contract *testing*, §6.5.)
+The contract has two homes. `packages/domain-schema` is the TS package where shapes are written and the rules are implemented. `spec/` holds everything language-neutral: the generated schemas and constants, the rule catalog and the rule fixtures. Anything outside TypeScript (a client generator, API docs, the provider contract tests) reads `spec/` as plain files and never depends on the TS package. (`contracts/pacts/` and `tests/contract/` are contract *testing*, §6.5.)
 
 ### 4.1 Source of truth
-- **Shapes:** Zod in `packages/domain-schema/src/wire/` is where shapes are written. `z.toJSONSchema()` emits `spec/generated/*.schema.json` and `spec/generated/openapi.yaml`. Python/Go generate their models from `spec/generated/`, never from TS. Schemas only a model fills in (`src/wire/llm/`) never cross HTTP, so they get a `.schema.json` but stay out of `openapi.yaml`.
+- **Shapes:** Zod in `packages/domain-schema/src/wire/` is where shapes are written. `z.toJSONSchema()` emits `spec/generated/*.schema.json` and `spec/generated/openapi.yaml`. Code in another language generates its models from `spec/generated/`, never from TS. Schemas only a model fills in (`src/wire/llm/`) never cross HTTP, so they get a `.schema.json` but stay out of `openapi.yaml`.
 - **Invariants:** `spec/rules.md` is the source of truth. Each rule has a stable code, a plain-English definition, and fixture cases in `spec/fixtures/rules/`. `packages/domain-schema/src/rules/` is just the TS implementation of it.
 - **Use only JSON-Schema-expressible constructs in wire schemas:** no `.transform()`, `.refine()`, `.superRefine()`, `z.date()`, `z.bigint()`, or `.default()` that changes meaning. Cross-field rules go in `src/rules/`, never in the wire schema.
 
@@ -134,7 +133,7 @@ Rules never throw. Each violation is `{ code, path, params }`: `path` is a JSON 
 `referenceDate` is supplied in the request (client's local date), so rules stay deterministic and testable. Backends never read the system clock inside rules.
 
 ### 4.7 "Populated field" — exact definition
-A top-level field counts as populated when it is: a non-empty trimmed string (trimming means Unicode `White_Space`, see `spec/rules.md`); a `departure` with a non-empty trimmed `city`; a `dateRange` of kind `fixed`, or `flexible` with at least `month` or `year`; or a non-empty array (`experiences`, `people`). `unmappedExperiences` never counts. `MIN_POPULATED_FIELDS = 3`, and it is exported as a constant from the contract (and copied into `spec/generated/constants.json`) so all backends share it.
+A top-level field counts as populated when it is: a non-empty trimmed string (trimming means Unicode `White_Space`, see `spec/rules.md`); a `departure` with a non-empty trimmed `city`; a `dateRange` of kind `fixed`, or `flexible` with at least `month` or `year`; or a non-empty array (`experiences`, `people`). `unmappedExperiences` never counts. `MIN_POPULATED_FIELDS = 3`, and it is exported as a constant from the contract (and copied into `spec/generated/constants.json`), so every reader of the spec uses the same value.
 
 ## 5. HTTP API (v1)
 
@@ -147,7 +146,7 @@ Base path `/v1`. JSON only. CORS allows `WEB_ORIGIN` (default `http://localhost:
 | `POST /v1/trip/extract` | `{ message, currentProfile?, referenceDate }` | `ExtractResponse` (below) |
 | `POST /v1/trip/recommend` | `{ profile, referenceDate }` | `RecommendResponse` (critic already applied) |
 | `POST /v1/trip/present` | `{ profile, recommendations }` | **stream**: `text/plain` partial-JSON stream of `PresentationModel` |
-| `GET  /v1/health` | — | `{ status, backend: 'nextjs' \| 'fastapi' \| 'go', contractVersion }` |
+| `GET  /v1/health` | — | `{ status, contractVersion }` |
 
 ```ts
 ExtractResponse =
@@ -163,7 +162,7 @@ Status codes: `200` = handled (including `needs_clarification`); `413` = request
 
 **Every behavior is tested at the lowest layer that can prove it.** The suite has two boundaries:
 
-- **Project tests** (unit, integration, functional, contract) prove one deployable unit (`web-nextjs` or one backend) in isolation. These are many and fast, and they run on every `pnpm verify`.
+- **Project tests** (unit, integration, functional, contract) prove one deployable unit (`web-nextjs` or `api-nextjs`) in isolation. These are many and fast, and they run on every `pnpm verify`.
 - **Journey tests** prove the whole system from the user's point of view. These are deliberately few and run against the fully integrated local stack.
 
 Contract tests are what let the journey suite stay small. Never add a journey test for something a cheaper layer can prove.
@@ -213,20 +212,22 @@ Coverage is a floor, not a goal (Vitest, v8 provider, unit + integration combine
 - Thresholds are enforced in `pnpm verify`. Never lower one to make a build pass; add the missing test.
 
 ### 6.5 Contract tests (the linchpin)
+The **provider contract tests** are the two halves below. Both are black-box: they reach the backend only over HTTP at a URL, read only `spec/generated/` and pact files (`contracts/pacts/`, plus the suite's own wiring pact), and import no workspace code (lint enforced). So they judge the contract, not the implementation, and `pnpm test:contract:external` can point them at any running backend, such as a deployed one. Other tests are not provider contract tests: the web client's consumer Pact tests check the client's side; the rule fixtures through `/extract` (below) are white-box, running in-process with a mock `LlmClient`; and the journeys (§6.6) test user flows, not the contract.
+
 Two complementary halves:
 
-1. **Consumer-driven (Pact):** web API-client tests run against a Pact mock server and write `contracts/pacts/web-nextjs-vacation-api.json` (committed). `tests/contract/pact-verify.test.ts` replays that pact against **any** backend at `API_BASE_URL`. The Pact verifier is language-neutral, so the FastAPI and Go backends are verified by the same pact without rewriting the tests.
-2. **Schema-first conformance:** `tests/contract/conformance/**` drives the backend under test over HTTP and validates responses against `spec/generated/*.schema.json` with Ajv. It is black-box: it reads only generated JSON and imports no workspace code (lint enforced). It covers what Pact handles poorly: health and `contractVersion`, 422 shape errors, 413 at `MAX_REQUEST_BODY_BYTES`, response schemas, `needs_clarification` vs `ready` routing, CORS, and the `/present` stream ending in a valid `PresentationModel`. Checks require only what §5 specifies (e.g. any 2xx preflight, media types without parameters), so a correct backend in any language passes.
+1. **Consumer-driven (Pact):** web API-client tests run against a Pact mock server and write `contracts/pacts/web-nextjs-vacation-api.json` (committed). `tests/contract/pact-verify.test.ts` replays that pact against the backend at `API_BASE_URL`. The Pact verifier is language-neutral, so the same pact would verify any implementation unchanged.
+2. **Schema-first conformance:** `tests/contract/conformance/**` drives the backend under test over HTTP and validates responses against `spec/generated/*.schema.json` with Ajv. It covers what Pact handles poorly: health and `contractVersion`, 422 shape errors, 413 at `MAX_REQUEST_BODY_BYTES`, response schemas, `needs_clarification` vs `ready` routing, CORS, and the `/present` stream ending in a valid `PresentationModel`. Checks require only what §5 specifies (e.g. any 2xx preflight, media types without parameters), so they judge the contract, not how api-nextjs happens to meet it.
 
-**Rule parity** ([ADR 0002](docs/decisions/0002-rule-parity-across-backends.md)): each backend's integration suite sends every `spec/fixtures/rules` case through its real `/extract` HTTP path, with a mock `LlmClient` returning the fixture's profile. It asserts that the normalized profile equals the fixture's profile, compares violations exactly and in order, and titles each test `RULE-FIXTURE <file>/<id>`. A shared script in `tests/contract/` reads the backend's JUnit XML report and fails unless every fixture `id` passed. The comparison's strictness is the one thing no test checks, so each language uses one shared fixture helper and code review covers it.
+**Rule fixtures through HTTP** ([ADR 0003](docs/decisions/0003-spec-first-one-implementation.md)): api-nextjs's integration suite sends every `spec/fixtures/rules` case through its real `/extract` HTTP path, with a mock `LlmClient` returning the fixture's profile. It asserts that the normalized profile equals the fixture's profile, and compares violations exactly and in order. The fixtures are the rule catalog's executable examples, so this proves serialization and `ready` vs `needs_clarification` routing for every one.
 
-A backend runs both halves with `LLM_MODE=replay`, and its rule-fixture results pass the shared check, before it counts as conformant. There is no broker yet: pact files are committed and verification runs locally. `can-i-deploy` with a local Docker Pact Broker is an optional later phase.
+The backend runs both halves with `LLM_MODE=replay`, and passes the rule-fixture tests, before it counts as conformant. There is no broker yet: pact files are committed and verification runs locally. `can-i-deploy` with a local Docker Pact Broker is an optional later phase.
 
 **Contract testing uses only open-source, local tooling: no subscriptions, accounts or hosted services.** PactFlow, including its bi-directional contract testing (BDCT), is out of scope. The schema-first conformance suite is this repo's replacement for BDCT; do not add PactFlow or any hosted broker.
 
 ### 6.6 Journey tests
 - They live in `tests/journeys/`, a workspace package that **must not import** from `apps/`, `backends/` or `packages/`; it only drives a browser against URLs. (In a larger organization this would be a separate repo; here an isolated workspace keeps the same boundary.)
-- They run against the fully integrated local stack (`web-nextjs` + `BACKEND=nextjs|fastapi|go`, `LLM_MODE=replay`), so the same journeys prove every backend end to end.
+- They run against the fully integrated local stack (`web-nextjs` + `api-nextjs`, `LLM_MODE=replay`).
 - **Two tag dimensions only:**
   - **area:** `@clarification`, `@recommendation`, `@presentation`
   - **criticality:** `@smoke`, `@critical`, `@full`
@@ -247,7 +248,7 @@ A backend runs both halves with `LLM_MODE=replay`, and its rule-fixture results 
 | Pre-commit | (lefthook) | lint + format on staged files, `gitleaks` secret scan | `pre-commit` |
 | **Project gate** (≈ MR) | `pnpm verify` | typecheck, lint, `gen` drift check (no diff in `spec/generated/`), `pnpm audit --prod`, unit, integration, functional, contract (consumer + provider vs. api-nextjs), coverage thresholds | `pre-push` |
 | **Integrated gate** (≈ deploy) | `pnpm verify:integrated` | build all, start the full stack, journeys `@smoke` + `@critical` | manual / before tagging a release |
-| **Full** (≈ nightly) | `pnpm verify:full` | journeys `@full` across every implemented backend; provider contract tests against every implemented backend | manual |
+| **Full** (≈ nightly) | `pnpm verify:full` | journeys `@full`; provider contract tests against api-nextjs | manual |
 
 Each gate is a single command. **GitHub Actions mirrors the project gate** on every PR and push to `main`: `.github/workflows/verify.yml`, job `verify`, which is the required status check for merging (§10). The local gates stay the source of truth, and CI runs the same command. CI never holds secrets: gated tests never call a live LLM (§6.1). The integrated and full gates stay local. Performance testing is out of scope until there is a deployed environment; until then, per-stage latency is logged (§7.3).
 
@@ -302,17 +303,16 @@ Verified against `ai 7.0.154` / `@ai-sdk/anthropic 4.0.89`. Re-check the ADR on 
 - **Dependency rule (lint enforced):** `src/usecases/` owns the `LlmClient` interface and must not import `next`, `ai`, `@ai-sdk/*` or `src/llm/`. `src/llm/` implements the interface. Tests are exempt, so they can use the AI SDK mock model.
 - UI: Tailwind + shadcn/ui only. **No inline `style={}`**, no CSS-in-JS.
 - Secrets in `.env.local` (git-ignored); `.env.example` is committed and kept current. Cassettes must never contain API keys; the recorder strips auth headers, and `gitleaks` runs on commit.
-- Do not write placeholder implementations for `api-fastapi`/`api-go`/`mobile-react-native` until asked; keep them to a README stating the contract they must satisfy (§6.5).
 - A change is not done until its tests exist at the right layer (§6.2–6.3) and `pnpm verify` passes. Report failing tests honestly, with output.
 
 ## 10. Commits & history
 
-**Conventional Commits, enforced** with `commitlint` (`@commitlint/config-conventional`) and `lefthook` (`commit-msg`, `pre-commit` and `pre-push` hooks; lefthook is language-agnostic, so it keeps working once Python/Go join).
+**Conventional Commits, enforced** with `commitlint` (`@commitlint/config-conventional`) and `lefthook` (`commit-msg`, `pre-commit` and `pre-push` hooks).
 
 Format: `type(scope): imperative summary` — ≤72 chars, lowercase type.
 
 - **Types:** `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `build`, `ci`, `chore`
-- **Scopes (enforced list):** `web`, `api-nextjs`, `api-fastapi`, `api-go`, `domain-schema`, `contract`, `journeys`, `usecases`, `repo`
+- **Scopes (enforced list):** `web`, `api-nextjs`, `domain-schema`, `contract`, `journeys`, `usecases`, `repo`
 - **Breaking contract changes:** `feat(domain-schema)!: …` plus a `BREAKING CHANGE:` footer, and bump `contractVersion`.
 - One logical change per commit. Tests go in the same commit as the behavior they cover. Regenerate `spec/generated/` and re-record affected cassettes/pacts in the same commit as the change that caused them.
 - Never commit without the user's explicit approval of the specific changes (§12). Commit messages end with the attribution trailer configured for the session.

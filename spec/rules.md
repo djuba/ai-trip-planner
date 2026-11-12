@@ -1,6 +1,6 @@
 # Rule catalog
 
-The language-neutral source of truth for the business rules. Every backend implements these and must produce the violations in `fixtures/rules/`. `packages/domain-schema/src/rules/` is the TypeScript implementation; if the two disagree, this file wins.
+The language-neutral source of truth for the business rules. The backend implements these and must produce the violations in `fixtures/rules/`, the rules' executable examples. `packages/domain-schema/src/rules/` is the TypeScript implementation; if the two disagree, this file wins.
 
 ## How rules work
 

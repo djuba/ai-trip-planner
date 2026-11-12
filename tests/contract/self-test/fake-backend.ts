@@ -69,7 +69,6 @@ function defaults(): Record<string, string> {
   return {
     health: validated('HealthResponse', {
       status: 'ok',
-      backend: 'nextjs',
       contractVersion: loadConstants().contractVersion,
     }),
     extract: validated('ExtractResponse', { status: 'ready', profile: PROFILE }),

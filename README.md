@@ -1,6 +1,8 @@
-# AI Vacation Planner (polyglot monorepo)
+# AI Trip Planner
 
-A portfolio app that turns natural-language travel requests into structured, validated vacation recommendations. Its main goal is to learn and demonstrate several tech stacks, which works because each side of the system is interchangeable behind one HTTP contract. A TypeScript, Python (FastAPI) or Go backend can serve the web client without any frontend change, and the same contract leaves room for more clients, such as a future React Native app. It's also a good showcase for LLM integration: travel requests are messy and open-ended, so a model turns them into structured data, while ordinary code validates that data and decides what happens next. A real product would likely run the other way, with one backend and several clients. A backend counts as interchangeable only when it passes the contract test suite.
+A portfolio app that turns natural-language travel requests into structured, validated vacation recommendations. It's a showcase for LLM integration: travel requests are messy and open-ended, so a model turns them into structured data, while ordinary code validates that data and decides what happens next.
+
+It's built spec-first. The HTTP contract, the business rules and worked examples of each rule live as language-neutral files in `spec/`. One TypeScript backend implements them, and a Next.js web client talks to it over HTTP only. The provider contract tests check the running backend against the spec over HTTP, without importing any of its code.
 
 ## From natural language to recommendations
 
@@ -20,19 +22,37 @@ For example, "Somewhere warm" populates only one field, so the rules ask for mor
 
 Model output is treated as untrusted input: every response is checked against its schema, and invented specifics such as flight details must be labeled as unverified. There's no live flight or hotel data.
 
-## How interchangeability is checked
+## Design and tradeoffs
+
+See [ADR 0003](docs/decisions/0003-spec-first-one-implementation.md) for the decision record.
+
+**Why the spec is language-neutral.** The contract is published as plain files: JSON Schema, OpenAPI and a constants file in `spec/generated/`, plus a Markdown rule catalog (`spec/rules.md`) with JSON examples (`spec/fixtures/rules/`). These files are the API docs any client can read. The contract tests read only them, so the tests check the contract rather than how the TypeScript code happens to meet it, and they can check a deployed backend too.
+
+**What it costs.** Shapes are written once in Zod and generated into `spec/generated/`, so the generated files need a drift check, and a parity test keeps Zod and JSON Schema in agreement. Wire schemas are limited to what JSON Schema can express, so cross-field checks live in the rules instead. A test keeps the rule catalog and its examples in step, and the TypeScript tests need a loader (`packages/domain-schema/tests/support/rule-fixtures.ts`) that reads and validates the JSON examples.
+
+**What isn't proven.** Portability. The spec is written so that another backend could implement it, and the provider contract tests (the Conformance and Pact rows below) are black-box, so they would judge one unchanged. But there's only one implementation, so nothing shows a second one would pass.
+
+**Patterns used**
+
+| Pattern | Here |
+|---|---|
+| Spec-first (contract-first) API design | Shapes are written in `packages/domain-schema` and generated into `spec/generated/` before endpoints implement them |
+| Specification by Example | Each rule in `spec/rules.md` has worked examples in `spec/fixtures/rules/` that run as tests. It's the idea under BDD, without Gherkin scenarios written with the business |
+| Shared test vectors | The same rule examples drive the rules' unit tests and, from WU-09, the `/extract` HTTP tests |
+| Consumer-driven contracts | Pact: the web client's tests write the pact, and the backend is verified against it |
+| Ports and adapters | `src/usecases/` owns the `LlmClient` port; `src/llm/` holds the adapters (AI SDK with record/replay, and a mock) |
+
+**How the design is checked**
 
 | Check | What it confirms | Where | Status |
 |---|---|---|---|
 | Import boundaries | The web app can't import backend code or `rules` | `eslint.config.js`, `scripts/tests/integration/lint-boundaries.test.ts` | Built |
 | Drift check | The generated files match the Zod schemas | `pnpm --filter @vp/domain-schema gen:check` | Built |
 | Schema parity | Zod and the generated JSON Schema accept and reject the same payloads | `packages/domain-schema/src/wire/parity.test.ts` | Built |
-| Shared rule cases | Every backend returns the same violations for the same rule test cases | `spec/fixtures/rules/`; each backend's `/extract` integration tests, checked by their JUnit results ([ADR 0002](docs/decisions/0002-rule-parity-across-backends.md)) | Cases built; TypeScript runs them as unit tests. HTTP tests and results check planned (WU-09) |
-| Conformance suite | A backend's responses match the contract | `tests/contract/conformance/`, run by `pnpm test:contract` | Built; runs against stub endpoints until WU-09–11 |
-| Pact | A backend does what the web client expects | `contracts/pacts/`, `tests/contract/pact-verify.test.ts` | Verifier built; consumer pacts planned (WU-12) |
+| Rule examples | The rules return exactly the cataloged violations for every example | `spec/fixtures/rules/`, run by the rules' unit tests and through `/extract` | Unit tests built; `/extract` tests planned (WU-09) |
+| Conformance suite | The running backend's responses match the contract | `tests/contract/conformance/`, run by `pnpm test:contract` (or `test:contract:external` for any running backend) | Built; runs against stub endpoints until WU-09–11 |
+| Pact | The backend does what the web client expects | `contracts/pacts/`, `tests/contract/pact-verify.test.ts` | Verifier built; consumer pacts planned (WU-12) |
 | Journeys | The whole system works from the user's side | `tests/journeys/` | Planned (WU-15) |
-
-Only the TypeScript backend is planned so far, and FastAPI and Go are in the backlog. So interchangeability isn't proven yet: these checks are what a second backend would have to pass.
 
 ## Prerequisites
 
@@ -92,7 +112,7 @@ ESLint import rules and the package `exports` map enforce the boundaries that pr
 | Integration | `<project>/tests/integration/` |
 | Functional | `<project>/tests/functional/` |
 | Helpers shared within a project | `<project>/tests/support/` |
-| Contract, across backends | `tests/contract/` |
+| Provider contract tests, black-box against the running backend | `tests/contract/` |
 | Journeys, across the whole system | `tests/journeys/` |
 
 ## Documentation

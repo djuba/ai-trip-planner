@@ -40,6 +40,7 @@ describe('commit messages', () => {
     ['unknown type', 'style(web): reformat', 'type-enum'],
     ['missing scope', 'feat: add trip form', 'scope-empty'],
     ['unknown scope', 'feat(frontend): add trip form', 'scope-enum'],
+    ['removed scope', 'feat(api-go): add health route', 'scope-enum'],
     ['uppercase type', 'Feat(web): add trip form', 'type-case'],
     ['header over 72 chars', `feat(web): ${'a'.repeat(62)}`, 'header-max-length'],
   ])('rejects %s', async (_label, message, rule) => {

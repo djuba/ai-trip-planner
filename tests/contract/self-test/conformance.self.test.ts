@@ -89,7 +89,7 @@ describe('AC-CONTRACT-09: a single non-conformant response fails the matching ch
         (r) => r.path === HEALTH_PATH,
         (d) => ({
           ...d,
-          chunks: [JSON.stringify({ status: 'ok', backend: 'nextjs', contractVersion: '0.0.0' })],
+          chunks: [JSON.stringify({ status: 'ok', contractVersion: '0.0.0' })],
         }),
       ),
     });

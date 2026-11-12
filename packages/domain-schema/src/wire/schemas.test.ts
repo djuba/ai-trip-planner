@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CONTRACT_SCHEMAS } from '../../gen/registry.ts';
 import { SAMPLES } from '../../tests/support/samples.ts';
-import { EXPERIENCES, RuleCode, RuleViolation } from './index.ts';
+import { EXPERIENCES, HealthResponse, RuleCode, RuleViolation } from './index.ts';
 
 const ids = Object.keys(CONTRACT_SCHEMAS) as (keyof typeof CONTRACT_SCHEMAS)[];
 
@@ -32,6 +32,10 @@ describe.each(ids)('%s', (id) => {
 });
 
 describe('contract vocabulary', () => {
+  it('HealthResponse has only status and contractVersion (no backend name)', () => {
+    expect(Object.keys(HealthResponse.shape)).toEqual(['status', 'contractVersion']);
+  });
+
   it('RuleViolation discriminates on exactly the RuleCode values', () => {
     const codes = RuleViolation.options.map((option) => option.shape.code.value);
     expect([...codes].sort()).toEqual([...RuleCode.options].sort());

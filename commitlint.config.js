@@ -8,8 +8,6 @@ export const TYPES = ['feat', 'fix', 'refactor', 'perf', 'test', 'docs', 'build'
 export const SCOPES = [
   'web',
   'api-nextjs',
-  'api-fastapi',
-  'api-go',
   'domain-schema',
   'contract',
   'journeys',

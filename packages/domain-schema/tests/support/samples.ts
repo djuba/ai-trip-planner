@@ -73,7 +73,6 @@ export const SAMPLES: Record<ContractSchemaId, SampleSet> = {
   },
   ClaimKind: { valid: ['flight', 'other'], invalid: ['hotel', null] },
   Verification: { valid: ['unverified', 'fixture'], invalid: ['verified', null] },
-  BackendName: { valid: ['nextjs', 'fastapi', 'go'], invalid: ['rails', null] },
   Departure: {
     valid: [
       {},
@@ -415,15 +414,14 @@ export const SAMPLES: Record<ContractSchemaId, SampleSet> = {
   },
   HealthResponse: {
     valid: [
-      { status: 'ok', backend: 'nextjs', contractVersion: '0.1.0' },
-      { status: 'ok', backend: 'go', contractVersion: '1.0.0' },
+      { status: 'ok', contractVersion: '0.1.0' },
+      { status: 'ok', contractVersion: '1.0.0' },
     ],
     invalid: [
-      { status: 'ok', backend: 'rails', contractVersion: '0.1.0' },
-      { status: 'degraded', backend: 'nextjs', contractVersion: '0.1.0' },
-      { status: 'ok', backend: 'nextjs', contractVersion: '' },
-      { status: 'ok', backend: 'nextjs' },
-      { status: 'ok', contractVersion: '0.1.0' },
+      { status: 'degraded', contractVersion: '0.1.0' },
+      { status: 'ok', contractVersion: '' },
+      { status: 'ok' },
+      { contractVersion: '0.1.0' },
     ],
   },
   ErrorResponse: {

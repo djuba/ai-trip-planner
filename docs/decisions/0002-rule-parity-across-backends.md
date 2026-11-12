@@ -1,6 +1,6 @@
 # ADR 0002 — Proving rule parity across backends
 
-**Status:** accepted · **Date:** 2026-11-08 · **Work unit:** WU-07 · **Plan:** [WU-07](../plans/WU-07.md)
+**Status:** accepted; superseded in part by [ADR 0003](0003-spec-first-one-implementation.md), which drops the cross-backend parts (the JUnit results check and `RULE-FIXTURE` naming) and keeps the fixtures-through-`/extract` test · **Date:** 2026-11-08 · **Work unit:** WU-07 · **Plan:** [WU-07](../plans/WU-07.md)
 
 ## Context
 

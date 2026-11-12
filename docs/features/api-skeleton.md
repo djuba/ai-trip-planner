@@ -6,7 +6,7 @@ The cap in AC-API-04 is `MAX_REQUEST_BODY_BYTES`, shared through `spec/generated
 
 ## Health
 
-**AC-API-01.** Given the server is running, when a client calls `GET /v1/health`, then it gets a 200 whose body satisfies `HealthResponse`, with `backend: 'nextjs'` and `contractVersion` equal to `CONTRACT_VERSION`.
+**AC-API-01.** Given the server is running, when a client calls `GET /v1/health`, then it gets a 200 whose body is exactly `{ status: 'ok', contractVersion }`, with `contractVersion` equal to `CONTRACT_VERSION`.
 
 ## Request bodies
 

@@ -6,7 +6,6 @@ export const dynamic = 'force-dynamic';
 export const GET = route(() =>
   jsonResponse(HealthResponse, {
     status: 'ok',
-    backend: 'nextjs',
     contractVersion: CONTRACT_VERSION,
   }),
 );
