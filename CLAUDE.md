@@ -13,7 +13,7 @@ It is built **spec-first, with one implementation** ([ADR 0003](docs/decisions/0
 ## 2. Repository layout
 
 ```
-vacation-planner-polyglot/
+ai-trip-planner/
 ├── apps/
 │   └── web-nextjs/              # Next.js App Router client. Talks HTTP only.
 │       └── tests/functional/    # Playwright, API mocked at the network edge
