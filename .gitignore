@@ -22,3 +22,6 @@ blob-report/
 .DS_Store
 Thumbs.db
 *.log
+
+# claude code: per-user permissions; "don't ask again" can store secrets typed into commands
+.claude/settings.local.json
