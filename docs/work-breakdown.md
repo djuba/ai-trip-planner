@@ -27,7 +27,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-08 | `LlmClient` with record / replay / mock | WU-03, WU-06 | done |
 | WU-19 | Refocus: spec-first, one implementation | WU-08 | done |
 | WU-17 | Input and output limits (prompt-injection hardening) | WU-05, WU-07, WU-19 | done |
-| WU-20 | Hosting approach + API container image | WU-08 | todo |
+| WU-20 | Hosting approach + API container image | WU-08 | in-progress |
 | WU-21 | Hosted environment, pre-launch (replay mode) | WU-20 | todo |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | todo |
 | WU-18 | Eval harness + adversarial cases | WU-09 | todo |
@@ -446,7 +446,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-20 — Hosting approach + API container image
-**Status:** todo · **Depends on:** WU-08 · **Commits:**
+**Status:** in-progress · **Depends on:** WU-08 · **Commits:**
 
 **Goal:** decide how the app is hosted, and build the API as a container image that CI checks against the contract. The image is useful before anything is hosted: it is the artifact that will be shipped, and CI proves it conforms.
 
@@ -484,7 +484,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
   - "Where to find things": the Dockerfile, and ADR 0005 for hosting decisions.
 
 **Required tests**
-- *Contract:* `test:contract:external` passes against the running container, locally and in CI.
+- *Contract:* `test:contract:external` passes against the running container in CI (`pnpm test:image`). It can also run locally where Docker is available.
 
 **Definition of done**
 - ADR 0005 is accepted.
@@ -494,7 +494,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 **Notes:**
 - From deployment planning: review tier `sonnet`; likely commits: the ADR, then the image and the CI job.
 - Risk: with `output: 'standalone'`, Next warns that `next start` doesn't work. The functional tests boot the built app, so check how they start it and keep them working ([WU-08 plan](plans/WU-08.md), R2, is related: `ai/test` in the bundle).
-- Docker is a new local prerequisite for this unit only. Docker Desktop on Windows works; the image is built for `linux/amd64`.
+- Docker is optional locally: `pnpm test:image` needs it, `pnpm verify` doesn't. The dev machine (~3.9 GB RAM) can't run Docker Desktop well, so CI is where the image is built and tested, and the Dockerfile is iterated on a scratch draft PR ([WU-20 plan](plans/WU-20.md), Q1). The image is built for `linux/amd64`.
 
 ---
 
