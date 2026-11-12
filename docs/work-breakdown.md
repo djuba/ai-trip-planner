@@ -27,25 +27,34 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-08 | `LlmClient` with record / replay / mock | WU-03, WU-06 | done |
 | WU-19 | Refocus: spec-first, one implementation | WU-08 | done |
 | WU-17 | Input and output limits (prompt-injection hardening) | WU-05, WU-07, WU-19 | done |
+| WU-20 | Hosting approach + API container image | WU-08 | todo |
+| WU-21 | Hosted environment, pre-launch (replay mode) | WU-20 | todo |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | todo |
 | WU-18 | Eval harness + adversarial cases | WU-09 | todo |
 | WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | todo |
 | WU-11 | Present stream + `/v1/trip/present` | WU-10 | todo |
-| WU-12 | Web shell, API client, Pact consumer | WU-04, WU-07 | todo |
+| WU-22 | Invite-code access gate + rate limit | WU-07, WU-20 | todo |
+| WU-12 | Web shell, API client, Pact consumer | WU-04, WU-07, WU-22 | todo |
 | WU-13 | Conversation & clarification UI | WU-09, WU-12 | todo |
 | WU-14 | Streamed presentation cards + a11y | WU-11, WU-13 | todo |
 | WU-15 | Journeys + integrated gate | WU-14 | todo |
 | WU-16 | Portfolio README & architecture docs | WU-15 | todo |
+| WU-23 | Live demo launch | WU-16, WU-21, WU-22 | todo |
 
 ```
 WU-01 ─┬─ WU-02 ─┐
        └─ WU-03 ─┴─ WU-04 ─┬─ WU-05 ─┐
                            ├─ WU-06 ─┴─ WU-07 ──────────┬─ WU-17 ─ WU-09 ─ WU-18 ─ WU-10 ─ WU-11 ─┐
                            │   WU-03,06 ─ WU-08 ─ WU-19 ┘                                         │
-                           └──────────── WU-12 (needs WU-07) ─ WU-13 (needs WU-09) ───────────────┴─ WU-14 ─ WU-15 ─ WU-16
+                           └──── WU-22 (needs WU-20) ─ WU-12 ─ WU-13 (needs WU-09) ───────────────┴─ WU-14 ─ WU-15 ─ WU-16 ─┐
+                                                                                                                            │
+Hosting track:   WU-08 ─ WU-20 ─┬─ WU-21 ─────────────────────────────────────────────────────────────────────────────── WU-23
+                                └─ WU-22 (above)
 ```
 
-WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out of sequence. This table and the sections below list them in build order. WU-19 comes before WU-17: WU-17 depends on it.
+WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of sequence. This table and the sections below list them in build order. WU-19 comes before WU-17: WU-17 depends on it.
+
+**Hosting track (WU-20 to WU-23).** The live demo is for interviewers who ask for it, so it launches last (WU-23), once the UI is complete and the README exists. The pieces that are useful before then come early. WU-20 decides the approach and builds the API image, which CI checks against the contract right away. WU-21 deploys that image to the one hosted environment in replay mode, at no cost and unadvertised, so every later merge proves the deployment still works. WU-22 adds the access gate before WU-12, so the web client and its pact include it from the start. Only WU-23 depends on WU-21, so WU-21 can move later, or fold into WU-23, without changing anything else.
 
 ---
 
@@ -436,6 +445,88 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 
 ---
 
+## WU-20 — Hosting approach + API container image
+**Status:** todo · **Depends on:** WU-08 · **Commits:**
+
+**Goal:** decide how the app is hosted, and build the API as a container image that CI checks against the contract. The image is useful before anything is hosted: it is the artifact that will be shipped, and CI proves it conforms.
+
+**Direction** (from deployment planning; ADR 0005 records it):
+- **Goals.** 1a: a portfolio piece, linked from every job application. Proactive reviewers read the GitHub repo, and a live demo is offered case by case, mostly around interviews. 1b: learn and demonstrate what platform teams usually provide: containers, infrastructure-as-code, CI deploying without stored credentials, and cost controls.
+- **Threat model.** The server is stateless, with no user data and nothing to authorize, so the risk worth controlling is LLM spend and abuse of the live API. Structured output and the ADR 0004 caps already limit what abuse yields.
+- **Budget.** $5–10 a month in total. Hosting should cost about nothing (scale to zero, free tier), so the budget goes to the LLM.
+- **No user accounts.** A product would likely need them (saved trips, history, billing). A portfolio demo doesn't, and a sign-up screen costs a reviewer's attention. A per-recipient invite code (WU-22) plus a provider spend limit (WU-23) bounds the worst case.
+- **A later use: a closed beta.** Codes are per recipient partly so the same gate can later admit a small pool of testers, with usage visible per code (by its hash) and each code revocable. Not scheduled (Backlog).
+- **No Kubernetes.** Two stateless containers on a managed platform get what Kubernetes would give here.
+- **Terraform** for the hosted resources (WU-21), for goal 1b.
+- **One hosted environment, built early and launched late.** It runs in replay mode until WU-23 switches it to live. No separate staging.
+
+**Scope**
+- **ADR 0005, "Hosting and access":**
+  - the goals, threat model, budget and decisions above, plus what would change if this became a product;
+  - a cloud comparison, short and with a recommendation: GCP Cloud Run (leaning choice: scale to zero, free tier, streaming, GitHub OIDC through Workload Identity Federation) against AWS (App Runner or ECS Fargate), with a line each on Fly.io, Vercel and a VPS;
+  - the gate: per-recipient invite codes checked by the API, chosen over Cloudflare Access (which needs a domain, and is awkward for cross-origin web → API calls);
+  - deploy credentials: GitHub Actions authenticates through OIDC, so CI still stores no secrets and the `verify` job has no cloud access;
+  - `max instances = 1`: it caps compute and makes an in-memory rate limiter correct;
+  - one image across LLM modes, with the cassettes baked in (they are already public in the repo);
+  - `NEXT_PUBLIC_API_BASE_URL` is inlined when the web app is built, so the web image is built for its environment. Record the tradeoff;
+  - a custom domain is optional; the default `*.run.app` URLs are fine to start.
+- Update ADR 0004's Future hardening owners: authentication and rate limits → WU-22, spend limits → WU-23.
+- **`backends/api-nextjs/Dockerfile`**, built from the repo root with a `.dockerignore`:
+  - multi-stage, `pnpm` with the frozen lockfile, Next's `output: 'standalone'` (the existing `outputFileTracingRoot` covers the monorepo), a non-root user;
+  - `LLM_CASSETTE_DIR` points at the baked-in cassettes;
+  - no secrets in any layer.
+- **CI:** a job that builds the image, runs it in replay mode, and runs `pnpm test:contract:external` against it. Decide in the plan whether it becomes a required check.
+- **CLAUDE.md:** §2 (the Dockerfile), §3 (the image build command), §6.7 (the image job, and how deploys get credentials).
+
+**Required tests**
+- *Contract:* `test:contract:external` passes against the running container, locally and in CI.
+
+**Definition of done**
+- ADR 0005 is accepted.
+- The image builds from a clean checkout, runs as a non-root user, holds no secrets, and passes the provider contract tests in replay mode.
+- `pnpm verify` still needs no Docker.
+
+**Notes:**
+- From deployment planning: review tier `sonnet`; granularity likely `fine` (the ADR, then the image and the CI job).
+- Risk: with `output: 'standalone'`, Next warns that `next start` doesn't work. The functional tests boot the built app, so check how they start it and keep them working ([WU-08 plan](plans/WU-08.md), R2, is related: `ai/test` in the bundle).
+- Docker is a new local prerequisite for this unit only. Docker Desktop on Windows works; the image is built for `linux/amd64`.
+
+---
+
+## WU-21 — Hosted environment, pre-launch (replay mode)
+**Status:** todo · **Depends on:** WU-20 · **Commits:**
+
+**Goal:** a walking skeleton. The API runs in the cloud from the WU-20 image, in replay mode, with no API key and no LLM cost. Every merge to `main` deploys it and runs the provider contract tests against its URL. It isn't a demo, and nothing links to it. No input a person types can hit a cassette: the key is a hash of the exact model request, which includes `referenceDate` (the browser's date) and the whole conversation. So only the contract suite, which sends the recorded requests, exercises it. Its value is that image, Terraform, OIDC, CORS across real origins, streaming through the platform's front end, timeouts and cold starts are all proven long before launch, when problems are cheap to fix. WU-23 turns the same environment into the live demo.
+
+**Scope**
+- **`infra/`** Terraform, with remote state in a storage bucket. Bootstrapping the bucket and the project is a documented manual step:
+  - the registry, with a cleanup policy that keeps the last few images (to stay in the free tier);
+  - the API service: min 0, max 1 instances, a request timeout above the worst-case `/recommend` latency, a startup probe on `/v1/health`, `LLM_MODE=replay`, `WEB_ORIGIN`;
+  - a runtime service account with no extra permissions;
+  - Workload Identity Federation for this GitHub repo only, with a deploy identity limited to pushing images and deploying the service;
+  - a billing budget alert, as an early warning (GCP has no hard spend cap).
+- **A deploy workflow** on push to `main`: build and push the image, deploy it, then run `pnpm test:contract:external` against the service URL. It uses OIDC and no stored secrets.
+- `infra/README.md`: a runbook covering bootstrap, `terraform plan`/`apply`, rollback to an earlier image, and teardown.
+- An `infra` commit scope in `commitlint.config.js` and CLAUDE.md §10. CLAUDE.md §2, §3 and §6.7 updated for `infra/` and the deploy workflow.
+- `terraform fmt -check` and `terraform validate` run in CI, not in `pnpm verify`, so the project gate needs no Terraform.
+
+**Required tests**
+- *Contract:* the post-deploy `test:contract:external` run passes against the hosted URL.
+
+**Definition of done**
+- A merge to `main` deploys, and the post-deploy contract check passes.
+- `terraform plan` shows no drift after a deploy.
+- No long-lived cloud key exists anywhere: no GitHub secret, no key file.
+- After a week of normal merges, the bill is about $0. Record the actual figure in Notes.
+
+**Notes:**
+- From deployment planning: review tier `sonnet`, but review the IAM bindings closely. Granularity likely `fine` (Terraform and bootstrap, then the deploy workflow).
+- The README does not mention this environment. WU-23 adds the live demo line.
+- This unit is deliberately movable: only WU-23 depends on it. If it slips, WU-23 absorbs its scope.
+- If WU-22 lands first, the post-deploy contract check needs an invite code. See WU-22's open question.
+
+---
+
 ## WU-09 — Extract stage + `/v1/trip/extract`
 **Status:** todo · **Depends on:** WU-05, WU-07, WU-08, WU-17 · **Commits:**
 
@@ -535,6 +626,7 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 - From security planning: cap `RecommendationSet` strings the same way WU-17 caps the profile. The schema given to the model stays unconstrained (ADR 0001), the wire schema carries the caps (`/present` takes `recommendations` back from the client), and code discards over-cap model values before responding. Size `maxOutputTokens` from those caps.
 - From security planning: add a containment test with an injection cassette (instructions planted in profile strings), and add `/recommend` cases to WU-18's eval set.
 - From WU-17: the conformance suite's AC-LIMITS-11 checks post `/recommend` a profile with `region` at its cap and with `people` at `maxPeople`, and require a schema-valid 200. Once the stub is gone, record replay cassettes for both probes, including the critic calls, or the contract gate fails on a cassette miss (WU-17 unit review #1).
+- From deployment planning: record the worst-case live `/recommend` latency (two revise cycles) and the tokens per stage from the usage logs. WU-21 sizes the request timeout from the latency, and WU-23 sets the spend and rate limits from the tokens.
 
 ---
 
@@ -565,11 +657,48 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 - From WU-08: add `streamObject` to the `LlmClient` interface here, together with its mid-stream error semantics. That changes the interface, so this unit's review tier is `opus`. Record and replay of SSE are already proven (AC-LLM-12, [`llm-client.md`](features/llm-client.md)).
 - From WU-17: the conformance suite's AC-LIMITS-11 checks post `/present` a profile with `region` at its cap and with `people` at `maxPeople`, and require a stream that ends in a valid `PresentationModel`. Once the stub is gone, record replay cassettes for both probes, or the contract gate fails on a cassette miss (WU-17 unit review #1).
 - From WU-08: the recorder writes any 2xx response. An SSE body can still fail partway through (`event: error`) after a 200, so skip writing a stream cassette that contains `event: error` or has no `message_stop` (WU-08 implementation review #6).
+- From deployment planning: if WU-21 is done, its post-deploy contract check covers the `/present` stream through the platform's front end. If the stream arrives as a single chunk there, fix it in this unit.
+
+---
+
+## WU-22 — Invite-code access gate + rate limit
+**Status:** todo · **Depends on:** WU-07, WU-20 · **Commits:**
+
+**Goal:** only people given an invite code can use the trip endpoints, and each code has a rate limit. This is the access control ADR 0005 chooses in place of user accounts. It lands before WU-12, so the web client and its pact include it from the start.
+
+**Scope**
+- `docs/features/access-gate.md` (ACs).
+- **Contract** (a breaking change: requests now need a header):
+  - the trip endpoints require `Authorization: Bearer <invite code>`, declared as a security scheme in `openapi.yaml`;
+  - a missing or unknown code → `401` with a new error code; over the limit → `429` with a new error code and a `Retry-After` header;
+  - `GET /v1/health` and the CORS preflight stay open, and CORS allows the `Authorization` header;
+  - CLAUDE.md §5's status codes and endpoint table; a `feat(domain-schema)!` commit and a `contractVersion` bump.
+- **api-nextjs:**
+  - the codes come from an env var, compared in constant time and never logged (log a short hash of the code instead);
+  - the gate fails closed: in `LLM_MODE=live`, the server refuses to start without codes;
+  - an in-memory, per-code rate limiter with an injected clock (CLAUDE.md §6.1), correct because ADR 0005 sets `max instances = 1`. The limits are config, set by WU-23 from measured cost.
+- `.env.example` and the test harness supply a test code.
+- **Conformance:** checks for 401 without a code and with an unknown one, and for health staying open. The provider tests take the code from the environment.
+
+**Required tests**
+- *Unit:* code matching, the rate limiter's window and reset with a fake clock, fail-closed startup.
+- *Integration:* route handlers return 401 and 429 with the error body; the preflight allows `Authorization`.
+- *Contract:* the conformance checks above.
+
+**Definition of done**
+- No trip endpoint can be reached without a valid code. A test covers every route, so a new route can't skip the gate.
+- `contractVersion` is bumped, and `spec/generated/` is regenerated.
+
+**Notes:**
+- From deployment planning: contract change, so the review tier is `opus` (CLAUDE.md §12, 4a). Granularity likely `fine` (the contract change in its own commit, then the server side).
+- Open question for the plan: how the post-deploy contract check (WU-21) gets a code without CI holding a secret that matters. One option is a code with no live value, stored as a GitHub secret. In replay mode it can't spend anything. Another is to put the check behind a manual step. Decide and record it in ADR 0005.
+- Revoking a code means removing it from the secret and redeploying. That's fine for a handful of interviewers.
+- An invite link (`?invite=<code>`) is a web concern (WU-13). A code in a URL can end up in logs, which is acceptable for this threat model; say so in the ADR.
 
 ---
 
 ## WU-12 — Web shell, API client, Pact consumer
-**Status:** todo · **Depends on:** WU-04, WU-07 · **Commits:**
+**Status:** todo · **Depends on:** WU-04, WU-07, WU-22 · **Commits:**
 
 **Goal:** the web app exists, talks only to `NEXT_PUBLIC_API_BASE_URL`, and publishes its expectations as a pact.
 
@@ -594,6 +723,8 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 - From WU-02: add `webServer` to `apps/web-nextjs/playwright.config.ts`, and install Chromium in CI (`pnpm exec playwright install --with-deps chromium`) together with the first spec. Once specs exist, drop `--pass-with-no-tests` from the web `test:functional` script so an empty glob cannot pass. Replace the `test:contract` stub if WU-07 has not already. `@axe-core/playwright` is already installed.
 - From WU-06: the `.ts` contract imports work under Turbopack with `transpilePackages`. Set `agentRules: false` in `next.config`, or `next dev` writes an `AGENTS.md` when it detects a coding agent. Treat a 413 (`PAYLOAD_TOO_LARGE`) as "message too long". See the [plan](plans/WU-06.md).
 - From WU-07: the Pact consumer writes `contracts/pacts/web-nextjs-vacation-api.json` for provider `vacation-api`. `tests/contract/pact-verify.test.ts` picks it up with no change, and its skip goes away. On Windows, Pact needs the Visual C++ runtime (README Prerequisites).
+- From deployment planning: the API client sends `Authorization: Bearer <invite code>` (WU-22) and maps 401 and 429 to typed errors. Include the header in the pact interactions.
+- From deployment planning: add `apps/web-nextjs/Dockerfile` on the WU-20 pattern. `NEXT_PUBLIC_API_BASE_URL` is a build argument, because Next inlines it at build time. If WU-21 is done, add the web service to `infra/`, point the API's `WEB_ORIGIN` at it, and extend the deploy workflow.
 
 ---
 
@@ -617,6 +748,7 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 **Notes:**
 - From security planning: set the message input's `maxlength` from WU-17's shared cap constant, and show the remaining length, so an honest user never gets a 422.
 - From WU-17: the cap is `MAX_MESSAGE_LENGTH`, counted in Unicode code points. HTML `maxlength` counts UTF-16 units, so on its own it would stop a message of emoji at half the real limit. Count and show the remaining length with `codePointLength` from `@vp/domain-schema/wire`, and test a message of emoji at the cap. See [ADR 0004](decisions/0004-input-and-output-limits.md) §3.
+- From deployment planning: an invite-code entry state before the conversation, kept for the browser session. An invite link (`?invite=<code>`) fills it in and then removes the code from the address bar. The UI shows 401 ("this code isn't valid") and 429 ("try again in …" from `Retry-After`) as recoverable states, with axe checks.
 
 ---
 
@@ -662,6 +794,7 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 - From WU-02: replace the `verify:integrated` and `verify:full` stubs. `test:journeys` already runs Playwright; drop its `--pass-with-no-tests` once journeys exist.
 - From WU-07: add `BACKEND=` selection to `scripts/run-contract.ts`; today it only starts api-nextjs, and `--external` covers any other backend.
 - From WU-19: this replaces the WU-07 `BACKEND=` note above. The stack script starts `api-nextjs` only, and `verify:full` runs journeys `@full` plus the provider contract tests against `api-nextjs`. The "How interchangeability is checked" table from the wire-reorganization note is replaced by WU-19's README section, so update that section instead. The Scope's `BACKEND=nextjs` is dropped too: the stack script has no `BACKEND` variable (ADR 0003, "If a second backend is added").
+- From deployment planning: the stack script supplies an invite code (WU-22), and journeys enter it the way a user would. Decide in the plan whether the stack can also run from the WU-20 images ("test what you ship"). The default path must still need no Docker.
 - From WU-08: add `record:cassettes --prune` to delete cassettes no test replays any more ([plan](plans/WU-08.md), R5). A dead-proxy "network off" check can't cover `test:contract`: Pact's native verifier routes even loopback requests through the proxy and ignores `NO_PROXY`, so use a real network-off run ([plan](plans/WU-08.md), deviation 7).
 
 ---
@@ -679,11 +812,44 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 **Definition of done:** a fresh clone, following only the README, reaches a green `pnpm verify` and a working UI in replay mode.
 
 **Notes:**
+- From deployment planning: don't mention a hosted demo or the WU-21 environment. WU-23 adds the "live demo available on request" line once the demo works. Do cover the hosting approach as a design decision (ADR 0005) and the cost-control approach.
+
+---
+
+## WU-23 — Live demo launch
+**Status:** todo · **Depends on:** WU-16, WU-21, WU-22 · **Commits:**
+
+**Goal:** the hosted environment becomes a live demo, offered on request to interviewers, with a worst-case monthly cost within the $5–10 budget.
+
+**Scope**
+- **Cost first:** from the WU-10 usage figures and one recorded full session, work out the cost per demo session. Size the rate limits and the spend limit from it, and record the arithmetic in ADR 0005.
+- **Anthropic:** a dedicated workspace for the demo with a hard spend limit, and its own API key. This is an account setting, documented in the runbook.
+- **Secrets:** Terraform creates the Secret Manager secrets, but their values (API key, invite codes) are added by hand, so they never appear in Terraform state, CI or the repo. The runtime service account can read them.
+- **Switch to live:** `LLM_MODE=live`, the model IDs (consider `MODEL_CRITIC` on Haiku for cost), and the WU-22 rate limits. The gate fails closed (WU-22).
+- **Release trigger:** live deploys run from a manual workflow (or a tag), after `pnpm verify:integrated` passes locally, through a GitHub Environment that needs your approval. Merges to `main` no longer deploy straight to live. Record in ADR 0005 how the replay-mode contract check fits from now on.
+- **Logging review:** production logs carry usage, latency, discard signals and code hashes, never message content or codes.
+- **Runbook** (`infra/README.md`): issue and revoke a code, rotate the key, pause the demo (scale to zero or remove the codes), and read the logs and the bill.
+- **README:** a "Live demo available on request" line and how to ask. No public URL or code.
+
+**Required tests**
+- *Unit:* any code this unit changes. Most of the scope is config.
+- A manual launch checklist, recorded in Notes: a new code works end to end on the hosted URL, a revoked code gets 401, the limit returns 429, and health is open.
+
+**Definition of done**
+- The checklist passes on the hosted environment.
+- Worst-case monthly spend is bounded by the Anthropic spend limit, which is at most $10, plus about $0 of hosting.
+- No secret exists outside Secret Manager and the Anthropic console.
+
+**Notes:**
+- From deployment planning: review tier `sonnet`; granularity likely `single`.
+- If WU-21 was skipped, its scope moves here, ahead of everything above.
 
 ---
 
 ## Backlog (not scheduled)
 - `mobile-react-native` client, with its own consumer pact verified against the backend
 - Local Docker Pact Broker + `can-i-deploy`
-- Abuse controls from ADR 0004's Future hardening section (written in WU-17): authentication, per-user rate limits and quotas, provider spend limits with a workspace per environment, and an on-topic guard step (it may move into WU-18 if the evals show it's needed). Most need user identity or a deployed environment.
-- Performance testing, once a deployed environment exists
+- Remaining abuse controls from ADR 0004's Future hardening section (written in WU-17). Invite codes and per-code rate limits are now WU-22, and the spend limit is WU-23. Left: an on-topic guard step (it may move into WU-18 if the evals show it's needed). User accounts belong here only if this becomes a product (ADR 0005).
+- Performance testing, against the hosted environment (WU-21)
+- A custom domain for the hosted environment (ADR 0005: optional)
+- Closed beta after WU-23: a small pool of testers on invite codes, a feedback channel outside the app (a form, a GitHub issue template or a short call, since the server stores nothing), consented capture of real inputs as WU-18 eval cases, and the pool sized from WU-23's cost per session
