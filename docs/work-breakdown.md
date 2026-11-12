@@ -492,7 +492,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - `pnpm verify` still needs no Docker.
 
 **Notes:**
-- From deployment planning: review tier `sonnet`; granularity likely `fine` (the ADR, then the image and the CI job).
+- From deployment planning: review tier `sonnet`; likely commits: the ADR, then the image and the CI job.
 - Risk: with `output: 'standalone'`, Next warns that `next start` doesn't work. The functional tests boot the built app, so check how they start it and keep them working ([WU-08 plan](plans/WU-08.md), R2, is related: `ai/test` in the bundle).
 - Docker is a new local prerequisite for this unit only. Docker Desktop on Windows works; the image is built for `linux/amd64`.
 
@@ -526,7 +526,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - After a week of normal merges, the bill is about $0. Record the actual figure in Notes.
 
 **Notes:**
-- From deployment planning: review tier `sonnet`, but review the IAM bindings closely. Granularity likely `fine` (Terraform and bootstrap, then the deploy workflow).
+- From deployment planning: review tier `sonnet`, but review the IAM bindings closely. Likely commits: Terraform and bootstrap, then the deploy workflow.
 - The README does not mention this environment. WU-23 adds the live demo line.
 - This unit is deliberately movable: only WU-23 depends on it. If it slips, WU-23 absorbs its scope.
 - If WU-22 lands first, the post-deploy contract check needs an invite code. See WU-22's open question.
@@ -696,7 +696,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - `contractVersion` is bumped, and `spec/generated/` is regenerated.
 
 **Notes:**
-- From deployment planning: contract change, so the review tier is `opus` (CLAUDE.md §12, 4a). Granularity likely `fine` (the contract change in its own commit, then the server side).
+- From deployment planning: contract change, so the review tier is `opus` (CLAUDE.md §12, 4a). The contract change goes in its own commit (required), then the server side.
 - Open question for the plan: how the post-deploy contract check (WU-21) gets a code without CI holding a secret that matters. One option is a code with no live value, stored as a GitHub secret. In replay mode it can't spend anything. Another is to put the check behind a manual step. Decide and record it in ADR 0005.
 - Revoking a code means removing it from the secret and redeploying. That's fine for a handful of interviewers.
 - An invite link (`?invite=<code>`) is a web concern (WU-13). A code in a URL can end up in logs, which is acceptable for this threat model; say so in the ADR.
@@ -847,7 +847,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - No secret exists outside Secret Manager and the Anthropic console.
 
 **Notes:**
-- From deployment planning: review tier `sonnet`; granularity likely `single`.
+- From deployment planning: review tier `sonnet`; likely one code commit.
 - If WU-21 was skipped, its scope moves here, ahead of everything above.
 
 ---

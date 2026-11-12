@@ -42,6 +42,7 @@ interface Job {
   run: string;
   glob?: string[];
   stage_fixed?: boolean;
+  use_stdin?: boolean;
 }
 interface Hook {
   jobs: Job[];
@@ -84,7 +85,9 @@ afterEach(() => {
 describe('lefthook.yml', () => {
   it('declares the CLAUDE.md §6.7 hooks', () => {
     expect(config['commit-msg'].jobs.map((j) => j.name)).toEqual(['commitlint']);
-    expect(config['pre-push'].jobs).toEqual([{ name: 'verify', run: 'pnpm verify' }]);
+    expect(config['pre-push'].jobs).toEqual([
+      { name: 'verify', run: 'node scripts/pre-push.ts', use_stdin: true },
+    ]);
   });
 
   it('runs the pre-commit fixers sequentially, before the secret scan', () => {
