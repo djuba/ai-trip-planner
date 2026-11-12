@@ -24,9 +24,14 @@
       ]
     },
     "region": {
-      "type": [
-        "string",
-        "null"
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 100
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "climate": {
@@ -40,18 +45,22 @@
       ]
     },
     "experiences": {
+      "maxItems": 20,
       "type": "array",
       "items": {
         "$ref": "Experience.schema.json"
       }
     },
     "unmappedExperiences": {
+      "maxItems": 10,
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "maxLength": 100
       }
     },
     "people": {
+      "maxItems": 50,
       "type": "array",
       "items": {
         "$ref": "Traveler.schema.json"

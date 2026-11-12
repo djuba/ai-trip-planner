@@ -2,6 +2,15 @@
 // agree on each one (parity.test.ts). Rule-checked values (child aged 18, month 13, a date that
 // does not exist) are VALID on the wire: they are rule violations, not contract violations (D1).
 import type { ContractSchemaId } from '../../gen/registry.ts';
+import {
+  MAX_DATE_TEXT_LENGTH,
+  MAX_EXPERIENCES,
+  MAX_MESSAGE_LENGTH,
+  MAX_NOTE_LENGTH,
+  MAX_PEOPLE,
+  MAX_SHORT_TEXT_LENGTH,
+  MAX_UNMAPPED_EXPERIENCES,
+} from '../../src/wire/index.ts';
 
 export interface SampleSet {
   valid: unknown[];
@@ -49,7 +58,7 @@ delete extractionMissingField.people;
 const violation = (code: string, params: unknown) => ({ code, path: '/x', params });
 const ageParams = { age: 18, min: 0, max: 17 };
 
-// Astral characters (emoji) are two UTF-16 units; a length cap would disagree across languages.
+// 1000 code points, 1990 UTF-16 units: under MAX_MESSAGE_LENGTH however it is counted.
 const longMessage = `${'🌴'.repeat(990)}${'a'.repeat(10)}`;
 
 export const SAMPLES: Record<ContractSchemaId, SampleSet> = {
@@ -306,7 +315,7 @@ export const SAMPLES: Record<ContractSchemaId, SampleSet> = {
           dateRange: { kind: 'flexible', month: 13, year: 1999, durationNights: 0 },
         },
       },
-      { message: longMessage, referenceDate: ref }, // no length cap; astral characters
+      { message: longMessage, referenceDate: ref }, // astral characters under the cap
       { message: 'x', referenceDate: ref, clientVersion: '1.2.3' }, // open object
     ],
     invalid: [
@@ -440,3 +449,151 @@ export const SAMPLES: Record<ContractSchemaId, SampleSet> = {
     ],
   },
 };
+
+// ---------- Cap boundaries (ADR 0004, docs/features/input-limits.md) ----------
+// Each case is checked against Zod and the generated JSON Schema (parity.test.ts), and its title
+// carries its AC ID. Lengths count code points, so the astral and combining cases pin the counting.
+
+export interface BoundaryCase {
+  ac: string;
+  label: string;
+  schema: ContractSchemaId;
+  value: unknown;
+  valid: boolean;
+}
+
+const PALM = '🌴'; // 1 code point, 2 UTF-16 units
+// Built from code points so no editor or formatter can precompose it into U+00E9.
+const E_ACUTE = String.fromCodePoint(0x65, 0x301); // e + combining acute: 2 code points, 1 grapheme
+if ([...E_ACUTE].length !== 2) throw new Error('E_ACUTE must be two code points');
+const LONE_SURROGATE = '\uD83C';
+
+const ascii = (n: number) => 'a'.repeat(n);
+const astral = (n: number) => PALM.repeat(n);
+
+/** One capped wire value. String values are built from astral characters, so a cap counted in UTF-16 units fails. */
+interface CappedField {
+  name: string;
+  cap: number;
+  /** Builds a profile whose capped value has `n` code points or items. */
+  profile: (n: number) => Record<string, unknown>;
+}
+
+export const CAPPED_FIELDS: CappedField[] = [
+  { name: 'region', cap: MAX_SHORT_TEXT_LENGTH, profile: (n) => ({ region: astral(n) }) },
+  {
+    name: 'departure.city',
+    cap: MAX_SHORT_TEXT_LENGTH,
+    profile: (n) => ({ departure: { city: astral(n) } }),
+  },
+  {
+    name: 'people[].gender',
+    cap: MAX_SHORT_TEXT_LENGTH,
+    profile: (n) => ({ people: [{ userType: 'adult', gender: astral(n) }] }),
+  },
+  {
+    name: 'dateRange.note',
+    cap: MAX_NOTE_LENGTH,
+    profile: (n) => ({ dateRange: { kind: 'flexible', note: astral(n) } }),
+  },
+  {
+    name: 'dateRange.start',
+    cap: MAX_DATE_TEXT_LENGTH,
+    profile: (n) => ({ dateRange: { kind: 'fixed', start: astral(n), end: '2027-06-08' } }),
+  },
+  {
+    name: 'dateRange.end',
+    cap: MAX_DATE_TEXT_LENGTH,
+    profile: (n) => ({ dateRange: { kind: 'fixed', start: '2027-06-01', end: astral(n) } }),
+  },
+  {
+    name: 'unmappedExperiences[] item',
+    cap: MAX_SHORT_TEXT_LENGTH,
+    profile: (n) => ({ unmappedExperiences: ['sailing', astral(n)] }),
+  },
+  {
+    name: 'experiences count',
+    cap: MAX_EXPERIENCES,
+    profile: (n) => ({ experiences: Array.from({ length: n }, () => 'beach') }),
+  },
+  {
+    name: 'unmappedExperiences count',
+    cap: MAX_UNMAPPED_EXPERIENCES,
+    profile: (n) => ({ unmappedExperiences: Array.from({ length: n }, (_, i) => `x${i}`) }),
+  },
+  {
+    name: 'people count',
+    cap: MAX_PEOPLE,
+    profile: (n) => ({ people: Array.from({ length: n }, () => ({ userType: 'adult' })) }),
+  },
+];
+
+/** Every request or response schema that carries a `TripProfile`, and how it wraps one. */
+const PROFILE_CARRIERS: { schema: ContractSchemaId; wrap: (p: unknown) => unknown }[] = [
+  { schema: 'TripProfile', wrap: (p) => p },
+  {
+    schema: 'ExtractRequest',
+    wrap: (p) => ({ message: 'x', currentProfile: p, referenceDate: ref }),
+  },
+  { schema: 'ExtractResponse', wrap: (p) => ({ status: 'ready', profile: p }) },
+  { schema: 'RecommendRequest', wrap: (p) => ({ profile: p, referenceDate: ref }) },
+  { schema: 'PresentRequest', wrap: (p) => ({ profile: p, recommendations: [] }) },
+];
+
+const counting: BoundaryCase[] = [
+  {
+    ac: 'AC-LIMITS-01',
+    label: `region of ${MAX_SHORT_TEXT_LENGTH} astral code points (${2 * MAX_SHORT_TEXT_LENGTH} UTF-16 units)`,
+    schema: 'TripProfile',
+    value: { region: astral(MAX_SHORT_TEXT_LENGTH) },
+    valid: true,
+  },
+  {
+    ac: 'AC-LIMITS-01',
+    label: `region of ${MAX_SHORT_TEXT_LENGTH} lone surrogates`,
+    schema: 'TripProfile',
+    value: { region: LONE_SURROGATE.repeat(MAX_SHORT_TEXT_LENGTH) },
+    valid: true,
+  },
+  {
+    ac: 'AC-LIMITS-01',
+    label: `region of ${MAX_SHORT_TEXT_LENGTH / 2 + 1} graphemes that are ${MAX_SHORT_TEXT_LENGTH + 2} code points`,
+    schema: 'TripProfile',
+    value: { region: E_ACUTE.repeat(MAX_SHORT_TEXT_LENGTH / 2 + 1) },
+    valid: false,
+  },
+  {
+    ac: 'AC-LIMITS-01',
+    label: `region of ${MAX_SHORT_TEXT_LENGTH + 1} lone surrogates`,
+    schema: 'TripProfile',
+    value: { region: LONE_SURROGATE.repeat(MAX_SHORT_TEXT_LENGTH + 1) },
+    valid: false,
+  },
+];
+
+const message: BoundaryCase[] = [
+  [ascii(MAX_MESSAGE_LENGTH), 'ASCII', true],
+  [ascii(MAX_MESSAGE_LENGTH + 1), 'ASCII', false],
+  [astral(MAX_MESSAGE_LENGTH), 'astral', true],
+  [astral(MAX_MESSAGE_LENGTH + 1), 'astral', false],
+].map(([text, kind, valid]) => ({
+  ac: 'AC-LIMITS-02',
+  label: `message of ${valid ? 'exactly' : 'one over'} MAX_MESSAGE_LENGTH ${kind} code points`,
+  schema: 'ExtractRequest' as const,
+  value: { message: text, referenceDate: ref },
+  valid: valid as boolean,
+}));
+
+const profileFields: BoundaryCase[] = CAPPED_FIELDS.flatMap((field) =>
+  PROFILE_CARRIERS.flatMap(({ schema, wrap }) =>
+    [field.cap, field.cap + 1].map((n) => ({
+      ac: 'AC-LIMITS-03',
+      label: `${schema}: ${field.name} at ${n === field.cap ? 'the cap' : 'the cap + 1'} (${n})`,
+      schema,
+      value: wrap(field.profile(n)),
+      valid: n === field.cap,
+    })),
+  ),
+);
+
+export const BOUNDARY_CASES: BoundaryCase[] = [...counting, ...message, ...profileFields];

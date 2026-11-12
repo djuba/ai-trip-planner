@@ -1,0 +1,94 @@
+[
+  {
+    "id": "fixed-at-cap-kept",
+    "ac": "AC-LIMITS-08",
+    "description": "fixed dates of exactly maxDateTextLength are kept, malformed or not",
+    "extraction": {
+      "departure": null,
+      "dateRange": {
+        "kind": "fixed",
+        "start": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "end": "🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴"
+      },
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "dateRange": {
+        "kind": "fixed",
+        "start": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "end": "🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴"
+      }
+    }
+  },
+  {
+    "id": "fixed-start-over-cap",
+    "ac": "AC-LIMITS-08",
+    "description": "an over-long start drops the whole fixed range",
+    "extraction": {
+      "departure": null,
+      "dateRange": {
+        "kind": "fixed",
+        "start": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "end": "2027-06-08"
+      },
+      "region": null,
+      "climate": "warm",
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "climate": "warm"
+    }
+  },
+  {
+    "id": "fixed-end-over-cap",
+    "ac": "AC-LIMITS-08",
+    "description": "an over-long end drops the whole fixed range",
+    "extraction": {
+      "departure": null,
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2027-06-01",
+        "end": "🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴"
+      },
+      "region": null,
+      "climate": "warm",
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "climate": "warm"
+    }
+  },
+  {
+    "id": "fixed-readable-date-kept",
+    "ac": "AC-LIMITS-08",
+    "description": "a human-readable date under the cap is kept for DATE_VALID to report",
+    "extraction": {
+      "departure": null,
+      "dateRange": {
+        "kind": "fixed",
+        "start": "June 1st, 2027",
+        "end": "June 8th, 2027"
+      },
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "dateRange": {
+        "kind": "fixed",
+        "start": "June 1st, 2027",
+        "end": "June 8th, 2027"
+      }
+    }
+  }
+]

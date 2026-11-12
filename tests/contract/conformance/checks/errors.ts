@@ -3,7 +3,7 @@ import { mediaType, postOversized, postText, type HttpResult } from '../../suppo
 import { assertSchema, ConformanceError } from '../../support/schemas.ts';
 import { parseJson } from './health.ts';
 
-function assertError(res: HttpResult, status: number, code: string, context: string): void {
+export function assertError(res: HttpResult, status: number, code: string, context: string): void {
   if (res.status !== status) {
     throw new ConformanceError(`${context}: expected ${status}, got ${res.status}`);
   }

@@ -5,7 +5,7 @@ import addFormats from 'ajv-formats';
 import { describe, expect, it } from 'vitest';
 import { buildJsonSchemas } from '../../gen/artifacts.ts';
 import { CONTRACT_SCHEMAS, type ContractSchemaId } from '../../gen/registry.ts';
-import { SAMPLES } from '../../tests/support/samples.ts';
+import { BOUNDARY_CASES, SAMPLES } from '../../tests/support/samples.ts';
 
 // Under `moduleResolution: bundler` these CJS packages can surface as namespace objects.
 interface AjvLike {
@@ -45,5 +45,15 @@ describe('Zod / JSON Schema parity', () => {
       expect(zod).toBe(expected);
       expect(json, JSON.stringify(validate.errors)).toBe(zod);
     });
+  });
+});
+
+describe('cap boundaries (ADR 0004)', () => {
+  // Titles start with the AC ID (CLAUDE.md §6.2), e.g. "AC-LIMITS-02: message of ... (valid: true)".
+  it.each(BOUNDARY_CASES)('$ac: $label (valid: $valid) in Zod and JSON Schema', (c) => {
+    const validate = ajv.getSchema(`${c.schema}.schema.json`);
+    if (!validate) throw new Error(`no validator for ${c.schema}`);
+    expect(CONTRACT_SCHEMAS[c.schema].safeParse(c.value).success).toBe(c.valid);
+    expect(validate(c.value), JSON.stringify(validate.errors)).toBe(c.valid);
   });
 });

@@ -1,0 +1,313 @@
+[
+  {
+    "id": "all-null",
+    "ac": "AC-RULES-36",
+    "description": "an all-null extraction yields {}",
+    "extraction": {
+      "departure": null,
+      "dateRange": null,
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {}
+  },
+  {
+    "id": "empty-arrays-dropped",
+    "ac": "AC-RULES-37",
+    "description": "empty experiences, unmappedExperiences and people are omitted",
+    "extraction": {
+      "departure": null,
+      "dateRange": null,
+      "region": null,
+      "climate": null,
+      "experiences": [],
+      "unmappedExperiences": [],
+      "people": []
+    },
+    "expectedProfile": {}
+  },
+  {
+    "id": "non-empty-arrays-kept",
+    "ac": "AC-RULES-37",
+    "description": "non-empty arrays are kept, and a traveler drops its null fields",
+    "extraction": {
+      "departure": null,
+      "dateRange": null,
+      "region": null,
+      "climate": null,
+      "experiences": ["beach"],
+      "unmappedExperiences": ["sailing"],
+      "people": [
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        }
+      ]
+    },
+    "expectedProfile": {
+      "experiences": ["beach"],
+      "unmappedExperiences": ["sailing"],
+      "people": [
+        {
+          "userType": "adult"
+        }
+      ]
+    }
+  },
+  {
+    "id": "null-subfields-dropped",
+    "ac": "AC-RULES-37",
+    "description": "departure and travelers drop their null fields",
+    "extraction": {
+      "departure": {
+        "city": "Minneapolis",
+        "mode": null,
+        "maxStops": null
+      },
+      "dateRange": null,
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": [
+        {
+          "userType": "child",
+          "age": 9,
+          "gender": null
+        }
+      ]
+    },
+    "expectedProfile": {
+      "departure": {
+        "city": "Minneapolis"
+      },
+      "people": [
+        {
+          "userType": "child",
+          "age": 9
+        }
+      ]
+    }
+  },
+  {
+    "id": "all-null-departure-dropped",
+    "ac": "AC-RULES-37",
+    "description": "a departure whose fields are all null is omitted",
+    "extraction": {
+      "departure": {
+        "city": null,
+        "mode": null,
+        "maxStops": null
+      },
+      "dateRange": null,
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {}
+  },
+  {
+    "id": "zero-is-a-value",
+    "ac": "AC-RULES-37",
+    "description": "maxStops 0 and age 0 are kept",
+    "extraction": {
+      "departure": {
+        "city": null,
+        "mode": null,
+        "maxStops": 0
+      },
+      "dateRange": null,
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": [
+        {
+          "userType": "child",
+          "age": 0,
+          "gender": null
+        }
+      ]
+    },
+    "expectedProfile": {
+      "departure": {
+        "maxStops": 0
+      },
+      "people": [
+        {
+          "userType": "child",
+          "age": 0
+        }
+      ]
+    }
+  },
+  {
+    "id": "flexible-loses-nulls",
+    "ac": "AC-RULES-38",
+    "description": "a flexible range drops its null fields",
+    "extraction": {
+      "departure": null,
+      "dateRange": {
+        "kind": "flexible",
+        "month": 6,
+        "year": 2027,
+        "durationNights": null,
+        "note": null
+      },
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "dateRange": {
+        "kind": "flexible",
+        "month": 6,
+        "year": 2027
+      }
+    }
+  },
+  {
+    "id": "all-null-flexible-dropped",
+    "ac": "AC-RULES-38",
+    "description": "a flexible range with only nulls is omitted",
+    "extraction": {
+      "departure": null,
+      "dateRange": {
+        "kind": "flexible",
+        "month": null,
+        "year": null,
+        "durationNights": null,
+        "note": null
+      },
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {}
+  },
+  {
+    "id": "note-only-flexible-kept",
+    "ac": "AC-RULES-38",
+    "description": "a flexible range with only a note is kept",
+    "extraction": {
+      "departure": null,
+      "dateRange": {
+        "kind": "flexible",
+        "month": null,
+        "year": null,
+        "durationNights": null,
+        "note": "sometime in fall"
+      },
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "dateRange": {
+        "kind": "flexible",
+        "note": "sometime in fall"
+      }
+    }
+  },
+  {
+    "id": "flexible-zero-kept",
+    "ac": "AC-RULES-38",
+    "description": "flexible month 0 and durationNights 0 are kept (the rules judge them)",
+    "extraction": {
+      "departure": null,
+      "dateRange": {
+        "kind": "flexible",
+        "month": 0,
+        "year": null,
+        "durationNights": 0,
+        "note": null
+      },
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "dateRange": {
+        "kind": "flexible",
+        "month": 0,
+        "durationNights": 0
+      }
+    }
+  },
+  {
+    "id": "fixed-malformed-unchanged",
+    "ac": "AC-RULES-38",
+    "description": "a fixed range is kept as it is, even when malformed",
+    "extraction": {
+      "departure": null,
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2027-6-1",
+        "end": ""
+      },
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2027-6-1",
+        "end": ""
+      }
+    }
+  },
+  {
+    "id": "strings-untouched",
+    "ac": "AC-RULES-39",
+    "description": "strings are not trimmed, including empty and whitespace-only ones",
+    "extraction": {
+      "departure": {
+        "city": "  ",
+        "mode": null,
+        "maxStops": null
+      },
+      "dateRange": null,
+      "region": "",
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": [" yoga ", ""],
+      "people": [
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": " "
+        }
+      ]
+    },
+    "expectedProfile": {
+      "departure": {
+        "city": "  "
+      },
+      "region": "",
+      "unmappedExperiences": [" yoga ", ""],
+      "people": [
+        {
+          "userType": "adult",
+          "gender": " "
+        }
+      ]
+    }
+  }
+]

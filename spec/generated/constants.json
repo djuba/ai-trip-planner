@@ -1,5 +1,12 @@
 {
-  "contractVersion": "0.3.0",
+  "contractVersion": "0.4.0",
   "minPopulatedFields": 3,
-  "maxRequestBodyBytes": 1048576
+  "maxRequestBodyBytes": 1048576,
+  "maxMessageLength": 2000,
+  "maxShortTextLength": 100,
+  "maxNoteLength": 300,
+  "maxDateTextLength": 32,
+  "maxExperiences": 20,
+  "maxUnmappedExperiences": 10,
+  "maxPeople": 50
 }

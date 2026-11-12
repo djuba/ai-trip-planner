@@ -12,19 +12,39 @@ export interface ContractConstants {
   contractVersion: string;
   minPopulatedFields: number;
   maxRequestBodyBytes: number;
+  maxMessageLength: number;
+  maxShortTextLength: number;
+  maxPeople: number;
 }
 
 export function loadConstants(): ContractConstants {
   const raw = readJson(`${GENERATED_DIR}constants.json`) as Partial<ContractConstants>;
-  const { contractVersion, minPopulatedFields, maxRequestBodyBytes } = raw;
+  const {
+    contractVersion,
+    minPopulatedFields,
+    maxRequestBodyBytes,
+    maxMessageLength,
+    maxShortTextLength,
+    maxPeople,
+  } = raw;
   if (
     typeof contractVersion !== 'string' ||
     typeof minPopulatedFields !== 'number' ||
-    typeof maxRequestBodyBytes !== 'number'
+    typeof maxRequestBodyBytes !== 'number' ||
+    typeof maxMessageLength !== 'number' ||
+    typeof maxShortTextLength !== 'number' ||
+    typeof maxPeople !== 'number'
   ) {
     throw new Error('generated/constants.json is missing a contract constant');
   }
-  return { contractVersion, minPopulatedFields, maxRequestBodyBytes };
+  return {
+    contractVersion,
+    minPopulatedFields,
+    maxRequestBodyBytes,
+    maxMessageLength,
+    maxShortTextLength,
+    maxPeople,
+  };
 }
 
 /** Every `generated/*.schema.json`, parsed. */

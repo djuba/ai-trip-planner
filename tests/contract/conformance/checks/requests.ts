@@ -19,7 +19,7 @@ export const EXTRACT_PATH = '/v1/trip/extract';
 export const RECOMMEND_PATH = '/v1/trip/recommend';
 export const PRESENT_PATH = '/v1/trip/present';
 
-const PROFILE = {
+export const PROFILE = {
   departure: { city: 'Minneapolis', mode: 'plane', maxStops: 0 },
   dateRange: { kind: 'fixed', start: '2030-02-10', end: '2030-02-17' },
   region: 'Hawaii',

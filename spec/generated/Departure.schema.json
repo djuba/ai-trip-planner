@@ -4,9 +4,14 @@
   "type": "object",
   "properties": {
     "city": {
-      "type": [
-        "string",
-        "null"
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 100
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "mode": {

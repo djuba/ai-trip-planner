@@ -70,5 +70,5 @@ Unless a criterion says otherwise, each one starts from a profile that is otherw
 
 - **AC-RULES-36:** Given an all-null extraction, when it is normalized, then the result is `{}`.
 - **AC-RULES-37:** Given an extraction with empty arrays and null subfields, when it is normalized, then they are dropped, a `departure` with only nulls is dropped, and `maxStops: 0` and `age: 0` are kept.
-- **AC-RULES-38:** Given a date range, when it is normalized, then a flexible range loses its nulls, an all-null flexible range is dropped, a flexible range with only `note` is kept, and a fixed range is unchanged even when malformed.
-- **AC-RULES-39:** Given any extraction, when it is normalized, then strings are untouched, the result parses against `TripProfile`, and keys come out in schema order.
+- **AC-RULES-38:** Given a date range within the caps (over-cap values: AC-LIMITS-07…09 in [`input-limits.md`](input-limits.md)), when it is normalized, then a flexible range loses its nulls, an all-null flexible range is dropped, a flexible range with only `note` is kept, and a fixed range is unchanged even when malformed.
+- **AC-RULES-39:** Given any extraction within the caps (over-cap values: AC-LIMITS-07…10), when it is normalized, then strings are untouched, the result parses against `TripProfile`, and keys come out in schema order.

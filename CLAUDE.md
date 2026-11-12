@@ -28,7 +28,8 @@ ai-trip-planner/
 ├── spec/                        # LANGUAGE-NEUTRAL SPEC: what the backend must satisfy (see §4)
 │   ├── generated/               # JSON Schema + openapi.yaml + constants.json — generated, COMMITTED
 │   ├── rules.md                 # Invariant catalog (source of truth for rules)
-│   └── fixtures/                # Rule cases: input JSON → expected output JSON
+│   ├── normalize.md             # ExtractionSchema → TripProfile, incl. cap discards (source of truth)
+│   └── fixtures/                # rules/ and normalize/ cases: input JSON → expected output JSON
 ├── contracts/
 │   └── pacts/                   # Consumer pact files written by web tests — COMMITTED
 ├── tests/
@@ -68,11 +69,12 @@ ai-trip-planner/
 
 ## 4. The contract (`packages/domain-schema` → `spec/`)
 
-The contract has two homes. `packages/domain-schema` is the TS package where shapes are written and the rules are implemented. `spec/` holds everything language-neutral: the generated schemas and constants, the rule catalog and the rule fixtures. Anything outside TypeScript (a client generator, API docs, the provider contract tests) reads `spec/` as plain files and never depends on the TS package. (`contracts/pacts/` and `tests/contract/` are contract *testing*, §6.5.)
+The contract has two homes. `packages/domain-schema` is the TS package where shapes are written and the rules are implemented. `spec/` holds everything language-neutral: the generated schemas and constants, the rule catalog, the normalization spec and their fixtures. Anything outside TypeScript (a client generator, API docs, the provider contract tests) reads `spec/` as plain files and never depends on the TS package. (`contracts/pacts/` and `tests/contract/` are contract *testing*, §6.5.)
 
 ### 4.1 Source of truth
 - **Shapes:** Zod in `packages/domain-schema/src/wire/` is where shapes are written. `z.toJSONSchema()` emits `spec/generated/*.schema.json` and `spec/generated/openapi.yaml`. Code in another language generates its models from `spec/generated/`, never from TS. Schemas only a model fills in (`src/wire/llm/`) never cross HTTP, so they get a `.schema.json` but stay out of `openapi.yaml`.
 - **Invariants:** `spec/rules.md` is the source of truth. Each rule has a stable code, a plain-English definition, and fixture cases in `spec/fixtures/rules/`. `packages/domain-schema/src/rules/` is just the TS implementation of it.
+- **Normalization:** `spec/normalize.md` is the source of truth for `ExtractionSchema` → `TripProfile`, including what is discarded over a cap and how string length is counted (Unicode code points), with fixture cases in `spec/fixtures/normalize/` ([ADR 0004](docs/decisions/0004-input-and-output-limits.md)). `normalize.ts` is the TS implementation of it.
 - **Use only JSON-Schema-expressible constructs in wire schemas:** no `.transform()`, `.refine()`, `.superRefine()`, `z.date()`, `z.bigint()`, or `.default()` that changes meaning. Cross-field rules go in `src/rules/`, never in the wire schema.
 
 ### 4.2 Package exports (enforced)
@@ -108,13 +110,15 @@ The enum is closed and versioned. Adding a value is a `feat(domain-schema)`; rem
 ### 4.4 Two schemas, never one
 - **`ExtractionSchema`** — what the LLM fills in. Every field is **required but nullable** (`null` = "not mentioned"). This is the most reliable shape for structured output and has no optional-vs-absent ambiguity.
   - **Constructs (ADR 0001, Q3):** this schema, and every other schema handed to the model, uses only object, string, number/integer, boolean, enum, literal, nullable, array and discriminated union. **No** `tuple` (HTTP 400), `record` (always comes back `{}`), `.optional()`, `.default()`, numeric/length/pattern constraints or string `format`s. The provider strips constraints into descriptions, but the SDK still validates against them, so one out-of-range value fails the whole call as a 502 instead of becoming a rule violation. Range and format checks belong in `src/rules/`.
-- **`TripProfile`** — the domain/wire shape above. Built by a pure `normalize(extraction)` function that drops nulls and empty arrays.
+- **`TripProfile`** — the domain/wire shape above. Built by a pure `normalize(extraction)` function that drops nulls and empty arrays, and discards (never truncates) model output over a cap, so the result always passes `TripProfile` ([`spec/normalize.md`](spec/normalize.md)). It returns `{ profile, discarded }`; `discarded` is a server-side log signal, not part of the wire.
 
 ### 4.5 Validation = shape parse + rule evaluation (separate steps)
 1. Zod `safeParse` against the wire schema → shape errors (contract violation → HTTP 422).
 2. `evaluateRules(profile, referenceDate)` → `RuleViolation[]` (business result → HTTP 200 with `needs_clarification`).
 
 **Profile fields the model extracts (everything reachable from `ExtractionSchema`, i.e. `TripProfile`) carry no range or format constraints on the wire**, even when no rule checks them yet. Their checks are rules, so a `needs_clarification` response can carry the bad value, and the client can send it back. Other fields may carry constraints that are the server's own guarantee (e.g. `referenceDate` is a date, `clarificationQuestion` is non-empty).
+
+**The one exception is resource caps** ([ADR 0004](docs/decisions/0004-input-and-output-limits.md)). Every string and array reachable from `TripProfile`, and `ExtractRequest.message`, has a `maxLength` / `maxItems`, counted in Unicode code points (`spec/normalize.md`). A request over a cap is a 422, not a rule violation. The caps are exported constants (`MAX_MESSAGE_LENGTH`, `MAX_SHORT_TEXT_LENGTH`, `MAX_NOTE_LENGTH`, `MAX_DATE_TEXT_LENGTH`, `MAX_EXPERIENCES`, `MAX_UNMAPPED_EXPERIENCES`, `MAX_PEOPLE`), copied into `spec/generated/constants.json`. Wire schemas use them; never hardcode a cap. `ExtractionSchema` stays uncapped (§4.4).
 
 Rules never throw. Each violation is `{ code, path, params }`: `path` is a JSON Pointer into the profile, and `params` is typed per code (see `src/wire/models/rule-violation.ts`). **Messages are not part of the contract**; clients and the LLM clarification prompt render text from `code` + `params`.
 

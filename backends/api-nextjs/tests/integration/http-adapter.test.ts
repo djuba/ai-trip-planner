@@ -31,10 +31,13 @@ const streamOf = (...chunks: Uint8Array[]) =>
     },
   });
 
-/** A JSON document of exactly `bytes` bytes that passes ExtractRequest. */
+/**
+ * A JSON document of exactly `bytes` bytes that passes ExtractRequest. The padding goes in an
+ * unknown key (requests are open objects), because `message` is capped far below the body cap.
+ */
 const validBodyOfSize = (bytes: number) => {
-  const skeleton = JSON.stringify({ ...valid, message: '' });
-  return JSON.stringify({ ...valid, message: 'x'.repeat(bytes - skeleton.length) });
+  const skeleton = JSON.stringify({ ...valid, padding: '' });
+  return JSON.stringify({ ...valid, padding: 'x'.repeat(bytes - skeleton.length) });
 };
 
 const errorOf = async (response: Response) => ErrorResponse.parse(await response.json()).error;

@@ -26,7 +26,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-07 | Contract suite (provider side) | WU-05, WU-06 | done |
 | WU-08 | `LlmClient` with record / replay / mock | WU-03, WU-06 | done |
 | WU-19 | Refocus: spec-first, one implementation | WU-08 | done |
-| WU-17 | Input and output limits (prompt-injection hardening) | WU-05, WU-07, WU-19 | todo |
+| WU-17 | Input and output limits (prompt-injection hardening) | WU-05, WU-07, WU-19 | done |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | todo |
 | WU-18 | Eval harness + adversarial cases | WU-09 | todo |
 | WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | todo |
@@ -398,7 +398,7 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 ---
 
 ## WU-17 — Input and output limits (prompt-injection hardening)
-**Status:** todo · **Depends on:** WU-05, WU-07, WU-19 · **Commits:**
+**Status:** done · **Depends on:** WU-05, WU-07, WU-19 · **Commits:** [PR #20](https://github.com/djuba/ai-trip-planner/pull/20)
 
 **Goal:** limit what prompt injection and API abuse can achieve. Every free-text value the API accepts or returns has a cap. Oversized input is rejected at the wire, and an injected instruction that gets past the model can yield only a few short strings, never free-form output paid for with our tokens.
 
@@ -426,6 +426,13 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 - The web input's `maxlength` comes from the same constant (WU-13).
 - From WU-19: drop Python and Go from the spike. It still matters for TS: Zod `.max()` and Ajv `maxLength` may count length differently (UTF-16 code units vs code points), and `parity.test.ts` compares them. Settle the definition for those two, and state it in ADR 0004.
 - From WU-19: the normalize discard cases can be plain TS unit tests instead of `spec/fixtures/normalize/`, since no other backend needs to match them. Decide in this unit's plan, and record the reason. If you choose plain TS tests, add "normalize fixtures in `spec/fixtures/normalize/`" to ADR 0003's "If a second backend is added" list, or say why ADR 0004 records it instead.
+- Done: see [the plan](plans/WU-17.md) and [ADR 0004](decisions/0004-input-and-output-limits.md). The contract is now 0.4.0. Seven caps are exported constants copied into `constants.json`, and lengths count Unicode code points.
+- Answering the WU-19 Note above: shared fixtures were chosen, not plain TS tests ([plan](plans/WU-17.md), deviation 1). A discard changes what `/extract` returns, so it is visible to clients and belongs in the spec. [`spec/normalize.md`](../spec/normalize.md) is its source of truth, with profile-only examples in `spec/fixtures/normalize/`. The `discarded` report stays a TS-only log signal, so nothing was added to ADR 0003's list.
+- Decided at plan approval: the D2 cap values with no separate gender cap; an over-count list is dropped whole; granularity `fine`, unit tier `opus`.
+- Learned:
+  - Zod 4 `.max()` and Ajv `maxLength` both count code points. HTML `maxlength` counts UTF-16 units (WU-13 Note).
+  - A `\u` escape in a string written through the shell or a Node one-liner can silently become the literal character. That happened to a combining mark and a lone surrogate. Build such strings with `String.fromCodePoint`, or write them with the Edit tool.
+- Usage: main/Opus 228 req, 238k out; wu-reviewer/Opus 45 req, 41k out; wu-implementer/Sonnet 9 req, 14k out; wu-reviewer/Sonnet 7 req, 6k out.
 
 ---
 
@@ -465,6 +472,8 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 - From WU-08: this is the first unit where `next build` bundles `src/llm`, including `ai/test` through `mock.ts`. If that breaks the build or the bundle, keep `mock.ts` out of the route's import graph ([plan](plans/WU-08.md), R2).
 - From WU-19: this replaces the WU-07 rule-fixture note above. Still run every rule fixture through `/extract` with the mock `LlmClient`: assert the normalized profile is unchanged, and compare violations exactly and in order. Drop the `RULE-FIXTURE <file>/<id>` naming, the JUnit report and `tests/contract/rule-results.ts`; they exist only to compare backends (ADR 0003, "If a second backend is added").
 - From WU-19: when the fixtures-through-`/extract` test lands, set the "Rule examples" row to Built in the README's "How the design is checked" table.
+- From WU-17: also run every `spec/fixtures/normalize/` case through `/extract`, with the mock `LlmClient` returning the case's `extraction`, and assert the response profile equals `expectedProfile`. Use the same harness as the rule fixtures. When it lands, set the "Normalize examples" row to Built in the README's "How the design is checked" table. See [`spec/normalize.md`](../spec/normalize.md) and [ADR 0004](decisions/0004-input-and-output-limits.md).
+- From WU-17: the conformance suite's AC-LIMITS-11 checks (`tests/contract/conformance/limits.test.ts`) send `/extract` a message at `maxMessageLength`, and a `currentProfile` with `region` at its cap and with `people` at `maxPeople`, and require a schema-valid 200. Once the stub is gone, each of these is a real model call, so record replay cassettes for them, or the contract gate fails on a cassette miss. Consider changing the at-cap text in `checks/limits.ts` to a realistic request padded to the cap with astral characters, so the recorded answer is meaningful. The probe must still count only in code points (WU-17 unit review #1).
 
 ---
 
@@ -525,6 +534,7 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 - From security planning: the client can post any profile to `/recommend` directly, so its strings are untrusted here even though WU-17 caps them. Pass the profile to the recommend and critic prompts through the WU-09 prompt-data helper.
 - From security planning: cap `RecommendationSet` strings the same way WU-17 caps the profile. The schema given to the model stays unconstrained (ADR 0001), the wire schema carries the caps (`/present` takes `recommendations` back from the client), and code discards over-cap model values before responding. Size `maxOutputTokens` from those caps.
 - From security planning: add a containment test with an injection cassette (instructions planted in profile strings), and add `/recommend` cases to WU-18's eval set.
+- From WU-17: the conformance suite's AC-LIMITS-11 checks post `/recommend` a profile with `region` at its cap and with `people` at `maxPeople`, and require a schema-valid 200. Once the stub is gone, record replay cassettes for both probes, including the critic calls, or the contract gate fails on a cassette miss (WU-17 unit review #1).
 
 ---
 
@@ -553,6 +563,7 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 - From WU-07: record cassettes for the AC-CONTRACT-06 `/present` request, then delete the `/present` stub and `src/stubs/canned.ts`.
 - From security planning: the profile and `recommendations` in the request are client-supplied, so they go into the prompt through the WU-09 prompt-data helper. The stream reaches the client as it's generated, so over-cap text can't be discarded afterwards. `maxOutputTokens` is the main bound here, with per-field caps on the `PresentationModel` wire schema checked by the final parse. Add a containment test and `/present` cases to WU-18's eval set.
 - From WU-08: add `streamObject` to the `LlmClient` interface here, together with its mid-stream error semantics. That changes the interface, so this unit's review tier is `opus`. Record and replay of SSE are already proven (AC-LLM-12, [`llm-client.md`](features/llm-client.md)).
+- From WU-17: the conformance suite's AC-LIMITS-11 checks post `/present` a profile with `region` at its cap and with `people` at `maxPeople`, and require a stream that ends in a valid `PresentationModel`. Once the stub is gone, record replay cassettes for both probes, or the contract gate fails on a cassette miss (WU-17 unit review #1).
 - From WU-08: the recorder writes any 2xx response. An SSE body can still fail partway through (`event: error`) after a 200, so skip writing a stream cassette that contains `event: error` or has no `message_stop` (WU-08 implementation review #6).
 
 ---
@@ -605,6 +616,7 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 
 **Notes:**
 - From security planning: set the message input's `maxlength` from WU-17's shared cap constant, and show the remaining length, so an honest user never gets a 422.
+- From WU-17: the cap is `MAX_MESSAGE_LENGTH`, counted in Unicode code points. HTML `maxlength` counts UTF-16 units, so on its own it would stop a message of emoji at half the real limit. Count and show the remaining length with `codePointLength` from `@vp/domain-schema/wire`, and test a message of emoji at the cap. See [ADR 0004](decisions/0004-input-and-output-limits.md) §3.
 
 ---
 
