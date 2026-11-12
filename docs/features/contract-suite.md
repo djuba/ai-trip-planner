@@ -1,10 +1,10 @@
 # Provider contract suite
 
-The black-box suite that decides whether a backend conforms to the HTTP contract (CLAUDE.md §5, §6.5). It lives in `tests/contract/`, reads only `spec/generated/*.json`, and talks to the backend over HTTP. It imports no workspace code, so it judges a TypeScript, Python or Go backend the same way.
+The provider contract tests decide whether a backend conforms to the HTTP contract (CLAUDE.md §5, §6.5). They live in `tests/contract/` and are black-box: they read only `spec/generated/*.json` and pact files, talk to the backend over HTTP, and import no workspace code. So they judge the contract rather than the implementation, and can check any running backend, including a deployed one.
 
 Run it with `pnpm test:contract`, which builds and starts api-nextjs, or with `pnpm test:contract:external`, which tests the backend at `API_BASE_URL`. The runner stops the server it started on exit, on Ctrl-C and on `SIGTERM`. The signal path has no automated test, because Windows can't deliver a console Ctrl-C from a test, so a forced kill of the runner (`taskkill /F`) can leave `next start` holding its port.
 
-Rule parity across backends is proven by each backend's own HTTP integration tests plus a shared results check, not by this suite. See [ADR 0002](../decisions/0002-rule-parity-across-backends.md).
+The rule fixtures go through `/extract` in api-nextjs's own integration tests (WU-09), not in this suite. See [ADR 0003](../decisions/0003-spec-first-one-implementation.md).
 
 ## What the checks require
 
@@ -12,7 +12,7 @@ The checks require only what the contract specifies, never how api-nextjs happen
 - **Preflight:** any 2xx status. `Access-Control-Allow-Origin` equals `WEB_ORIGIN`. `Access-Control-Allow-Methods` contains the requested method, and `Access-Control-Allow-Headers` contains `content-type`, each compared as case-insensitive comma-separated tokens; `*` is accepted for both.
 - **Content types** are compared by media type only (`application/json`, `text/plain`); parameters such as `charset` are ignored.
 - **413:** oversized bodies are sent with an explicit `content-length`. A server may answer before the upload finishes and then close the connection; only a connection that fails before any response counts as a failure. A server that resets the connection the instant it finishes writing can lose its own 413 in transit (seen on Windows), so close gracefully after answering.
-- **No exact-cap case here:** a valid body of exactly `maxRequestBodyBytes` would reach the LLM once the endpoints are real, so it is proven at each backend's integration layer instead (AC-API-04).
+- **No exact-cap case here:** a valid body of exactly `maxRequestBodyBytes` would reach the LLM once the endpoints are real, so it is proven at api-nextjs's integration layer instead (AC-API-04).
 
 ## Acceptance criteria
 

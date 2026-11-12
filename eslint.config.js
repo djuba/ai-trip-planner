@@ -38,7 +38,7 @@ export const journeysRestrictedImports = {
 };
 
 // The provider contract suite is black-box: it reads generated JSON and talks HTTP, so it judges
-// every backend alike (CLAUDE.md §6.5; WU-07 plan D2).
+// the contract, not the implementation (CLAUDE.md §6.5; WU-07 plan D2).
 export const contractSuiteRestrictedImports = {
   patterns: [
     {

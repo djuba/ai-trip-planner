@@ -63,10 +63,10 @@ export function buildOpenApi(): JsonSchema {
   return {
     openapi: '3.1.1',
     info: {
-      title: 'AI Vacation Planner API',
+      title: 'AI Trip Planner API',
       version: CONTRACT_VERSION,
       description:
-        'Backend-neutral HTTP contract. Generated from packages/domain-schema/src/wire; ' +
+        'Language-neutral HTTP contract. Generated from packages/domain-schema/src/wire; ' +
         'do not edit by hand. Business rules (rules.md) are not expressed here: a rule ' +
         'violation is a 200 `needs_clarification`, not a 422.',
     },
