@@ -477,6 +477,11 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
   - no secrets in any layer.
 - **CI:** a job that builds the image, runs it in replay mode, and runs `pnpm test:contract:external` against it. Decide in the plan whether it becomes a required check.
 - **CLAUDE.md:** §2 (the Dockerfile), §3 (the image build command), §6.7 (the image job, and how deploys get credentials).
+- **README** (nothing is hosted yet, so nothing about a demo):
+  - "How the design is checked": a row for the container image passing the provider contract tests in CI;
+  - Prerequisites: Docker, optional and needed only to build the image, since `pnpm verify` doesn't use it;
+  - Commands: building and running the image in replay mode;
+  - "Where to find things": the Dockerfile, and ADR 0005 for hosting decisions.
 
 **Required tests**
 - *Contract:* `test:contract:external` passes against the running container, locally and in CI.
@@ -509,6 +514,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - `infra/README.md`: a runbook covering bootstrap, `terraform plan`/`apply`, rollback to an earlier image, and teardown.
 - An `infra` commit scope in `commitlint.config.js` and CLAUDE.md §10. CLAUDE.md §2, §3 and §6.7 updated for `infra/` and the deploy workflow.
 - `terraform fmt -check` and `terraform validate` run in CI, not in `pnpm verify`, so the project gate needs no Terraform.
+- **README:** `infra/` in "Where to find things", and a "How the design is checked" row for the post-deploy contract check. Describe it as a deployment check, with no URL and nothing that reads as a demo.
 
 **Required tests**
 - *Contract:* the post-deploy `test:contract:external` run passes against the hosted URL.
@@ -812,7 +818,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 **Definition of done:** a fresh clone, following only the README, reaches a green `pnpm verify` and a working UI in replay mode.
 
 **Notes:**
-- From deployment planning: don't mention a hosted demo or the WU-21 environment. WU-23 adds the "live demo available on request" line once the demo works. Do cover the hosting approach as a design decision (ADR 0005) and the cost-control approach.
+- From deployment planning: don't link to or offer the hosted environment. Describing the deployment pipeline and its checks is fine (WU-20, WU-21). WU-23 adds the "live demo available on request" line once the demo works. Do cover the hosting approach as a design decision (ADR 0005) and the cost-control approach.
 
 ---
 
