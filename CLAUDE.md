@@ -147,7 +147,7 @@ Base path `/v1`. JSON only. CORS allows `WEB_ORIGIN` (default `http://localhost:
 | `POST /v1/trip/extract` | `{ message, currentProfile?, referenceDate }` | `ExtractResponse` (below) |
 | `POST /v1/trip/recommend` | `{ profile, referenceDate }` | `RecommendResponse` (critic already applied) |
 | `POST /v1/trip/present` | `{ profile, recommendations }` | **stream**: `text/plain` partial-JSON stream of `PresentationModel` |
-| `GET  /v1/health` | — | `{ status, backend: 'nextjs' \| 'fastapi' \| 'go', contractVersion }` |
+| `GET  /v1/health` | — | `{ status, contractVersion }` |
 
 ```ts
 ExtractResponse =

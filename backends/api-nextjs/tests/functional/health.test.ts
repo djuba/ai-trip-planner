@@ -19,11 +19,10 @@ describe('GET /v1/health over real HTTP', () => {
     const response = await fetch(`${api.baseUrl}/v1/health`);
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('application/json');
-    expect(HealthResponse.parse(await response.json())).toEqual({
-      status: 'ok',
-      backend: 'nextjs',
-      contractVersion: CONTRACT_VERSION,
-    });
+    // Compare the raw body: parse() strips unknown keys, so it would hide a stray field.
+    const body: unknown = await response.json();
+    expect(body).toEqual({ status: 'ok', contractVersion: CONTRACT_VERSION });
+    expect(HealthResponse.safeParse(body).success).toBe(true);
   });
 
   it('AC-API-19: reflects the WEB_ORIGIN set at runtime, not at build time', async () => {

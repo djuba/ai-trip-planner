@@ -20,7 +20,6 @@ export const CONTRACT_SCHEMAS = {
   ErrorCode: enums.ErrorCode,
   ClaimKind: enums.ClaimKind,
   Verification: enums.Verification,
-  BackendName: enums.BackendName,
   Departure,
   Traveler,
   DateRange,
@@ -58,7 +57,7 @@ export const LLM_FACING_IDS = [
 
 /**
  * Schemas only a model fills in. They never cross HTTP, so they stay out of `openapi.yaml`, but
- * still get a `generated/<id>.schema.json` because every backend gives them to its model.
+ * still get a `generated/<id>.schema.json` because the backend gives them to its model.
  */
 export const LLM_ONLY_IDS = [
   'ExtractionSchema',

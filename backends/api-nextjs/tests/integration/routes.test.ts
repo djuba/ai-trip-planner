@@ -46,11 +46,10 @@ describe('routes', () => {
     const response = await GET(new Request('http://api.test/v1/health'));
     expect(response.status).toBe(200);
     expect(response.headers.get('access-control-allow-origin')).toBe(WEB_ORIGIN);
-    expect(HealthResponse.parse(await response.json())).toEqual({
-      status: 'ok',
-      backend: 'nextjs',
-      contractVersion: CONTRACT_VERSION,
-    });
+    // Compare the raw body: parse() strips unknown keys, so it would hide a stray field.
+    const body: unknown = await response.json();
+    expect(body).toEqual({ status: 'ok', contractVersion: CONTRACT_VERSION });
+    expect(HealthResponse.safeParse(body).success).toBe(true);
   });
 
   it('POST /v1/trip/extract stub returns a schema-valid body', async () => {
