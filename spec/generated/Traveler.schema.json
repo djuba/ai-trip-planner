@@ -19,9 +19,14 @@
       ]
     },
     "gender": {
-      "type": [
-        "string",
-        "null"
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 100
+        },
+        {
+          "type": "null"
+        }
       ]
     }
   },

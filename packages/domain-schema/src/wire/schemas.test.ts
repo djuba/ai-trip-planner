@@ -1,7 +1,25 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { CONTRACT_SCHEMAS } from '../../gen/registry.ts';
 import { SAMPLES } from '../../tests/support/samples.ts';
-import { EXPERIENCES, HealthResponse, RuleCode, RuleViolation } from './index.ts';
+import {
+  DateRange,
+  Departure,
+  EXPERIENCES,
+  ExtractRequest,
+  HealthResponse,
+  MAX_DATE_TEXT_LENGTH,
+  MAX_EXPERIENCES,
+  MAX_MESSAGE_LENGTH,
+  MAX_NOTE_LENGTH,
+  MAX_PEOPLE,
+  MAX_SHORT_TEXT_LENGTH,
+  MAX_UNMAPPED_EXPERIENCES,
+  RuleCode,
+  RuleViolation,
+  Traveler,
+  TripProfile,
+} from './index.ts';
 
 const ids = Object.keys(CONTRACT_SCHEMAS) as (keyof typeof CONTRACT_SCHEMAS)[];
 
@@ -54,5 +72,59 @@ describe('contract vocabulary', () => {
       'nightlife',
       'skiing',
     ]);
+  });
+});
+
+/** Every `maxLength` and `maxItems` value in a field's own JSON Schema (not its children's). */
+function capsOf(schema: z.ZodType, keyword: 'maxLength' | 'maxItems'): number[] {
+  const found: number[] = [];
+  const walk = (node: unknown, top: boolean) => {
+    if (Array.isArray(node)) return node.forEach((n) => walk(n, top));
+    if (typeof node !== 'object' || node === null) return;
+    const record = node as Record<string, unknown>;
+    if (typeof record[keyword] === 'number') found.push(record[keyword]);
+    // anyOf carries nullable wrappers at the same level; items/properties are children.
+    if (Array.isArray(record.anyOf)) walk(record.anyOf, top);
+    if (!top) return;
+    if (keyword === 'maxLength' && record.items) walk(record.items, false);
+  };
+  walk(z.toJSONSchema(schema, { io: 'input' }), true);
+  return found;
+}
+
+const [fixedRange, flexibleRange] = DateRange.options;
+
+describe('AC-LIMITS-04: each cap constant is the maximum on its fields', () => {
+  it.each([
+    ['ExtractRequest.message', ExtractRequest.shape.message, 'maxLength', MAX_MESSAGE_LENGTH],
+    ['TripProfile.region', TripProfile.shape.region, 'maxLength', MAX_SHORT_TEXT_LENGTH],
+    ['Departure.city', Departure.shape.city, 'maxLength', MAX_SHORT_TEXT_LENGTH],
+    ['Traveler.gender', Traveler.shape.gender, 'maxLength', MAX_SHORT_TEXT_LENGTH],
+    ['DateRange(flexible).note', flexibleRange.shape.note, 'maxLength', MAX_NOTE_LENGTH],
+    ['DateRange(fixed).start', fixedRange.shape.start, 'maxLength', MAX_DATE_TEXT_LENGTH],
+    ['DateRange(fixed).end', fixedRange.shape.end, 'maxLength', MAX_DATE_TEXT_LENGTH],
+    ['TripProfile.experiences', TripProfile.shape.experiences, 'maxItems', MAX_EXPERIENCES],
+    [
+      'TripProfile.unmappedExperiences',
+      TripProfile.shape.unmappedExperiences,
+      'maxItems',
+      MAX_UNMAPPED_EXPERIENCES,
+    ],
+    [
+      'TripProfile.unmappedExperiences[]',
+      TripProfile.shape.unmappedExperiences,
+      'maxLength',
+      MAX_SHORT_TEXT_LENGTH,
+    ],
+    ['TripProfile.people', TripProfile.shape.people, 'maxItems', MAX_PEOPLE],
+  ] as const)('AC-LIMITS-04: %s has %s %i', (_name, schema, keyword, cap) => {
+    expect(capsOf(schema, keyword)).toEqual([cap]);
+  });
+
+  it('AC-LIMITS-04: TripProfile uses the shared Departure, Traveler and DateRange', () => {
+    // So the field checks above also cover the profile that every request and response carries.
+    expect(TripProfile.shape.departure.unwrap().unwrap()).toBe(Departure);
+    expect(TripProfile.shape.dateRange.unwrap().unwrap()).toBe(DateRange);
+    expect(TripProfile.shape.people.unwrap().element).toBe(Traveler);
   });
 });

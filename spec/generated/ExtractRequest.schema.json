@@ -5,7 +5,8 @@
   "properties": {
     "message": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 2000
     },
     "currentProfile": {
       "$ref": "TripProfile.schema.json"

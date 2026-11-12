@@ -221,6 +221,14 @@ describe('D14(b): JSON keyword walk over LLM-facing schemas', () => {
     });
   }
 
+  it('AC-LIMITS-06: ExtractionSchema carries no maxLength or maxItems (ADR 0004)', () => {
+    // The walk follows $refs, so a cap on a shared sub-schema would show up here too.
+    const caps = findJsonViolations('ExtractionSchema', emitted).filter((v) =>
+      /'(maxLength|maxItems)'/.test(v),
+    );
+    expect(caps).toEqual([]);
+  });
+
   it('self-test: reports a forbidden keyword inline', () => {
     const bad = { Bad: { type: 'string', minLength: 1 } };
     expect(findJsonViolations('Bad', bad)).toEqual([expect.stringContaining('minLength')]);

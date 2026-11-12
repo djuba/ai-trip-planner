@@ -55,11 +55,18 @@ describe('buildArtifacts', () => {
     expect(Object.keys(buildJsonSchemas())).toEqual(Object.keys(CONTRACT_SCHEMAS));
   });
 
-  it('writes constants.json from the contract constants', () => {
+  it('AC-LIMITS-05: writes constants.json from the contract constants, caps included', () => {
     expect(JSON.parse(files.get('constants.json') ?? '')).toEqual({
       contractVersion: CONTRACT_VERSION,
       minPopulatedFields: 3,
       maxRequestBodyBytes: 1_048_576,
+      maxMessageLength: 2000,
+      maxShortTextLength: 100,
+      maxNoteLength: 300,
+      maxDateTextLength: 32,
+      maxExperiences: 20,
+      maxUnmappedExperiences: 10,
+      maxPeople: 50,
     });
   });
 });

@@ -10,10 +10,12 @@
           "const": "fixed"
         },
         "start": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 32
         },
         "end": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 32
         }
       },
       "required": [
@@ -45,7 +47,8 @@
           "maximum": 9007199254740991
         },
         "note": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 300
         }
       },
       "required": [

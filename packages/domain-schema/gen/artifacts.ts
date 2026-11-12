@@ -5,7 +5,14 @@ import { stringify } from 'yaml';
 import { z } from 'zod';
 import {
   CONTRACT_VERSION,
+  MAX_DATE_TEXT_LENGTH,
+  MAX_EXPERIENCES,
+  MAX_MESSAGE_LENGTH,
+  MAX_NOTE_LENGTH,
+  MAX_PEOPLE,
   MAX_REQUEST_BODY_BYTES,
+  MAX_SHORT_TEXT_LENGTH,
+  MAX_UNMAPPED_EXPERIENCES,
   MIN_POPULATED_FIELDS,
 } from '../src/wire/index.ts';
 import {
@@ -155,6 +162,13 @@ export function buildConstants() {
     contractVersion: CONTRACT_VERSION,
     minPopulatedFields: MIN_POPULATED_FIELDS,
     maxRequestBodyBytes: MAX_REQUEST_BODY_BYTES,
+    maxMessageLength: MAX_MESSAGE_LENGTH,
+    maxShortTextLength: MAX_SHORT_TEXT_LENGTH,
+    maxNoteLength: MAX_NOTE_LENGTH,
+    maxDateTextLength: MAX_DATE_TEXT_LENGTH,
+    maxExperiences: MAX_EXPERIENCES,
+    maxUnmappedExperiences: MAX_UNMAPPED_EXPERIENCES,
+    maxPeople: MAX_PEOPLE,
   };
 }
 

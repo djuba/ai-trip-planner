@@ -1,5 +1,6 @@
 // Request and response bodies of the v1 HTTP API (CLAUDE.md §5).
 import { z } from 'zod';
+import { MAX_MESSAGE_LENGTH } from '../constants.ts';
 import { ErrorCode } from '../models/enums.ts';
 import { CritiqueIssue, Recommendation } from '../models/recommendation.ts';
 import { RuleViolation } from '../models/rule-violation.ts';
@@ -9,7 +10,7 @@ import { TripProfile } from '../models/trip-profile.ts';
 const ReferenceDate = z.iso.date();
 
 export const ExtractRequest = z.object({
-  message: z.string().min(1),
+  message: z.string().min(1).max(MAX_MESSAGE_LENGTH),
   currentProfile: TripProfile.optional(),
   referenceDate: ReferenceDate,
 });
