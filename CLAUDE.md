@@ -8,7 +8,7 @@ A portfolio app that turns natural-language travel requests into structured, val
 
 It is built **spec-first, with one implementation** ([ADR 0003](docs/decisions/0003-spec-first-one-implementation.md)). The HTTP contract, the business rules and their examples live as language-neutral files in `spec/`. One TypeScript backend (`backends/api-nextjs`) implements them, and a Next.js web client talks to it over HTTP only. The provider contract tests (§6.5) are black-box: they check the running backend against the spec over HTTP, so another implementation could be checked the same way, and a client can read the spec. No other implementation is planned, so portability stays unproven.
 
-**Conformance is proven by tests, not by intent.** The backend conforms only when it passes the contract suite in `tests/contract` (see §6.5).
+**Conformance is proven by tests, not by intent.** The backend conforms only when it passes the provider contract tests in `tests/contract` and the rule-fixture tests through `/extract` (see §6.5).
 
 ## 2. Repository layout
 
