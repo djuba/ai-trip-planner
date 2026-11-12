@@ -22,7 +22,10 @@ pre-commit:
     - name: gitleaks
       run: node scripts/gitleaks.mjs
 
+# Full `pnpm verify`, except a push of only Markdown outside spec/ gets a format check
+# (scripts/pre-push.ts). use_stdin hands it git's list of pushed refs.
 pre-push:
   jobs:
     - name: verify
-      run: pnpm verify
+      run: node scripts/pre-push.ts
+      use_stdin: true
