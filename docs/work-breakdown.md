@@ -25,7 +25,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-06 | `api-nextjs` skeleton | WU-04 | done |
 | WU-07 | Contract suite (provider side) | WU-05, WU-06 | done |
 | WU-08 | `LlmClient` with record / replay / mock | WU-03, WU-06 | done |
-| WU-19 | Refocus: spec-first, one implementation | WU-08 | in-progress |
+| WU-19 | Refocus: spec-first, one implementation | WU-08 | done |
 | WU-17 | Input and output limits (prompt-injection hardening) | WU-05, WU-07, WU-19 | todo |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | todo |
 | WU-18 | Eval harness + adversarial cases | WU-09 | todo |
@@ -313,7 +313,7 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 ---
 
 ## WU-19 — Refocus: spec-first, one implementation
-**Status:** in-progress · **Depends on:** WU-08 · **Commits:**
+**Status:** done · **Depends on:** WU-08 · **Commits:** [PR #19](https://github.com/djuba/ai-trip-planner/pull/19)
 
 **Goal:** cut the complexity that only pays off with a second backend, and keep what is worth having with one. The repo becomes a spec-first app with one TypeScript implementation. Portability stays a property of the design, checked by black-box tests, but it is no longer the headline or a planned deliverable. Anything removed here can come back if a second backend is ever built.
 
@@ -382,6 +382,18 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 **Notes:**
 - From refocus planning: removing `HealthResponse.backend` is a contract change, so the review tier is Opus (CLAUDE.md §12, 4a). The breaking change belongs in its own commit, so granularity is likely `fine`: the contract change, the docs and removals, and the hook-test fix as separate checkpoints. Confirm in the plan.
 - Takes ADR 0003; WU-17's ADR becomes 0004.
+- Done: see [the plan](plans/WU-19.md) and [ADR 0003](decisions/0003-spec-first-one-implementation.md). The contract is now 0.3.0, and `/v1/health` returns `{ status, contractVersion }`. "Provider contract tests" is the name for Pact verification plus the conformance suite, and CLAUDE.md §6.5 says what makes them black-box.
+- Decided at plan approval:
+  - the product name is "AI Trip Planner";
+  - ADR 0001 and `spikes/` are kept as records, so they still match the Definition-of-done grep (deviation 5);
+  - the contract version goes to 0.3.0;
+  - the `@vp/*` scope stays;
+  - the main agent ran `gh repo rename`.
+- Learned:
+  - Zod `parse()` strips unknown keys, so `toEqual` after `parse` can't catch an extra field. Compare the raw body ([plan](plans/WU-19.md), deviation 1).
+  - A worktree's git hooks export `GIT_DIR` and `GIT_INDEX_FILE`, so a test that starts git, gitleaks or commitlint must strip every `GIT_*` variable from the child's env.
+  - `gh repo rename` carries the open PR, branch protection and the required `verify` check across, and old URLs redirect. The PR links in done units still use the old name.
+- Usage: main/Opus 98 req, 76k out; wu-reviewer/Opus 30 req, 20k out; wu-reviewer/Sonnet 13 req, 6k out.
 
 ---
 
@@ -413,7 +425,7 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 - `RecommendationSet` and `PresentationModel` strings are out of scope here; WU-10 and WU-11 cap them.
 - The web input's `maxlength` comes from the same constant (WU-13).
 - From WU-19: drop Python and Go from the spike. It still matters for TS: Zod `.max()` and Ajv `maxLength` may count length differently (UTF-16 code units vs code points), and `parity.test.ts` compares them. Settle the definition for those two, and state it in ADR 0004.
-- From WU-19: the normalize discard cases can be plain TS unit tests instead of `spec/fixtures/normalize/`, since no other backend needs to match them. Decide in this unit's plan, and record the reason.
+- From WU-19: the normalize discard cases can be plain TS unit tests instead of `spec/fixtures/normalize/`, since no other backend needs to match them. Decide in this unit's plan, and record the reason. If you choose plain TS tests, add "normalize fixtures in `spec/fixtures/normalize/`" to ADR 0003's "If a second backend is added" list, or say why ADR 0004 records it instead.
 
 ---
 
@@ -452,6 +464,7 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 - From WU-08: the routes need a seam to inject a mock `LlmClient` (`createMockLlmClient` + `mockObject` from `src/llm`) for the rule-fixture test. Build the real client with `createLlmClient(getConfig())`. An unresolvable cassette directory now fails there, not at startup ([plan](plans/WU-08.md), deviation 3).
 - From WU-08: this is the first unit where `next build` bundles `src/llm`, including `ai/test` through `mock.ts`. If that breaks the build or the bundle, keep `mock.ts` out of the route's import graph ([plan](plans/WU-08.md), R2).
 - From WU-19: this replaces the WU-07 rule-fixture note above. Still run every rule fixture through `/extract` with the mock `LlmClient`: assert the normalized profile is unchanged, and compare violations exactly and in order. Drop the `RULE-FIXTURE <file>/<id>` naming, the JUnit report and `tests/contract/rule-results.ts`; they exist only to compare backends (ADR 0003, "If a second backend is added").
+- From WU-19: when the fixtures-through-`/extract` test lands, set the "Rule examples" row to Built in the README's "How the design is checked" table.
 
 ---
 
@@ -564,6 +577,7 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 
 **Notes:**
 - From the wire reorganization: when this unit is done, set the Pact row to Built in the README's "How interchangeability is checked" table.
+- From WU-19: that table is now "How the design is checked", under the README's "Design and tradeoffs" section. Set its Pact row to Built there.
 - Pin `@ai-sdk/react 4.0.158` (and `react`/`react-dom 19.3.1`) to match ADR 0001; use `useObject`, not `experimental_useObject`. See [ADR 0001](decisions/0001-structured-output.md), "Versions tested".
 - From WU-04: `tsconfig.json` must extend the base, and Next must handle `.ts` contract imports (same check as WU-06). `apps/` may import wire schemas at runtime (CLAUDE.md §4.2). Leave `currentProfile` out on the first turn; `null` gets a 422. Build every mock with `buildFixture`.
 - From WU-02: add `webServer` to `apps/web-nextjs/playwright.config.ts`, and install Chromium in CI (`pnpm exec playwright install --with-deps chromium`) together with the first spec. Once specs exist, drop `--pass-with-no-tests` from the web `test:functional` script so an empty glob cannot pass. Replace the `test:contract` stub if WU-07 has not already. `@axe-core/playwright` is already installed.
@@ -635,7 +649,7 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 - From the wire reorganization: when this unit is done, set the Journeys row to Built in the README's "How interchangeability is checked" table. WU-16 may then drop the Status column.
 - From WU-02: replace the `verify:integrated` and `verify:full` stubs. `test:journeys` already runs Playwright; drop its `--pass-with-no-tests` once journeys exist.
 - From WU-07: add `BACKEND=` selection to `scripts/run-contract.ts`; today it only starts api-nextjs, and `--external` covers any other backend.
-- From WU-19: this replaces the WU-07 `BACKEND=` note above. The stack script starts `api-nextjs` only, and `verify:full` runs journeys `@full` plus the provider contract tests against `api-nextjs`. The "How interchangeability is checked" table from the wire-reorganization note is replaced by WU-19's README section, so update that section instead.
+- From WU-19: this replaces the WU-07 `BACKEND=` note above. The stack script starts `api-nextjs` only, and `verify:full` runs journeys `@full` plus the provider contract tests against `api-nextjs`. The "How interchangeability is checked" table from the wire-reorganization note is replaced by WU-19's README section, so update that section instead. The Scope's `BACKEND=nextjs` is dropped too: the stack script has no `BACKEND` variable (ADR 0003, "If a second backend is added").
 - From WU-08: add `record:cassettes --prune` to delete cassettes no test replays any more ([plan](plans/WU-08.md), R5). A dead-proxy "network off" check can't cover `test:contract`: Pact's native verifier routes even loopback requests through the proxy and ignores `NO_PROXY`, so use a real network-off run ([plan](plans/WU-08.md), deviation 7).
 
 ---
