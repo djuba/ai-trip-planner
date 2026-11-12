@@ -28,7 +28,8 @@ ai-trip-planner/
 ├── spec/                        # LANGUAGE-NEUTRAL SPEC: what the backend must satisfy (see §4)
 │   ├── generated/               # JSON Schema + openapi.yaml + constants.json — generated, COMMITTED
 │   ├── rules.md                 # Invariant catalog (source of truth for rules)
-│   └── fixtures/                # Rule cases: input JSON → expected output JSON
+│   ├── normalize.md             # ExtractionSchema → TripProfile, incl. cap discards (source of truth)
+│   └── fixtures/                # rules/ and normalize/ cases: input JSON → expected output JSON
 ├── contracts/
 │   └── pacts/                   # Consumer pact files written by web tests — COMMITTED
 ├── tests/
@@ -68,11 +69,12 @@ ai-trip-planner/
 
 ## 4. The contract (`packages/domain-schema` → `spec/`)
 
-The contract has two homes. `packages/domain-schema` is the TS package where shapes are written and the rules are implemented. `spec/` holds everything language-neutral: the generated schemas and constants, the rule catalog and the rule fixtures. Anything outside TypeScript (a client generator, API docs, the provider contract tests) reads `spec/` as plain files and never depends on the TS package. (`contracts/pacts/` and `tests/contract/` are contract *testing*, §6.5.)
+The contract has two homes. `packages/domain-schema` is the TS package where shapes are written and the rules are implemented. `spec/` holds everything language-neutral: the generated schemas and constants, the rule catalog, the normalization spec and their fixtures. Anything outside TypeScript (a client generator, API docs, the provider contract tests) reads `spec/` as plain files and never depends on the TS package. (`contracts/pacts/` and `tests/contract/` are contract *testing*, §6.5.)
 
 ### 4.1 Source of truth
 - **Shapes:** Zod in `packages/domain-schema/src/wire/` is where shapes are written. `z.toJSONSchema()` emits `spec/generated/*.schema.json` and `spec/generated/openapi.yaml`. Code in another language generates its models from `spec/generated/`, never from TS. Schemas only a model fills in (`src/wire/llm/`) never cross HTTP, so they get a `.schema.json` but stay out of `openapi.yaml`.
 - **Invariants:** `spec/rules.md` is the source of truth. Each rule has a stable code, a plain-English definition, and fixture cases in `spec/fixtures/rules/`. `packages/domain-schema/src/rules/` is just the TS implementation of it.
+- **Normalization:** `spec/normalize.md` is the source of truth for `ExtractionSchema` → `TripProfile`, including what is discarded over a cap and how string length is counted (Unicode code points), with fixture cases in `spec/fixtures/normalize/` ([ADR 0004](docs/decisions/0004-input-and-output-limits.md)). `normalize.ts` is the TS implementation of it.
 - **Use only JSON-Schema-expressible constructs in wire schemas:** no `.transform()`, `.refine()`, `.superRefine()`, `z.date()`, `z.bigint()`, or `.default()` that changes meaning. Cross-field rules go in `src/rules/`, never in the wire schema.
 
 ### 4.2 Package exports (enforced)

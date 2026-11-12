@@ -465,6 +465,7 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 - From WU-08: this is the first unit where `next build` bundles `src/llm`, including `ai/test` through `mock.ts`. If that breaks the build or the bundle, keep `mock.ts` out of the route's import graph ([plan](plans/WU-08.md), R2).
 - From WU-19: this replaces the WU-07 rule-fixture note above. Still run every rule fixture through `/extract` with the mock `LlmClient`: assert the normalized profile is unchanged, and compare violations exactly and in order. Drop the `RULE-FIXTURE <file>/<id>` naming, the JUnit report and `tests/contract/rule-results.ts`; they exist only to compare backends (ADR 0003, "If a second backend is added").
 - From WU-19: when the fixtures-through-`/extract` test lands, set the "Rule examples" row to Built in the README's "How the design is checked" table.
+- From WU-17: also run every `spec/fixtures/normalize/` case through `/extract`, with the mock `LlmClient` returning the case's `extraction`, and assert the response profile equals `expectedProfile`. Use the same harness as the rule fixtures. See [`spec/normalize.md`](../spec/normalize.md) and [ADR 0004](decisions/0004-input-and-output-limits.md).
 
 ---
 
