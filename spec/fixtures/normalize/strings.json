@@ -1,0 +1,253 @@
+[
+  {
+    "id": "region-at-cap-astral",
+    "ac": "AC-LIMITS-07",
+    "description": "a region of maxShortTextLength astral code points (twice as many UTF-16 units) is kept",
+    "extraction": {
+      "departure": null,
+      "dateRange": null,
+      "region": "🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴",
+      "climate": "warm",
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "region": "🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴",
+      "climate": "warm"
+    }
+  },
+  {
+    "id": "region-at-cap-lone-surrogates",
+    "ac": "AC-LIMITS-10",
+    "description": "a region of maxShortTextLength lone surrogates is kept: each counts as one",
+    "extraction": {
+      "departure": null,
+      "dateRange": null,
+      "region": "\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c",
+      "climate": "warm",
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "region": "\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c\ud83c",
+      "climate": "warm"
+    }
+  },
+  {
+    "id": "region-over-cap",
+    "ac": "AC-LIMITS-07",
+    "description": "a region one code point over maxShortTextLength is dropped",
+    "extraction": {
+      "departure": null,
+      "dateRange": null,
+      "region": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "climate": "warm",
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "climate": "warm"
+    }
+  },
+  {
+    "id": "region-over-cap-astral",
+    "ac": "AC-LIMITS-07",
+    "description": "a region one astral code point over maxShortTextLength is dropped",
+    "extraction": {
+      "departure": null,
+      "dateRange": null,
+      "region": "🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴",
+      "climate": "warm",
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "climate": "warm"
+    }
+  },
+  {
+    "id": "city-over-cap-departure-dropped",
+    "ac": "AC-LIMITS-07",
+    "description": "an over-long city drops a departure that has nothing else",
+    "extraction": {
+      "departure": {
+        "city": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "mode": null,
+        "maxStops": null
+      },
+      "dateRange": null,
+      "region": null,
+      "climate": "warm",
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "climate": "warm"
+    }
+  },
+  {
+    "id": "city-over-cap-departure-kept",
+    "ac": "AC-LIMITS-07",
+    "description": "an over-long city is dropped and the rest of the departure stays",
+    "extraction": {
+      "departure": {
+        "city": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "mode": "plane",
+        "maxStops": 0
+      },
+      "dateRange": null,
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "departure": {
+        "mode": "plane",
+        "maxStops": 0
+      }
+    }
+  },
+  {
+    "id": "city-at-cap",
+    "ac": "AC-LIMITS-07",
+    "description": "a city of exactly maxShortTextLength is kept",
+    "extraction": {
+      "departure": {
+        "city": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "mode": null,
+        "maxStops": null
+      },
+      "dateRange": null,
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "departure": {
+        "city": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    }
+  },
+  {
+    "id": "gender-over-cap",
+    "ac": "AC-LIMITS-07",
+    "description": "an over-long gender is dropped and the traveler stays",
+    "extraction": {
+      "departure": null,
+      "dateRange": null,
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": [
+        {
+          "userType": "adult",
+          "age": 40,
+          "gender": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "userType": "child",
+          "age": 8,
+          "gender": "girl"
+        }
+      ]
+    },
+    "expectedProfile": {
+      "people": [
+        {
+          "userType": "adult",
+          "age": 40
+        },
+        {
+          "userType": "child",
+          "age": 8,
+          "gender": "girl"
+        }
+      ]
+    }
+  },
+  {
+    "id": "note-at-cap",
+    "ac": "AC-LIMITS-07",
+    "description": "a note of exactly maxNoteLength astral code points is kept",
+    "extraction": {
+      "departure": null,
+      "dateRange": {
+        "kind": "flexible",
+        "month": null,
+        "year": null,
+        "durationNights": null,
+        "note": "🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴"
+      },
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "dateRange": {
+        "kind": "flexible",
+        "note": "🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴"
+      }
+    }
+  },
+  {
+    "id": "note-over-cap-range-kept",
+    "ac": "AC-LIMITS-07",
+    "description": "an over-long note is dropped and the rest of the flexible range stays",
+    "extraction": {
+      "departure": null,
+      "dateRange": {
+        "kind": "flexible",
+        "month": 7,
+        "year": null,
+        "durationNights": null,
+        "note": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "dateRange": {
+        "kind": "flexible",
+        "month": 7
+      }
+    }
+  },
+  {
+    "id": "note-over-cap-range-dropped",
+    "ac": "AC-LIMITS-07",
+    "description": "an over-long note drops a flexible range that has nothing else",
+    "extraction": {
+      "departure": null,
+      "dateRange": {
+        "kind": "flexible",
+        "month": null,
+        "year": null,
+        "durationNights": null,
+        "note": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "region": null,
+      "climate": "warm",
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "climate": "warm"
+    }
+  }
+]

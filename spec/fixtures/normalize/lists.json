@@ -1,0 +1,896 @@
+[
+  {
+    "id": "unmapped-item-over-cap",
+    "ac": "AC-LIMITS-09",
+    "description": "an over-long unmapped experience is dropped and the others keep their order",
+    "extraction": {
+      "departure": null,
+      "dateRange": null,
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": [
+        "sailing",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "yoga"
+      ],
+      "people": null
+    },
+    "expectedProfile": {
+      "unmappedExperiences": ["sailing", "yoga"]
+    }
+  },
+  {
+    "id": "unmapped-all-items-over-cap",
+    "ac": "AC-LIMITS-09",
+    "description": "a list left empty by item drops is omitted",
+    "extraction": {
+      "departure": null,
+      "dateRange": null,
+      "region": null,
+      "climate": "warm",
+      "experiences": null,
+      "unmappedExperiences": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴🌴"
+      ],
+      "people": null
+    },
+    "expectedProfile": {
+      "climate": "warm"
+    }
+  },
+  {
+    "id": "unmapped-at-count-cap",
+    "ac": "AC-LIMITS-09",
+    "description": "maxUnmappedExperiences items are kept",
+    "extraction": {
+      "departure": null,
+      "dateRange": null,
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": ["x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9"],
+      "people": null
+    },
+    "expectedProfile": {
+      "unmappedExperiences": ["x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9"]
+    }
+  },
+  {
+    "id": "unmapped-over-count-cap",
+    "ac": "AC-LIMITS-09",
+    "description": "one item over maxUnmappedExperiences drops the whole list",
+    "extraction": {
+      "departure": null,
+      "dateRange": null,
+      "region": null,
+      "climate": "warm",
+      "experiences": null,
+      "unmappedExperiences": ["x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10"],
+      "people": null
+    },
+    "expectedProfile": {
+      "climate": "warm"
+    }
+  },
+  {
+    "id": "unmapped-count-after-item-drops",
+    "ac": "AC-LIMITS-09",
+    "description": "the count cap applies after item drops",
+    "extraction": {
+      "departure": null,
+      "dateRange": null,
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": [
+        "x0",
+        "x1",
+        "x2",
+        "x3",
+        "x4",
+        "x5",
+        "x6",
+        "x7",
+        "x8",
+        "x9",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "people": null
+    },
+    "expectedProfile": {
+      "unmappedExperiences": ["x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9"]
+    }
+  },
+  {
+    "id": "experiences-at-count-cap",
+    "ac": "AC-LIMITS-09",
+    "description": "maxExperiences items, duplicates included, are kept",
+    "extraction": {
+      "departure": null,
+      "dateRange": null,
+      "region": null,
+      "climate": null,
+      "experiences": [
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach"
+      ],
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "experiences": [
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach"
+      ]
+    }
+  },
+  {
+    "id": "experiences-over-count-cap",
+    "ac": "AC-LIMITS-09",
+    "description": "one item over maxExperiences drops the whole list",
+    "extraction": {
+      "departure": null,
+      "dateRange": null,
+      "region": null,
+      "climate": "warm",
+      "experiences": [
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach",
+        "beach"
+      ],
+      "unmappedExperiences": null,
+      "people": null
+    },
+    "expectedProfile": {
+      "climate": "warm"
+    }
+  },
+  {
+    "id": "people-at-count-cap",
+    "ac": "AC-LIMITS-09",
+    "description": "maxPeople travelers are kept",
+    "extraction": {
+      "departure": null,
+      "dateRange": null,
+      "region": null,
+      "climate": null,
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": [
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        }
+      ]
+    },
+    "expectedProfile": {
+      "people": [
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        },
+        {
+          "userType": "adult"
+        }
+      ]
+    }
+  },
+  {
+    "id": "people-over-count-cap",
+    "ac": "AC-LIMITS-09",
+    "description": "one traveler over maxPeople drops the whole list",
+    "extraction": {
+      "departure": null,
+      "dateRange": null,
+      "region": null,
+      "climate": "warm",
+      "experiences": null,
+      "unmappedExperiences": null,
+      "people": [
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        },
+        {
+          "userType": "adult",
+          "age": null,
+          "gender": null
+        }
+      ]
+    },
+    "expectedProfile": {
+      "climate": "warm"
+    }
+  }
+]

@@ -110,7 +110,7 @@ The enum is closed and versioned. Adding a value is a `feat(domain-schema)`; rem
 ### 4.4 Two schemas, never one
 - **`ExtractionSchema`** — what the LLM fills in. Every field is **required but nullable** (`null` = "not mentioned"). This is the most reliable shape for structured output and has no optional-vs-absent ambiguity.
   - **Constructs (ADR 0001, Q3):** this schema, and every other schema handed to the model, uses only object, string, number/integer, boolean, enum, literal, nullable, array and discriminated union. **No** `tuple` (HTTP 400), `record` (always comes back `{}`), `.optional()`, `.default()`, numeric/length/pattern constraints or string `format`s. The provider strips constraints into descriptions, but the SDK still validates against them, so one out-of-range value fails the whole call as a 502 instead of becoming a rule violation. Range and format checks belong in `src/rules/`.
-- **`TripProfile`** — the domain/wire shape above. Built by a pure `normalize(extraction)` function that drops nulls and empty arrays.
+- **`TripProfile`** — the domain/wire shape above. Built by a pure `normalize(extraction)` function that drops nulls and empty arrays, and discards (never truncates) model output over a cap, so the result always passes `TripProfile` ([`spec/normalize.md`](spec/normalize.md)). It returns `{ profile, discarded }`; `discarded` is a server-side log signal, not part of the wire.
 
 ### 4.5 Validation = shape parse + rule evaluation (separate steps)
 1. Zod `safeParse` against the wire schema → shape errors (contract violation → HTTP 422).

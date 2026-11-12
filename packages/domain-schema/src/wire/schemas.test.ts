@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { CONTRACT_SCHEMAS } from '../../gen/registry.ts';
 import { SAMPLES } from '../../tests/support/samples.ts';
 import {
+  codePointLength,
   DateRange,
   Departure,
   EXPERIENCES,
@@ -126,5 +127,29 @@ describe('AC-LIMITS-04: each cap constant is the maximum on its fields', () => {
     expect(TripProfile.shape.departure.unwrap().unwrap()).toBe(Departure);
     expect(TripProfile.shape.dateRange.unwrap().unwrap()).toBe(DateRange);
     expect(TripProfile.shape.people.unwrap().element).toBe(Traveler);
+  });
+});
+
+describe('codePointLength (spec/normalize.md, Definitions)', () => {
+  it.each<[string, string, number]>([
+    ['empty', '', 0],
+    ['ASCII', 'abc', 3],
+    ['an astral character (2 UTF-16 units)', '\u{1F334}', 1],
+    ['e + combining acute (1 grapheme)', String.fromCodePoint(0x65, 0x301), 2],
+    ['a lone high surrogate', '\uD83C', 1],
+    ['a lone low surrogate', '\uDF34', 1],
+    ['two high surrogates', '\uD83C\uD83C', 2],
+    ['a low surrogate before a high one', '\uDF34\uD83C', 2],
+  ])('AC-LIMITS-01: %s has length %i', (_name, text, expected) => {
+    expect(codePointLength(text)).toBe(expected);
+    // The count Zod uses for .max(), so normalize and the wire schema agree.
+    expect(z.string().max(expected).safeParse(text).success).toBe(true);
+    if (expected > 0)
+      expect(
+        z
+          .string()
+          .max(expected - 1)
+          .safeParse(text).success,
+      ).toBe(false);
   });
 });

@@ -32,3 +32,12 @@ export const MAX_UNMAPPED_EXPERIENCES = 10;
 
 /** Most travelers in `people`. */
 export const MAX_PEOPLE = 50;
+
+/**
+ * A string's length as the caps count it: Unicode code points, with a lone surrogate counting as
+ * one (spec/normalize.md, Definitions). Matches Zod `.max()` and JSON Schema `maxLength`; never
+ * use `.length`, which counts UTF-16 units. HTML `maxlength` also counts UTF-16 units.
+ */
+export function codePointLength(text: string): number {
+  return [...text].length;
+}
