@@ -13,20 +13,17 @@ A portfolio app that turns natural-language travel requests into structured, val
 ```
 vacation-planner-polyglot/
 ├── apps/
-│   ├── web-nextjs/              # Next.js App Router client. Talks HTTP only.
-│   │   └── tests/functional/    # Playwright, API mocked at the network edge
-│   └── mobile-react-native/     # future — README + .gitkeep only until started
+│   └── web-nextjs/              # Next.js App Router client. Talks HTTP only.
+│       └── tests/functional/    # Playwright, API mocked at the network edge
 ├── backends/
-│   ├── api-nextjs/              # TS reference backend (Route Handlers only)
-│   │   └── tests/{integration,functional}/  # unit tests sit beside the code (§6.3)
-│   ├── api-fastapi/             # future — README + .gitkeep only until started
-│   └── api-go/                  # future — README + .gitkeep only until started
+│   └── api-nextjs/              # The TypeScript backend (Route Handlers only)
+│       └── tests/{integration,functional}/  # unit tests sit beside the code (§6.3)
 ├── packages/
 │   └── domain-schema/           # TS source of the contract; generates spec/ (see §4)
 │       ├── src/wire/            # Zod schemas: http/ (bodies), models/ (shared), llm/ (model-only)
 │       ├── src/rules/           # TS implementation of invariant rules (backend-only)
 │       └── tests/support/       # TS test helpers (buildFixture, fixture loader, samples)
-├── spec/                        # LANGUAGE-NEUTRAL SPEC: what every backend must satisfy (see §4)
+├── spec/                        # LANGUAGE-NEUTRAL SPEC: what the backend must satisfy (see §4)
 │   ├── generated/               # JSON Schema + openapi.yaml + constants.json — generated, COMMITTED
 │   ├── rules.md                 # Invariant catalog (source of truth for rules)
 │   └── fixtures/                # Rule cases: input JSON → expected output JSON
@@ -302,17 +299,16 @@ Verified against `ai 7.0.154` / `@ai-sdk/anthropic 4.0.89`. Re-check the ADR on 
 - **Dependency rule (lint enforced):** `src/usecases/` owns the `LlmClient` interface and must not import `next`, `ai`, `@ai-sdk/*` or `src/llm/`. `src/llm/` implements the interface. Tests are exempt, so they can use the AI SDK mock model.
 - UI: Tailwind + shadcn/ui only. **No inline `style={}`**, no CSS-in-JS.
 - Secrets in `.env.local` (git-ignored); `.env.example` is committed and kept current. Cassettes must never contain API keys; the recorder strips auth headers, and `gitleaks` runs on commit.
-- Do not write placeholder implementations for `api-fastapi`/`api-go`/`mobile-react-native` until asked; keep them to a README stating the contract they must satisfy (§6.5).
 - A change is not done until its tests exist at the right layer (§6.2–6.3) and `pnpm verify` passes. Report failing tests honestly, with output.
 
 ## 10. Commits & history
 
-**Conventional Commits, enforced** with `commitlint` (`@commitlint/config-conventional`) and `lefthook` (`commit-msg`, `pre-commit` and `pre-push` hooks; lefthook is language-agnostic, so it keeps working once Python/Go join).
+**Conventional Commits, enforced** with `commitlint` (`@commitlint/config-conventional`) and `lefthook` (`commit-msg`, `pre-commit` and `pre-push` hooks).
 
 Format: `type(scope): imperative summary` — ≤72 chars, lowercase type.
 
 - **Types:** `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `build`, `ci`, `chore`
-- **Scopes (enforced list):** `web`, `api-nextjs`, `api-fastapi`, `api-go`, `domain-schema`, `contract`, `journeys`, `usecases`, `repo`
+- **Scopes (enforced list):** `web`, `api-nextjs`, `domain-schema`, `contract`, `journeys`, `usecases`, `repo`
 - **Breaking contract changes:** `feat(domain-schema)!: …` plus a `BREAKING CHANGE:` footer, and bump `contractVersion`.
 - One logical change per commit. Tests go in the same commit as the behavior they cover. Regenerate `spec/generated/` and re-record affected cassettes/pacts in the same commit as the change that caused them.
 - Never commit without the user's explicit approval of the specific changes (§12). Commit messages end with the attribution trailer configured for the session.
