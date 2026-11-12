@@ -26,7 +26,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-07 | Contract suite (provider side) | WU-05, WU-06 | done |
 | WU-08 | `LlmClient` with record / replay / mock | WU-03, WU-06 | done |
 | WU-19 | Refocus: spec-first, one implementation | WU-08 | done |
-| WU-17 | Input and output limits (prompt-injection hardening) | WU-05, WU-07, WU-19 | todo |
+| WU-17 | Input and output limits (prompt-injection hardening) | WU-05, WU-07, WU-19 | in-progress |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | todo |
 | WU-18 | Eval harness + adversarial cases | WU-09 | todo |
 | WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | todo |
@@ -398,7 +398,7 @@ WU-17, WU-18 and WU-19 were added after WU-16 was planned, so their IDs are out 
 ---
 
 ## WU-17 — Input and output limits (prompt-injection hardening)
-**Status:** todo · **Depends on:** WU-05, WU-07, WU-19 · **Commits:**
+**Status:** in-progress · **Depends on:** WU-05, WU-07, WU-19 · **Commits:**
 
 **Goal:** limit what prompt injection and API abuse can achieve. Every free-text value the API accepts or returns has a cap. Oversized input is rejected at the wire, and an injected instruction that gets past the model can yield only a few short strings, never free-form output paid for with our tokens.
 
