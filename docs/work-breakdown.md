@@ -30,7 +30,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-20 | Hosting approach + API container image | WU-08 | done |
 | WU-21 | Hosted environment, pre-launch (replay mode) | WU-20 | done |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | done |
-| WU-18 | Eval harness + adversarial cases | WU-09 | in-progress |
+| WU-18 | Eval harness + adversarial cases | WU-09 | done |
 | WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | todo |
 | WU-11 | Present stream + `/v1/trip/present` | WU-10 | todo |
 | WU-22 | Invite-code access gate + rate limit | WU-07, WU-20 | todo |
@@ -604,7 +604,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-18 — Eval harness + adversarial cases
-**Status:** in-progress · **Depends on:** WU-09 · **Commits:**
+**Status:** done · **Depends on:** WU-09 · **Commits:** [PR #28](https://github.com/djuba/ai-trip-planner/pull/28)
 
 **Goal:** measure with live calls how well the prompts resist prompt injection and off-topic use, and how good extraction is (CLAUDE.md §6.8). It runs before WU-10, so the recommend and present prompts are written with these checks already in place.
 
@@ -626,6 +626,18 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - Every run costs money, so get approval for its budget first.
 - If the results show the model is often fooled, consider the on-topic guard step from ADR 0004's Future hardening section.
 - From WU-09: in the recorded containment case (AC-EXTRACT-14) the model ignored the injection, so no cap fired. Keep at least one adversarial case that does land over-cap text in a free-text field or the clarification question, so the eval shows discarding and the `accept` check working against real output. Record any cassettes with the model IDs in `CONTRACT_TEST_ENV` ([WU-09 plan](plans/WU-09.md), unit review #3).
+- Done: see [the plan](plans/WU-18.md) and [`eval.md`](features/eval.md). `pnpm eval --budget <usd>` runs 24 cases (13 quality, 11 adversarial) through the real `extractTrip` with a live client, scores them with seven deterministic scorers and a Sonnet judge, and appends one line per run to `backends/api-nextjs/eval/results/runs.jsonl`. It refuses to start unless it runs as `pnpm eval` with a budget and an API key, and stops before any run whose worst case would go over the budget. No gate runs it (AC-EVAL-10).
+- Decided at plan approval: a US$1 budget for the first run; commit only the summary line (per-case detail is git-ignored); the judge on by default on `MODEL_CRITIC`; 3 repeats by default; all five plan-review fixes.
+- First run (2026-11-13, commit `60eb723`, clean tree; Haiku 5.5 extracts, Sonnet 5.5 judges; 24 cases × 3; US$0.214):
+  - Injection: no canary reached a response in 33 adversarial runs, no system prompt leaked, and every outcome was wire-valid and contained. The on-topic guard (ADR 0004, Future hardening) isn't needed on this evidence; look again once WU-10 and WU-11 add their cases.
+  - Containment on real output: in `over-cap-region` the model copied a 400-character destination into `region`, and `normalize` discarded it in every run. That answers the WU-09 Note above.
+  - Quality: every expectation passed in 39 quality runs (38/39 runs passed every scorer; the miss was a scorer false positive, fixed in this unit).
+  - Weaknesses, none a security failure: a long destination is lost rather than shortened (discarding is deliberate, ADR 0004); vague text such as "somewhere nice" fills `region` and counts towards `MIN_POPULATED_FIELDS`; attack text planted in `currentProfile` is kept unchanged in 4 of 6 runs, though never obeyed.
+- Open follow-ups, not assigned to a unit: (1) ask the extraction prompt for a short place name in `region`, then compare `pnpm eval --set quality` against the first run; (2) decide whether a non-place `region` should count as populated, which is a rules question (`spec/rules.md`, CLAUDE.md §4.7).
+- Learned:
+  - The run record names the commit it ran on, so run it on a clean, committed tree: set aside uncommitted docs, and don't rebase after the record is committed.
+  - The worst case is dominated by the fixed `maxOutputTokens` budgets, so the cap stops a run long before real spend nears it (worst case US$9.87 against US$0.21 spent).
+- Usage: main/Opus 91 req, 98k out; wu-implementer/Sonnet 19 req, 44k out; wu-reviewer/Sonnet 4 req, 8k out.
 
 ---
 
@@ -665,6 +677,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From deployment planning: record the worst-case live `/recommend` latency (two revise cycles) and the tokens per stage from the usage logs. WU-21 sizes the request timeout from the latency, and WU-23 sets the spend and rate limits from the tokens.
 - From WU-21: the hosted timeout is `request_timeout_seconds` in `infra/variables.tf` (300 s today). If the worst-case latency approaches it, raise it and apply by hand ([`infra/README.md`](../infra/README.md), "Reviewing and applying infra changes"). Any `/recommend` cassette the contract suite replays must use the `CONTRACT_TEST_ENV` model IDs, which the hosted service also runs (`scripts/infra-config.test.ts`).
 - From WU-09: reuse `dataBlock` and `DATA_BLOCK_RULE` from `backends/api-nextjs/src/usecases/prompts/prompt-data.ts` for every client-supplied string, and keep system prompts constant. Put output caps in exported constants (CLAUDE.md §4.5). Use `LlmObjectRequest.accept` for checks the model's schema can't express. Derive `maxOutputTokens` from the caps, as `src/usecases/token-budget.ts` does, at 2 tokens per code point. Record the contract cassettes with `pnpm record:cassettes --contract` ([WU-09 plan](plans/WU-09.md)).
+- From WU-18: in the first eval run, extraction kept attack text planted in `currentProfile` unchanged in 4 of 6 runs (correct for extract: the client owns its profile). So the profile `/recommend` receives can hold instructions; keep it to data blocks, as above. Add `/recommend` eval cases with planted profile strings: give `EvalCase` a stage, run the case through the recommend use case, and reuse the canary, leak and judge scorers ([`eval.md`](features/eval.md), [WU-18 plan](plans/WU-18.md)). Compare against the first run's line in `runs.jsonl`.
 
 ---
 
