@@ -12,7 +12,16 @@ describe('commitlint config', () => {
 
   it('allows exactly the CLAUDE.md §10 scopes', () => {
     expect([...SCOPES].sort()).toEqual(
-      ['api-nextjs', 'contract', 'domain-schema', 'journeys', 'usecases', 'repo', 'web'].sort(),
+      [
+        'api-nextjs',
+        'contract',
+        'domain-schema',
+        'infra',
+        'journeys',
+        'usecases',
+        'repo',
+        'web',
+      ].sort(),
     );
   });
 
