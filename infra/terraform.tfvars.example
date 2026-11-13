@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars (git-ignored) and fill in. Other variables have defaults (variables.tf).
+project_id         = "<project-id>"
+billing_account_id = "<billing-account-id>"
+
+# Only while proving a deploy workflow change on a scratch branch (infra/README.md). Leave unset.
+# extra_deploy_ref = "refs/heads/scratch/wu-21-deploy"
