@@ -52,6 +52,8 @@ Each attempt logs one line with stage, role, model, attempt, outcome, input/outp
 
 **AC-LLM-07.** Given a refusal, then the call fails with `LLM_REFUSAL` after one request.
 
+**AC-LLM-20.** Given a request with an `accept` schema, then output must pass `schema` and then `accept`. Output that fails `accept` once and then passes is returned. Output that fails it twice is `LLM_UPSTREAM_ERROR` after exactly two requests. The value returned is the `schema` parse, and `accept` is never sent to the model.
+
 **AC-LLM-08.** Given schema-invalid or non-JSON output, then the call is retried once; a valid retry is returned, and a second failure is `LLM_UPSTREAM_ERROR` after exactly two requests.
 
 **AC-LLM-09.** Given HTTP 529, then the call is retried once and then fails with `LLM_UPSTREAM_ERROR`; given HTTP 400, it fails after one request.

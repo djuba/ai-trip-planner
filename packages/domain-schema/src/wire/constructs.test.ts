@@ -229,6 +229,10 @@ describe('D14(b): JSON keyword walk over LLM-facing schemas', () => {
     expect(caps).toEqual([]);
   });
 
+  it('AC-LIMITS-12: ClarificationOutput carries no constraints; the cap is on the wire response', () => {
+    expect(findJsonViolations('ClarificationOutput', emitted)).toEqual([]);
+  });
+
   it('self-test: reports a forbidden keyword inline', () => {
     const bad = { Bad: { type: 'string', minLength: 1 } };
     expect(findJsonViolations('Bad', bad)).toEqual([expect.stringContaining('minLength')]);

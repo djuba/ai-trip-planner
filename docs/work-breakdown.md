@@ -29,7 +29,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-17 | Input and output limits (prompt-injection hardening) | WU-05, WU-07, WU-19 | done |
 | WU-20 | Hosting approach + API container image | WU-08 | done |
 | WU-21 | Hosted environment, pre-launch (replay mode) | WU-20 | todo |
-| WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | todo |
+| WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | done |
 | WU-18 | Eval harness + adversarial cases | WU-09 | todo |
 | WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | todo |
 | WU-11 | Present stream + `/v1/trip/present` | WU-10 | todo |
@@ -542,7 +542,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-09 — Extract stage + `/v1/trip/extract`
-**Status:** todo · **Depends on:** WU-05, WU-07, WU-08, WU-17 · **Commits:**
+**Status:** done · **Depends on:** WU-05, WU-07, WU-08, WU-17 · **Commits:** [PR #26](https://github.com/djuba/ai-trip-planner/pull/26)
 
 **Goal:** natural language → `TripProfile` → `ready` or `needs_clarification`, end to end on the API.
 
@@ -580,6 +580,16 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From WU-19: when the fixtures-through-`/extract` test lands, set the "Rule examples" row to Built in the README's "How the design is checked" table.
 - From WU-17: also run every `spec/fixtures/normalize/` case through `/extract`, with the mock `LlmClient` returning the case's `extraction`, and assert the response profile equals `expectedProfile`. Use the same harness as the rule fixtures. When it lands, set the "Normalize examples" row to Built in the README's "How the design is checked" table. See [`spec/normalize.md`](../spec/normalize.md) and [ADR 0004](decisions/0004-input-and-output-limits.md).
 - From WU-17: the conformance suite's AC-LIMITS-11 checks (`tests/contract/conformance/limits.test.ts`) send `/extract` a message at `maxMessageLength`, and a `currentProfile` with `region` at its cap and with `people` at `maxPeople`, and require a schema-valid 200. Once the stub is gone, each of these is a real model call, so record replay cassettes for them, or the contract gate fails on a cassette miss. Consider changing the at-cap text in `checks/limits.ts` to a realistic request padded to the cap with astral characters, so the recorded answer is meaningful. The probe must still count only in code points (WU-17 unit review #1).
+- Done: see [the plan](plans/WU-09.md) and [`extraction.md`](features/extraction.md). `/v1/trip/extract` runs extract → `normalize` → rules → `ready`, or a second fast call writes `clarificationQuestion`. The contract is now 0.5.0: `clarificationQuestion` is capped at `MAX_CLARIFICATION_QUESTION_LENGTH` (300 code points), and the model-only `ClarificationOutput` is unconstrained. `LlmObjectRequest` gained an optional `accept` check, which runs after `schema`; a failure is retried once, then a 502. Every rule and normalize fixture runs through `/extract`, and 14 live-recorded cassettes back the integration, functional and contract layers.
+- Decided at plan approval: cap 300; 0.5.0 as a non-breaking `feat`; the `accept` option; the main agent records cassettes; the realistic padded message probe; all six plan-review fixes.
+- Learned:
+  - Server-side cassettes record with `pnpm record:cassettes --project functional-api …` or `--contract`. Gated runs still force replay.
+  - `CONTRACT_TEST_ENV` (`tests/support/api-server.ts`) now holds the real §8.1 model IDs. `baseEnv`, `pnpm test:image` and the README's `docker run` all use it, so one set of cassettes serves every layer and the image.
+  - Two requests that extract to the same profile share their clarification cassette.
+  - `next build` bundles `src/llm`, including `ai/test` through `mock.ts`, without trouble (WU-08 R2). So does the standalone image: the CI `image` job passed on PR #26, including the contract suite against the container in replay.
+  - In the recorded injection run the model resisted, so that test proves wire validity, not that the caps fire; the mock-based tests prove the caps.
+  - A low-memory machine kills background `pnpm verify` runs while another session builds. Run the gate in the foreground, one session at a time.
+- Usage: main/Opus 127 req, 123k out; wu-implementer/Sonnet 35 req, 38k out; wu-reviewer/Opus 31 req, 33k out.
 
 ---
 
@@ -605,6 +615,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - Evals don't block merges, so a prompt change can weaken injection resistance between runs. The gated containment (WU-17 caps, the WU-09 prompt-data helper, output checks) bounds the damage either way.
 - Every run costs money, so get approval for its budget first.
 - If the results show the model is often fooled, consider the on-topic guard step from ADR 0004's Future hardening section.
+- From WU-09: in the recorded containment case (AC-EXTRACT-14) the model ignored the injection, so no cap fired. Keep at least one adversarial case that does land over-cap text in a free-text field or the clarification question, so the eval shows discarding and the `accept` check working against real output. Record any cassettes with the model IDs in `CONTRACT_TEST_ENV` ([WU-09 plan](plans/WU-09.md), unit review #3).
 
 ---
 
@@ -642,6 +653,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From security planning: add a containment test with an injection cassette (instructions planted in profile strings), and add `/recommend` cases to WU-18's eval set.
 - From WU-17: the conformance suite's AC-LIMITS-11 checks post `/recommend` a profile with `region` at its cap and with `people` at `maxPeople`, and require a schema-valid 200. Once the stub is gone, record replay cassettes for both probes, including the critic calls, or the contract gate fails on a cassette miss (WU-17 unit review #1).
 - From deployment planning: record the worst-case live `/recommend` latency (two revise cycles) and the tokens per stage from the usage logs. WU-21 sizes the request timeout from the latency, and WU-23 sets the spend and rate limits from the tokens.
+- From WU-09: reuse `dataBlock` and `DATA_BLOCK_RULE` from `backends/api-nextjs/src/usecases/prompts/prompt-data.ts` for every client-supplied string, and keep system prompts constant. Put output caps in exported constants (CLAUDE.md §4.5). Use `LlmObjectRequest.accept` for checks the model's schema can't express. Derive `maxOutputTokens` from the caps, as `src/usecases/token-budget.ts` does, at 2 tokens per code point. Record the contract cassettes with `pnpm record:cassettes --contract` ([WU-09 plan](plans/WU-09.md)).
 
 ---
 
@@ -670,6 +682,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From WU-07: record cassettes for the AC-CONTRACT-06 `/present` request, then delete the `/present` stub and `src/stubs/canned.ts`.
 - From security planning: the profile and `recommendations` in the request are client-supplied, so they go into the prompt through the WU-09 prompt-data helper. The stream reaches the client as it's generated, so over-cap text can't be discarded afterwards. `maxOutputTokens` is the main bound here, with per-field caps on the `PresentationModel` wire schema checked by the final parse. Add a containment test and `/present` cases to WU-18's eval set.
 - From WU-08: add `streamObject` to the `LlmClient` interface here, together with its mid-stream error semantics. That changes the interface, so this unit's review tier is `opus`. Record and replay of SSE are already proven (AC-LLM-12, [`llm-client.md`](features/llm-client.md)).
+- From WU-09: the shared prompt-data helper is `backends/api-nextjs/src/usecases/prompts/prompt-data.ts` (`dataBlock`, `DATA_BLOCK_RULE`). Record the contract cassettes with `pnpm record:cassettes --contract`. `createExtractPost` in `src/http/extract.ts` shows the injected-runtime route pattern, which flushes recordings in a `finally` ([WU-09 plan](plans/WU-09.md)).
 - From WU-17: the conformance suite's AC-LIMITS-11 checks post `/present` a profile with `region` at its cap and with `people` at `maxPeople`, and require a stream that ends in a valid `PresentationModel`. Once the stub is gone, record replay cassettes for both probes, or the contract gate fails on a cassette miss (WU-17 unit review #1).
 - From WU-08: the recorder writes any 2xx response. An SSE body can still fail partway through (`event: error`) after a 200, so skip writing a stream cassette that contains `event: error` or has no `message_stop` (WU-08 implementation review #6).
 - From deployment planning: if WU-21 is done, its post-deploy contract check covers the `/present` stream through the platform's front end. If the stream arrives as a single chunk there, fix it in this unit.
@@ -764,6 +777,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From security planning: set the message input's `maxlength` from WU-17's shared cap constant, and show the remaining length, so an honest user never gets a 422.
 - From WU-17: the cap is `MAX_MESSAGE_LENGTH`, counted in Unicode code points. HTML `maxlength` counts UTF-16 units, so on its own it would stop a message of emoji at half the real limit. Count and show the remaining length with `codePointLength` from `@vp/domain-schema/wire`, and test a message of emoji at the cap. See [ADR 0004](decisions/0004-input-and-output-limits.md) §3.
 - From deployment planning: an invite-code entry state before the conversation, kept for the browser session. An invite link (`?invite=<code>`) fills it in and then removes the code from the address bar. The UI shows 401 ("this code isn't valid") and 429 ("try again in …" from `Retry-After`) as recoverable states, with axe checks.
+- From WU-09: `clarificationQuestion` is plain text of at most `MAX_CLARIFICATION_QUESTION_LENGTH` (300 code points), and it is model-written. Render it as text, never as HTML or markdown. Show `violations` from `code` + `params`, not from the question. The response's `profile` is the full updated profile, so replace the client's copy with it on every turn ([`extraction.md`](features/extraction.md)).
 
 ---
 

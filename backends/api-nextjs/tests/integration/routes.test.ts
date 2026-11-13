@@ -1,7 +1,6 @@
 // The real route modules, called directly with real Request objects (CLAUDE.md §6.3).
 import {
   CONTRACT_VERSION,
-  ExtractResponse,
   HealthResponse,
   PresentationModel,
   RecommendResponse,
@@ -50,14 +49,6 @@ describe('routes', () => {
     const body: unknown = await response.json();
     expect(body).toEqual({ status: 'ok', contractVersion: CONTRACT_VERSION });
     expect(HealthResponse.safeParse(body).success).toBe(true);
-  });
-
-  it('POST /v1/trip/extract stub returns a schema-valid body', async () => {
-    const response = await extract(
-      post('/v1/trip/extract', { message: 'beach week', referenceDate: REFERENCE_DATE }),
-    );
-    expect(response.status).toBe(200);
-    expect(ExtractResponse.safeParse(await response.json()).success).toBe(true);
   });
 
   it('POST /v1/trip/recommend stub returns a schema-valid body', async () => {

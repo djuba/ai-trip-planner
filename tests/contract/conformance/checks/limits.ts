@@ -17,6 +17,13 @@ import {
 } from './requests.ts';
 
 const ASTRAL = '\u{1F334}';
+const REALISTIC = 'A week in Hawaii in February for two adults, beach and snorkeling. ';
+
+/** A realistic request padded with the astral character to exactly `codePoints` code points. */
+function messageOfLength(codePoints: number): string {
+  const base = [...REALISTIC].length;
+  return REALISTIC + ASTRAL.repeat(Math.max(0, codePoints - base));
+}
 
 /** The request schema must accept an at-cap body and reject the cap + 1 one. */
 function assertRequest(schema: string, body: unknown, accepted: boolean, context: string): void {
@@ -80,7 +87,7 @@ export async function checkMessageCap(baseUrl: string): Promise<void> {
     'ExtractResponse',
     (over) => ({
       ...extractRequest(),
-      message: ASTRAL.repeat(maxMessageLength + (over ? 1 : 0)),
+      message: messageOfLength(maxMessageLength + (over ? 1 : 0)),
     }),
     'message',
   );

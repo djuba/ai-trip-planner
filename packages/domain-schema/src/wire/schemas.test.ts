@@ -9,6 +9,8 @@ import {
   EXPERIENCES,
   ExtractRequest,
   HealthResponse,
+  ExtractResponse,
+  MAX_CLARIFICATION_QUESTION_LENGTH,
   MAX_DATE_TEXT_LENGTH,
   MAX_EXPERIENCES,
   MAX_MESSAGE_LENGTH,
@@ -118,6 +120,12 @@ describe('AC-LIMITS-04: each cap constant is the maximum on its fields', () => {
       MAX_SHORT_TEXT_LENGTH,
     ],
     ['TripProfile.people', TripProfile.shape.people, 'maxItems', MAX_PEOPLE],
+    [
+      'ExtractResponse.clarificationQuestion',
+      ExtractResponse.options[0].shape.clarificationQuestion,
+      'maxLength',
+      MAX_CLARIFICATION_QUESTION_LENGTH,
+    ],
   ] as const)('AC-LIMITS-04: %s has %s %i', (_name, schema, keyword, cap) => {
     expect(capsOf(schema, keyword)).toEqual([cap]);
   });

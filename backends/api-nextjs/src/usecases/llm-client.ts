@@ -17,6 +17,12 @@ export interface LlmObjectRequest<T> {
   role: ModelRole;
   /** What the model must fill in. Only ADR 0001 Q3 "use" constructs (§4.4). */
   schema: z.ZodType<T>;
+  /**
+   * Checks the output must also pass, after `schema`; never sent to the model. Use it for what
+   * `schema` may not say, such as a length cap. A failure is invalid output: retried once, then
+   * `LLM_UPSTREAM_ERROR`. It can only add checks; the output returned is the `schema` parse.
+   */
+  accept?: z.ZodType;
   /** Static and byte-stable: no dates or IDs, so prompt caching and cassette keys hold (§8.3). */
   system: string;
   /** The user message. Per-request data such as `referenceDate` goes here. */

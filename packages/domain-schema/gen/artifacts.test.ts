@@ -67,6 +67,7 @@ describe('buildArtifacts', () => {
       maxExperiences: 20,
       maxUnmappedExperiences: 10,
       maxPeople: 50,
+      maxClarificationQuestionLength: 300,
     });
   });
 });

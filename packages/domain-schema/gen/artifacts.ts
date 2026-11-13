@@ -5,6 +5,7 @@ import { stringify } from 'yaml';
 import { z } from 'zod';
 import {
   CONTRACT_VERSION,
+  MAX_CLARIFICATION_QUESTION_LENGTH,
   MAX_DATE_TEXT_LENGTH,
   MAX_EXPERIENCES,
   MAX_MESSAGE_LENGTH,
@@ -169,6 +170,7 @@ export function buildConstants() {
     maxExperiences: MAX_EXPERIENCES,
     maxUnmappedExperiences: MAX_UNMAPPED_EXPERIENCES,
     maxPeople: MAX_PEOPLE,
+    maxClarificationQuestionLength: MAX_CLARIFICATION_QUESTION_LENGTH,
   };
 }
 

@@ -79,7 +79,7 @@ Requests that used to be valid (a 3k-character message, a 200-character region) 
 - Every free-text value a client can send or receive in a profile is bounded, and the conformance suite checks the bounds over HTTP: 200 at exactly the cap (in astral characters, to prove code-point counting), 422 at the cap plus one.
 - Injected model output can't grow a response past the caps. It can still put *wrong* short strings in fields. Containment limits the damage; it doesn't stop the injection.
 - An honest value over a cap is lost silently, without a clarification. At these values that should be rare. WU-09 logs discards, and `INSUFFICIENT_DETAIL` asks again if too little is left.
-- `RecommendationSet`, `PresentationModel` and `clarificationQuestion` are not covered here. WU-10, WU-11 and WU-09 cap them.
+- `RecommendationSet` and `PresentationModel` are not covered here; WU-10 and WU-11 cap them. WU-09 caps `clarificationQuestion` at `MAX_CLARIFICATION_QUESTION_LENGTH` (300 code points), a server guarantee on the wire, in `contractVersion` 0.5.0. That change only narrows a response, so it isn't breaking. The model's `ClarificationOutput` stays unconstrained (ADR 0001 Q3). An empty or over-cap question is invalid output: retried once, then a 502.
 
 ## Future hardening
 

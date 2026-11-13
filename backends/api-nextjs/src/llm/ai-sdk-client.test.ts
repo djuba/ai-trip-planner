@@ -109,6 +109,57 @@ describe('AI SDK LlmClient logging', () => {
     ]);
   });
 
+  it('AC-LLM-20: output that fails accept once is retried, and the schema parse is returned', async () => {
+    const accept = z.object({ question: z.string().min(3) });
+    const { llm, logs } = setup(textReply('{"question":""}'), textReply('{"question":"When?"}'));
+
+    await expect(llm.generateObject({ ...request, accept })).resolves.toEqual({
+      question: 'When?',
+    });
+    expect(logs.map(({ outcome, error }) => [outcome, error])).toEqual([
+      ['retry', 'OutputInvalidError'],
+      ['ok', undefined],
+    ]);
+  });
+
+  it('AC-LLM-20: output that fails accept twice is LLM_UPSTREAM_ERROR after two attempts', async () => {
+    const accept = z.object({ question: z.string().max(3) });
+    const { llm, logs } = setup(
+      textReply('{"question":"Too long"}'),
+      textReply('{"question":"Still too long"}'),
+    );
+
+    await expect(llm.generateObject({ ...request, accept })).rejects.toMatchObject({
+      name: 'LlmError',
+      code: 'LLM_UPSTREAM_ERROR',
+    });
+    expect(logs.map(({ outcome }) => outcome)).toEqual(['retry', 'error']);
+  });
+
+  it('AC-LLM-20: accept runs after schema, so it cannot replace the schema check', async () => {
+    // An accept that would pass anything does not rescue schema-invalid output.
+    const { llm } = setup(textReply('{"q":1}'), textReply('{"q":2}'));
+
+    await expect(llm.generateObject({ ...request, accept: z.unknown() })).rejects.toMatchObject({
+      code: 'LLM_UPSTREAM_ERROR',
+    });
+  });
+
+  it('AC-LLM-20: accept is never sent to the model', async () => {
+    let sent = '';
+    const model = new MockLanguageModelV4({
+      modelId: 'mock-fast',
+      doGenerate: (options) => {
+        sent = JSON.stringify(options);
+        return Promise.resolve(textReply('{"question":"When?"}') as never);
+      },
+    });
+    const llm = createAiSdkLlmClient({ modelFor: () => model, log: () => {}, now: () => 0 });
+
+    await llm.generateObject({ ...request, accept: z.object({ question: z.string().max(299) }) });
+    expect(sent).not.toContain('299');
+  });
+
   it('AC-LLM-14: SDK warnings are logged', async () => {
     const warning = { type: 'unsupported', feature: 'temperature' };
     const { llm, logs } = setup(textReply('{"question":"When?"}', [warning]));
