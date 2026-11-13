@@ -1,4 +1,5 @@
-# The api-nextjs image (WU-20; ADR 0005). Build from the repo root, for linux/amd64:
+# The api-nextjs image (WU-20; ADR 0005). Build from the repo root, always for linux/amd64 (the
+# platform comes from the build command, not FROM, which BuildKit warns against):
 #   docker build --platform linux/amd64 -f backends/api-nextjs/Dockerfile -t vp-api-nextjs .
 # `pnpm test:image` builds it, checks it and runs the provider contract tests against it.
 # The build context is an allowlist (/.dockerignore), and no ARG or ENV holds a secret: an API key
@@ -7,7 +8,7 @@
 # node 24.22.1 (matches .nvmrc), pinned by digest. Bump the tag and digest together.
 ARG NODE_IMAGE=node:24.22.1-bookworm-slim@sha256:be8204d4bd327363357f532187b752ff62759c31bedf98e9e18fc08c9cbd605c
 
-FROM --platform=linux/amd64 ${NODE_IMAGE} AS build
+FROM ${NODE_IMAGE} AS build
 WORKDIR /repo
 ENV CI=true \
     COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
@@ -32,7 +33,7 @@ RUN pnpm install --offline --frozen-lockfile --ignore-scripts --filter "@vp/api-
 # Standalone output only here; other builds keep `next start` working (next.config.mjs).
 RUN NEXT_OUTPUT=standalone pnpm --filter @vp/api-nextjs build
 
-FROM --platform=linux/amd64 ${NODE_IMAGE} AS runtime
+FROM ${NODE_IMAGE} AS runtime
 WORKDIR /app
 # HOSTNAME: Docker sets it to the container ID, and Next's standalone server listens on it.
 # PORT 8080 is Cloud Run's default (WU-21).
