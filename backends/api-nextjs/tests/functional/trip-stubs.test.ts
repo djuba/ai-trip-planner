@@ -1,4 +1,4 @@
-import { ExtractResponse, PresentationModel, RecommendResponse } from '@vp/domain-schema/wire';
+import { PresentationModel, RecommendResponse } from '@vp/domain-schema/wire';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startApi, type RunningApi } from '../support/api-server.ts';
 
@@ -21,15 +21,6 @@ describe('trip stub routes over real HTTP', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
     });
-
-  it('POST /v1/trip/extract returns a schema-valid body', async () => {
-    const response = await send('/v1/trip/extract', {
-      message: 'beach week',
-      referenceDate: REFERENCE_DATE,
-    });
-    expect(response.status).toBe(200);
-    expect(ExtractResponse.safeParse(await response.json()).success).toBe(true);
-  });
 
   it('POST /v1/trip/recommend returns a schema-valid body', async () => {
     const response = await send('/v1/trip/recommend', {

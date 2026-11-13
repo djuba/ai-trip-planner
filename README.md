@@ -10,10 +10,10 @@ The server is stateless, so each stage is its own HTTP request, and the client d
 
 | Step | Input | Handled by | Output | Status |
 |---|---|---|---|---|
-| 1. Extract | The user's message and current profile | LLM | `ExtractionSchema` | Planned (WU-09) |
+| 1. Extract | The user's message and current profile | LLM | `ExtractionSchema` | Built |
 | 2. Normalize | `ExtractionSchema` | Code | `TripProfile`, the domain model | Built |
 | 3. Validate | `TripProfile` | Code | `ready`, or violations | Built |
-| 4. Clarify | Violations | LLM writes the question | `needs_clarification`, then back to step 1 | Planned (WU-09) |
+| 4. Clarify | Violations | LLM writes the question | `needs_clarification`, then back to step 1 | Built |
 | 5. Recommend | A `ready` profile | LLM | `RecommendationSet` | Planned (WU-10) |
 | 6. Critique | Recommendations | Code checks first, then LLM, with at most 2 revisions | `RecommendResponse` | Planned (WU-10) |
 | 7. Present | Profile and recommendations | Code for data, LLM for prose | Streamed `PresentationModel` | Planned (WU-11) |
@@ -49,9 +49,9 @@ See [ADR 0003](docs/decisions/0003-spec-first-one-implementation.md) for the dec
 | Import boundaries | The web app can't import backend code or `rules` | `eslint.config.js`, `scripts/tests/integration/lint-boundaries.test.ts` | Built |
 | Drift check | The generated files match the Zod schemas | `pnpm --filter @vp/domain-schema gen:check` | Built |
 | Schema parity | Zod and the generated JSON Schema accept and reject the same payloads | `packages/domain-schema/src/wire/parity.test.ts` | Built |
-| Rule examples | The rules return exactly the cataloged violations for every example | `spec/fixtures/rules/`, run by the rules' unit tests and through `/extract` | Unit tests built; `/extract` tests planned (WU-09) |
-| Normalize examples | Model output becomes exactly the expected profile, with over-cap values discarded | `spec/fixtures/normalize/`, run by `normalize`'s unit tests and through `/extract` | Unit tests built; `/extract` tests planned (WU-09) |
-| Conformance suite | The running backend's responses match the contract | `tests/contract/conformance/`, run by `pnpm test:contract` (or `test:contract:external` for any running backend) | Built; runs against stub endpoints until WU-09–11 |
+| Rule examples | The rules return exactly the cataloged violations for every example | `spec/fixtures/rules/`, run by the rules' unit tests and through `/extract` | Built |
+| Normalize examples | Model output becomes exactly the expected profile, with over-cap values discarded | `spec/fixtures/normalize/`, run by `normalize`'s unit tests and through `/extract` | Built |
+| Conformance suite | The running backend's responses match the contract | `tests/contract/conformance/`, run by `pnpm test:contract` (or `test:contract:external` for any running backend) | Built; `/extract` is real (replayed cassettes), `/recommend` and `/present` are stubs until WU-10–11 |
 | Pact | The backend does what the web client expects | `contracts/pacts/`, `tests/contract/pact-verify.test.ts` | Verifier built; consumer pacts planned (WU-12) |
 | Container image | The API image builds from a clean checkout, runs as a non-root user with no secrets, and passes the provider contract tests in replay mode | `backends/api-nextjs/Dockerfile`, run by `pnpm test:image` in the CI `image` job | Built |
 | Journeys | The whole system works from the user's side | `tests/journeys/` | Planned (WU-15) |
