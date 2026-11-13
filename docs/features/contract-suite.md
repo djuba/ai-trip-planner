@@ -37,3 +37,5 @@ The checks require only what the contract specifies, never how api-nextjs happen
 **AC-CONTRACT-10.** Given a file in `tests/contract/`, when it imports `@vp/*` or a path into `apps/`, `backends/` or `packages/`, then lint fails.
 
 **AC-CONTRACT-11.** Given `pnpm test:contract`, then the runner starts its own api-nextjs and ignores an exported `API_BASE_URL`, saying so. Given `--external`, then it targets `API_BASE_URL` and starts nothing; without `API_BASE_URL` it fails with an error.
+
+**AC-CONTRACT-12.** Given a vague request (`Somewhere warm`, no `currentProfile`), when it is sent to `/extract`, then the answer is 200, a valid `ExtractResponse` with status `needs_clarification` and an `INSUFFICIENT_DETAIL` violation. Given a complete `currentProfile` and a confirming message, then the answer is 200, valid, with status `ready`. A fake that always answers `ready`, or always `needs_clarification`, fails the check.

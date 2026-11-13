@@ -56,6 +56,18 @@ export const extractRequest = () =>
     referenceDate: '2030-01-15',
   });
 
+/** Too little to plan a trip from, so a backend must ask for more. */
+export const vagueExtractRequest = () =>
+  valid('ExtractRequest', { message: 'Somewhere warm', referenceDate: '2030-01-15' });
+
+/** A complete profile plus a confirmation, so a backend has nothing left to ask. */
+export const confirmExtractRequest = () =>
+  valid('ExtractRequest', {
+    message: 'That all sounds right.',
+    currentProfile: PROFILE,
+    referenceDate: '2030-01-15',
+  });
+
 export const recommendRequest = () =>
   valid('RecommendRequest', { profile: PROFILE, referenceDate: '2030-01-15' });
 

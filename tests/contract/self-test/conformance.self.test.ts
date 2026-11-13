@@ -15,9 +15,14 @@ import {
   HEALTH_PATH,
   POST_ENDPOINTS,
   PRESENT_PATH,
+  PROFILE,
   RECOMMEND_PATH,
 } from '../conformance/checks/requests.ts';
-import { checkExtractResponse, checkRecommendResponse } from '../conformance/checks/responses.ts';
+import {
+  checkExtractResponse,
+  checkExtractRouting,
+  checkRecommendResponse,
+} from '../conformance/checks/responses.ts';
 import { loadConstants } from '../support/artifacts.ts';
 import { ConformanceError } from '../support/schemas.ts';
 import {
@@ -38,6 +43,7 @@ type Check = (url: string) => Promise<void>;
 const ALL_CHECKS: Record<string, Check> = {
   health: checkHealth,
   extractResponse: checkExtractResponse,
+  extractRouting: checkExtractRouting,
   recommendResponse: checkRecommendResponse,
   present: checkPresentStream,
   responsesCarryCors: (url) => checkResponsesCarryCors(url, ORIGIN),
@@ -193,6 +199,27 @@ describe('AC-CONTRACT-09: valid variations pass', () => {
   });
 });
 
+describe('AC-CONTRACT-12: the routing check fails a backend that routes wrongly', () => {
+  const answer = (kind: 'ready' | 'clarify') => (d: FakeResponse) => ({
+    ...d,
+    chunks: [routingBody(kind)],
+  });
+
+  it('AC-CONTRACT-12: the conformant fake passes checkExtractRouting', async () => {
+    await expect(checkExtractRouting(await fake())).resolves.toBeUndefined();
+  });
+
+  it('AC-CONTRACT-12: a backend that always answers ready fails checkExtractRouting', async () => {
+    const url = await fake({ hook: replace((r) => r.path === EXTRACT_PATH, answer('ready')) });
+    await expect(checkExtractRouting(url)).rejects.toThrow(/expected status needs_clarification/);
+  });
+
+  it('AC-CONTRACT-12: a backend that always needs clarification fails checkExtractRouting', async () => {
+    const url = await fake({ hook: replace((r) => r.path === EXTRACT_PATH, answer('clarify')) });
+    await expect(checkExtractRouting(url)).rejects.toThrow(/expected status ready/);
+  });
+});
+
 describe('AC-LIMITS-11: the cap checks fail a backend that gets a cap wrong', () => {
   const { maxMessageLength, maxShortTextLength, maxPeople } = loadConstants();
 
@@ -276,4 +303,17 @@ function okFor(path: string, def: FakeResponse): FakeResponse {
       ? { recommendations: [], critique: { pass: true, unresolved: [] } }
       : { status: 'ready', profile: {} };
   return { ...def, status: 200, chunks: [JSON.stringify(body)] };
+}
+
+function routingBody(kind: 'ready' | 'clarify'): string {
+  return kind === 'ready'
+    ? JSON.stringify({ status: 'ready', profile: PROFILE })
+    : JSON.stringify({
+        status: 'needs_clarification',
+        profile: {},
+        violations: [
+          { code: 'INSUFFICIENT_DETAIL', path: '', params: { populated: 0, required: 3 } },
+        ],
+        clarificationQuestion: 'Where would you like to go, and when?',
+      });
 }

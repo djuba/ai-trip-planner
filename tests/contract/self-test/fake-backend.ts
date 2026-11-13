@@ -72,6 +72,14 @@ function defaults(): Record<string, string> {
       contractVersion: loadConstants().contractVersion,
     }),
     extract: validated('ExtractResponse', { status: 'ready', profile: PROFILE }),
+    extractClarify: validated('ExtractResponse', {
+      status: 'needs_clarification',
+      profile: {},
+      violations: [
+        { code: 'INSUFFICIENT_DETAIL', path: '', params: { populated: 0, required: 3 } },
+      ],
+      clarificationQuestion: 'Where would you like to go, and when?',
+    }),
     recommend: validated('RecommendResponse', {
       recommendations: [
         {
@@ -158,6 +166,10 @@ export async function startFakeBackend(options: FakeOptions = {}): Promise<FakeB
         headers: { 'content-type': 'text/plain; charset=utf-8' },
         chunks: chunkText(bodies.present ?? ''),
       });
+    }
+    if (req.path === '/v1/trip/extract') {
+      const { currentProfile } = JSON.parse(req.bodyText) as { currentProfile?: unknown };
+      return withCors(json(200, (currentProfile ? bodies.extract : bodies.extractClarify) ?? ''));
     }
     return withCors(json(200, okBody.get(req.path) ?? ''));
   }
