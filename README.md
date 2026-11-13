@@ -83,8 +83,8 @@ To run the API image by hand, in replay mode (no API key, no LLM cost), then tes
 
 ```sh
 docker build --platform linux/amd64 -f backends/api-nextjs/Dockerfile -t vp-api-nextjs .
-docker run --rm -p 4000:8080 -e MODEL_FAST=test-model-fast \
-  -e MODEL_REASONING=test-model-reasoning -e MODEL_CRITIC=test-model-critic vp-api-nextjs
+docker run --rm -p 4000:8080 -e MODEL_FAST=claude-haiku-5-5 \
+  -e MODEL_REASONING=claude-sonnet-5-5 -e MODEL_CRITIC=claude-sonnet-5-5 vp-api-nextjs
 pnpm test:contract:external   # API_BASE_URL defaults to http://localhost:4000 in .env.example
 ```
 
