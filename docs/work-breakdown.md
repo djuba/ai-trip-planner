@@ -28,7 +28,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-19 | Refocus: spec-first, one implementation | WU-08 | done |
 | WU-17 | Input and output limits (prompt-injection hardening) | WU-05, WU-07, WU-19 | done |
 | WU-20 | Hosting approach + API container image | WU-08 | done |
-| WU-21 | Hosted environment, pre-launch (replay mode) | WU-20 | in-progress |
+| WU-21 | Hosted environment, pre-launch (replay mode) | WU-20 | done |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | done |
 | WU-18 | Eval harness + adversarial cases | WU-09 | todo |
 | WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | todo |
@@ -506,7 +506,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-21 — Hosted environment, pre-launch (replay mode)
-**Status:** in-progress · **Depends on:** WU-20 · **Commits:**
+**Status:** done · **Depends on:** WU-20 · **Commits:** [PR #27](https://github.com/djuba/ai-trip-planner/pull/27)
 
 **Goal:** a walking skeleton. The API runs in the cloud from the WU-20 image, in replay mode, with no API key and no LLM cost. Every merge to `main` deploys it and runs the provider contract tests against its URL. It isn't a demo, and nothing links to it. No input a person types can hit a cassette: the key is a hash of the exact model request, which includes `referenceDate` (the browser's date) and the whole conversation. So only the contract suite, which sends the recorded requests, exercises it. Its value is that image, Terraform, OIDC, CORS across real origins, streaming through the platform's front end, timeouts and cold starts are all proven long before launch, when problems are cheap to fix. WU-23 turns the same environment into the live demo.
 
@@ -538,6 +538,16 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - This unit is deliberately movable: only WU-23 depends on it. If it slips, WU-23 absorbs its scope.
 - If WU-22 lands first, the post-deploy contract check needs an invite code. See WU-22's open question.
 - From WU-20: the image listens on `PORT` (default 8080) on `0.0.0.0`, defaults to `LLM_MODE=replay` with the cassettes at `/app/.llm-cassettes/api-nextjs`, and `/v1/health` suits the startup probe. Its files are owned by root and read-only to the `node` user, so record mode can't run in the container (it isn't meant to). See [ADR 0005](decisions/0005-hosting-and-access.md).
+- Done: see [the plan](plans/WU-21.md), [`infra/README.md`](../infra/README.md) and the [ADR 0005 addendum](decisions/0005-hosting-and-access.md). Terraform in `infra/` (applied by hand) runs the API on Cloud Run in `us-central1`, 0 to 1 instances, replay mode. `.github/workflows/deploy.yml` deploys every merge to `main` by digest through GitHub OIDC and runs the provider contract tests against the hosted URL. The deploy identity can push to one repository, deploy one service and act as one service account. The CI `infra` job checks `terraform fmt` and `validate`.
+- Decided at plan approval: dedicated project, tools via `winget`; proof on a scratch branch before merge; `us-central1`; `infra` becomes a required check; the one-week cost follows later; all plan-review fixes. Decided during the build: the three identifiers are Actions secrets (none is a credential), so the public logs mask them; the runbook covers reviewing and applying infra changes; Cloudflare was assessed after the fact (ADR 0005).
+- Proven: a non-`main` ref is refused at `auth` ("rejected by the attribute condition"); the scratch deploy passed with 24 contract tests (1 skipped) against the hosted URL; `terraform plan` is clean after a deploy; both service accounts have 0 keys; the service scales to 0 instances when idle. The first deploy from `main` runs when this PR merges.
+- Learned:
+  - GitHub prints a step's `env:` values in the log header, so only secrets are masked from the first line. The Workload Identity provider's name holds the project number, and new-style Cloud Run URLs (`https://<service>-<project number>.<region>.run.app`) can be derived from it. `gcloud run services update` prints that form, not `status.url`.
+  - The Budget API, called with user credentials, needs a quota project, and it has to be enabled before Terraform's first apply.
+  - Service accounts need `depends_on` the IAM API's enablement, or a first apply can race it.
+  - Google's `hello` sample answers `/v1/health`, so it works as a placeholder image behind the startup probe.
+- Cost: $0.00 on 2026-11-13, the day the environment was created (Billing → Reports, filtered to the project). The one-week figure follows in a small `docs(repo)` change (plan Q5).
+- Usage: main/Opus 118 req, 123k out; wu-reviewer/Sonnet 13 req, 20k out.
 
 ---
 
@@ -653,6 +663,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From security planning: add a containment test with an injection cassette (instructions planted in profile strings), and add `/recommend` cases to WU-18's eval set.
 - From WU-17: the conformance suite's AC-LIMITS-11 checks post `/recommend` a profile with `region` at its cap and with `people` at `maxPeople`, and require a schema-valid 200. Once the stub is gone, record replay cassettes for both probes, including the critic calls, or the contract gate fails on a cassette miss (WU-17 unit review #1).
 - From deployment planning: record the worst-case live `/recommend` latency (two revise cycles) and the tokens per stage from the usage logs. WU-21 sizes the request timeout from the latency, and WU-23 sets the spend and rate limits from the tokens.
+- From WU-21: the hosted timeout is `request_timeout_seconds` in `infra/variables.tf` (300 s today). If the worst-case latency approaches it, raise it and apply by hand ([`infra/README.md`](../infra/README.md), "Reviewing and applying infra changes"). Any `/recommend` cassette the contract suite replays must use the `CONTRACT_TEST_ENV` model IDs, which the hosted service also runs (`scripts/infra-config.test.ts`).
 - From WU-09: reuse `dataBlock` and `DATA_BLOCK_RULE` from `backends/api-nextjs/src/usecases/prompts/prompt-data.ts` for every client-supplied string, and keep system prompts constant. Put output caps in exported constants (CLAUDE.md §4.5). Use `LlmObjectRequest.accept` for checks the model's schema can't express. Derive `maxOutputTokens` from the caps, as `src/usecases/token-budget.ts` does, at 2 tokens per code point. Record the contract cassettes with `pnpm record:cassettes --contract` ([WU-09 plan](plans/WU-09.md)).
 
 ---
@@ -720,6 +731,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 **Notes:**
 - From deployment planning: contract change, so the review tier is `opus` (CLAUDE.md §12, 4a). The contract change goes in its own commit (required), then the server side.
 - Open question for the plan: how the post-deploy contract check (WU-21) gets a code without CI holding a secret that matters. One option is a code with no live value, stored as a GitHub secret. In replay mode it can't spend anything. Another is to put the check behind a manual step. Decide and record it in ADR 0005.
+- From WU-21: the deploy workflow already reads three non-credential identifiers from Actions secrets (ADR 0005 addendum). A code with no live value would be a fourth, withheld from every step but the contract check. The hosted service also needs the codes' hashes: an env var in `infra/service.tf`, or a Secret Manager secret that WU-23 needs anyway.
 - Revoking a code means removing it from the secret and redeploying. That's fine for a handful of interviewers.
 - An invite link (`?invite=<code>`) is a web concern (WU-13). A code in a URL can end up in logs, which is acceptable for this threat model; say so in the ADR.
 
@@ -872,6 +884,9 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 **Notes:**
 - From deployment planning: review tier `sonnet`; likely one code commit.
 - If WU-21 was skipped, its scope moves here, ahead of everything above.
+- From WU-21 (plan review #5): once the runtime service account can read the API key secret, the deploy identity can reach the key too, by deploying an image that runs as that account. Accept it with the Anthropic spend limit as the bound, or move live deploys to their own identity behind the GitHub Environment this unit already plans. Record the choice in ADR 0005.
+- From WU-21: consider deploying with `--no-traffic --tag candidate`, running the contract check on the tagged URL, then moving traffic, so a failing revision never serves the demo. Pin the traffic block in Terraform's `ignore_changes` if so.
+- From WU-21: the model IDs need no change for live mode: the hosted service already runs the CLAUDE.md §8.1 IDs, because the cassettes are keyed on them. Revisit `request_timeout_seconds` with WU-10's latency figure.
 
 ---
 
@@ -880,5 +895,6 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - Local Docker Pact Broker + `can-i-deploy`
 - Remaining abuse controls from ADR 0004's Future hardening section (written in WU-17). Invite codes and per-code rate limits are now WU-22, and the spend limit is WU-23. Left: an on-topic guard step (it may move into WU-18 if the evals show it's needed). User accounts belong here only if this becomes a product (ADR 0005).
 - Performance testing, against the hosted environment (WU-21)
-- A custom domain for the hosted environment (ADR 0005: optional)
+- A custom domain for the hosted environment (ADR 0005: optional). Likely through Cloudflare in front of Cloud Run, which adds an edge, DDoS protection and a WAF, and makes Cloudflare Access an option (ADR 0005, "Considered after acceptance: Cloudflare")
+- Terraform applied from CI: plan and apply on merge, with its own near-owner identity behind a GitHub Environment that needs your approval. Plan output must stay out of the public Actions logs. Today it is applied by hand ([`infra/README.md`](../infra/README.md))
 - Closed beta after WU-23: a small pool of testers on invite codes, a feedback channel outside the app (a form, a GitHub issue template or a short call, since the server stores nothing), consented capture of real inputs as WU-18 eval cases, and the pool sized from WU-23's cost per session
