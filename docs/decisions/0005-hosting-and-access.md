@@ -88,3 +88,24 @@ A custom domain is optional. The default `*.run.app` URLs are fine to start, and
 - **More than one instance**, so the rate limiter moves to a shared store (e.g. Redis or Firestore).
 - **Staging and production** as separate environments, each with its own Anthropic workspace and spend limit, and promotion of the same images between them (which would make decision 8 worth fixing).
 - **A custom domain**, a WAF or Cloud Armor in front, and image vulnerability scanning in CI.
+
+## Addendum: the environment as built (WU-21, 2026-11-13)
+
+Decisions made while building the environment ([WU-21 plan](../plans/WU-21.md)); they refine §6 and §7.
+
+- **Terraform owns the infrastructure; the deploy workflow owns only the image.** Terraform sets the service's scaling, timeout, probe, environment and identity, and ignores the running image. The workflow deploys a new image by digest and changes nothing else. So a deploy leaves `terraform plan` clean. Terraform is applied by hand from a developer machine, never from CI: applying it needs IAM admin over the project, far more than deploying an image does.
+- **The deploy identity is scoped to resources, not the project.** It may push to the one Artifact Registry repository, deploy revisions of the one service (`run.developer`, which can't change who may invoke it), and act as the runtime service account only. The Workload Identity provider admits a GitHub token only if its repository ID (numeric, so a renamed or re-created repository can't match), its ref (`refs/heads/main`) and its `workflow_ref` (`deploy.yml` on `main`) all match exactly. One extra ref can be admitted temporarily, through a Terraform variable, to prove a workflow change before merge.
+- **The runtime service account has no roles** in replay mode. In live mode (WU-23) it reads the one API key secret, and then the deploy identity can reach that key too, by deploying an image that runs as the runtime account. That is accepted for a demo (the key's workspace has a hard spend limit) and noted for WU-23.
+- **The service is public but unadvertised.** `allUsers` may invoke it, so the contract suite and later the browser can reach it. In replay mode a call costs nothing beyond the Cloud Run free tier, and one instance caps compute.
+- **The environment's identifiers stay out of the repository.** The project ID, billing account and state bucket are in git-ignored files, and the deploy workflow reads them from three GitHub Actions secrets. None of them is a credential. They're secrets only because GitHub masks secrets in every log line, and the repository's Actions logs are public: a plain variable is printed once, and the service URL can be derived from the project number. So "CI stores no secrets" now reads "CI stores no credentials".
+
+### Considered after acceptance: Cloudflare (2026-11-13)
+
+Cloudflare was suggested as a host after this ADR was accepted. §2's comparison didn't include it (only Cloudflare Access, for §5). Checked on 2026-11-13; Cloudflare's offerings change quickly, so recheck before relying on this.
+
+- **Workers** (V8 isolates, not containers) would run the API only through the OpenNext adapter, in a partial Node.js environment with no filesystem: the cassettes would have to move into the bundle or into KV/R2 storage. The free plan caps a Worker at 3 MiB and 10 ms of CPU per request; the paid plan ($5 a month) raises that to 10 MiB and 30 s. The WU-20 image, which CI proves conforms, wouldn't be what ships.
+- **Containers** would run the WU-20 image unchanged. It's generally available, but only on the Workers Paid plan ($5 a month, about the hosting budget on its own), behind a Worker and a Durable Object per container.
+- **Deploy credentials:** Cloudflare doesn't support OIDC federation for GitHub Actions. Deploying from CI needs a Cloudflare API token stored as a GitHub secret, which is the long-lived credential §6 rules out. The token-free route, Workers Builds, builds on Cloudflare's side through its GitHub App, so the CI pipeline that deploys and checks the image would no longer be ours.
+- **Strengths:** a global edge network, with DDoS protection and a WAF included.
+
+**Decision: keep Cloud Run.** Cloudflare's strengths fit best **in front of** it: a custom domain on Cloudflare, proxied to the Cloud Run service, adds the edge, DDoS protection and WAF cheaply ("If this became a product"), and makes Cloudflare Access workable after all, since §5 rejected it mainly for lack of a domain. That's the route for the custom-domain Backlog item.

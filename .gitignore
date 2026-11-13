@@ -25,3 +25,12 @@ Thumbs.db
 
 # claude code: per-user permissions; "don't ask again" can store secrets typed into commands
 .claude/settings.local.json
+
+# terraform (infra/): local state and plans, and the files that identify the environment
+infra/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+infra/tfplan
+infra/backend.hcl
+infra/terraform.tfvars

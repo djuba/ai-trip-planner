@@ -7,6 +7,7 @@ export const TYPES = ['feat', 'fix', 'refactor', 'perf', 'test', 'docs', 'build'
 /** @type {readonly string[]} */
 export const SCOPES = [
   'web',
+  'infra',
   'api-nextjs',
   'domain-schema',
   'contract',

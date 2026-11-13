@@ -1,0 +1,109 @@
+# Deploys the API to the hosted environment on every merge to main, then runs the provider contract
+# tests against it (WU-21; ADR 0005). It authenticates through GitHub OIDC and Workload Identity
+# Federation: no stored key, no secret. Only this file, run from main, passes the identity
+# provider's condition (infra/deploy-identity.tf). The deploy changes only the running image;
+# everything else about the service is Terraform's (infra/service.tf).
+#
+# The repository is public, so its Actions logs are too. The service URL and the environment's
+# identifiers aren't credentials, but they aren't advertised. So the three identifiers are Actions
+# secrets, which GitHub masks in every log line, and the values derived from them (the project
+# number, the URL) are masked before anything can print them (WU-21 plan D5, D6; deviation 4).
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A deploy is never cut off half way; a later merge waits for the one in flight.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      REGION: us-central1
+      SERVICE: api
+      REPOSITORY: api
+    steps:
+      - name: Mask the project number
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
+          DEPLOY_SA: ${{ secrets.GCP_DEPLOY_SA }}
+        run: |
+          if [ -z "$PROJECT_ID" ] || [ -z "$WIF_PROVIDER" ] || [ -z "$DEPLOY_SA" ]; then
+            echo "::error::Set the GCP_PROJECT_ID, GCP_WIF_PROVIDER and GCP_DEPLOY_SA repository secrets (infra/README.md)."
+            exit 1
+          fi
+          # The provider's name is projects/<number>/locations/global/..., and the number is also
+          # part of every run.app URL. GitHub masks the secrets themselves, not values derived
+          # from them.
+          number="${WIF_PROVIDER#projects/}"
+          number="${number%%/*}"
+          echo "::add-mask::$number"
+
+      # Dependencies are installed before any cloud credential exists in the job, so no install
+      # script can reach one (WU-21 plan review #6).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0 (version from packageManager)
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA }}
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      # Read the URL and WEB_ORIGIN, and mask the URL, before the deploy, whose output prints it.
+      - name: Read the service's URL and WEB_ORIGIN
+        run: |
+          service_json="$(gcloud run services describe "$SERVICE" --region "$REGION" --format=json)"
+          url="$(jq -r '.status.url' <<<"$service_json")"
+          origin="$(jq -r '.spec.template.spec.containers[0].env[] | select(.name == "WEB_ORIGIN") | .value' <<<"$service_json")"
+          if [ -z "$url" ] || [ "$url" = null ] || [ -z "$origin" ]; then
+            echo "::error::Could not read the service URL or its WEB_ORIGIN."
+            exit 1
+          fi
+          echo "::add-mask::$url"
+          echo "::add-mask::${url#https://}"
+          {
+            echo "API_BASE_URL=$url"
+            echo "WEB_ORIGIN=$origin"
+          } >>"$GITHUB_ENV"
+
+      - name: Build and push the image
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          image="$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/api-nextjs"
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+          docker build --platform linux/amd64 -f backends/api-nextjs/Dockerfile -t "$image:$GITHUB_SHA" .
+          docker push "$image:$GITHUB_SHA"
+          # Deploy by digest, so what was pushed is exactly what runs.
+          echo "IMAGE_REF=$(docker inspect --format '{{index .RepoDigests 0}}' "$image:$GITHUB_SHA")" >>"$GITHUB_ENV"
+
+      # Only the image changes. Waits until the new revision is ready and serving.
+      - name: Deploy
+        run: gcloud run services update "$SERVICE" --region "$REGION" --image "$IMAGE_REF" --quiet
+
+      # The contract suite runs with no cloud credential reachable: the credential file variables,
+      # gcloud's config and the OIDC token request variables are all withheld.
+      - name: Provider contract tests against the service
+        run: |
+          env -u GOOGLE_APPLICATION_CREDENTIALS -u CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE \
+            -u GOOGLE_GHA_CREDS_PATH -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+            CLOUDSDK_CONFIG="$(mktemp -d)" pnpm test:contract:external
