@@ -34,3 +34,6 @@ infra/.terraform/
 infra/tfplan
 infra/backend.hcl
 infra/terraform.tfvars
+
+# eval: per-run detail holds raw model output; only the summary line (runs.jsonl) is committed
+backends/api-nextjs/eval/results/runs/

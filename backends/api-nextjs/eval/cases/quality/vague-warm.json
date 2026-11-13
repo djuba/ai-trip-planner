@@ -1,0 +1,25 @@
+{
+  "id": "vague-warm",
+  "set": "quality",
+  "description": "A vague request needs clarification for too little detail.",
+  "ac": "AC-EXTRACT-02",
+  "request": {
+    "message": "Somewhere warm, maybe.",
+    "referenceDate": "2030-01-15"
+  },
+  "expect": {
+    "status": "needs_clarification",
+    "violationCodes": ["INSUFFICIENT_DETAIL"],
+    "fields": [
+      {
+        "path": "/climate",
+        "op": "equals",
+        "value": "warm"
+      },
+      {
+        "path": "/region",
+        "op": "absent"
+      }
+    ]
+  }
+}

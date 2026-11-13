@@ -1,0 +1,40 @@
+{
+  "id": "car-trip-month-only",
+  "set": "quality",
+  "description": "A drive with a month and no year; kids count as children.",
+  "request": {
+    "message": "The four of us (me, my husband and our kids, 6 and 9) are driving from Atlanta to a theme park sometime in July.",
+    "referenceDate": "2030-01-15"
+  },
+  "expect": {
+    "status": "ready",
+    "violationCodes": [],
+    "fields": [
+      {
+        "path": "/departure/mode",
+        "op": "equals",
+        "value": "car"
+      },
+      {
+        "path": "/departure/city",
+        "op": "includesAny",
+        "values": ["Atlanta"]
+      },
+      {
+        "path": "/dateRange/month",
+        "op": "equals",
+        "value": 7
+      },
+      {
+        "path": "/experiences",
+        "op": "contains",
+        "values": ["theme-parks"]
+      },
+      {
+        "path": "/people",
+        "op": "length",
+        "value": 4
+      }
+    ]
+  }
+}

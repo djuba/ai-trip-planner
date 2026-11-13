@@ -1,0 +1,9 @@
+{
+  "asOf": "2026-11-03",
+  "source": "https://platform.claude.com/docs/en/about-claude/pricing",
+  "note": "Standard API rates; Haiku 5.5 rate is for prompts up to 100K tokens.",
+  "models": {
+    "claude-haiku-5-5": { "inputPerMTok": 0.1, "outputPerMTok": 0.5 },
+    "claude-sonnet-5-5": { "inputPerMTok": 2, "outputPerMTok": 10 }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "id": "complete-trip",
+  "set": "quality",
+  "description": "A request with every detail is ready, with each value where it belongs.",
+  "ac": "AC-EXTRACT-01",
+  "request": {
+    "message": "Two adults, 40 and 38, flying non-stop from Minneapolis to Hawaii from February 10 to February 17, 2030. We want the beach and snorkeling.",
+    "referenceDate": "2030-01-15"
+  },
+  "expect": {
+    "status": "ready",
+    "violationCodes": [],
+    "fields": [
+      {
+        "path": "/region",
+        "op": "includesAny",
+        "values": ["Hawaii"]
+      },
+      {
+        "path": "/departure/city",
+        "op": "includesAny",
+        "values": ["Minneapolis"]
+      },
+      {
+        "path": "/departure/mode",
+        "op": "equals",
+        "value": "plane"
+      },
+      {
+        "path": "/departure/maxStops",
+        "op": "equals",
+        "value": 0
+      },
+      {
+        "path": "/dateRange",
+        "op": "equals",
+        "value": {
+          "kind": "fixed",
+          "start": "2030-02-10",
+          "end": "2030-02-17"
+        }
+      },
+      {
+        "path": "/experiences",
+        "op": "contains",
+        "values": ["beach", "snorkeling"]
+      },
+      {
+        "path": "/people",
+        "op": "length",
+        "value": 2
+      }
+    ]
+  }
+}

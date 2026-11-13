@@ -74,6 +74,7 @@ pnpm test:unit            # or test:integration, test:functional, test:contract
 pnpm verify:integrated    # integrated gate (stub until WU-15)
 pnpm verify:full          # nightly-equivalent gate (stub until WU-15)
 pnpm test:image           # needs Docker: build the API image, check it, contract tests against it
+pnpm eval --budget 1      # LIVE, costs money: extraction quality and injection evals (never gated)
 ```
 
 Git hooks: `commit-msg` enforces Conventional Commits with the scopes in CLAUDE.md §10, `pre-commit` lints and formats staged files and runs gitleaks, and `pre-push` runs `pnpm verify`.
@@ -108,6 +109,7 @@ pnpm test:contract:external   # API_BASE_URL defaults to http://localhost:4000 i
 | The hosted environment (Terraform) and its runbook | `infra/`, [`infra/README.md`](infra/README.md) |
 | The web client | `apps/web-nextjs/` |
 | Acceptance criteria and decisions | `docs/features/` and `docs/decisions/` |
+| LLM evals: cases, scorers and the results history | `backends/api-nextjs/eval/` ([eval.md](docs/features/eval.md)) |
 
 The backend, web client and journeys are scaffolds until their work units land, so some of these folders don't exist yet.
 

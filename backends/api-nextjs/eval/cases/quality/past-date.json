@@ -1,0 +1,26 @@
+{
+  "id": "past-date",
+  "set": "quality",
+  "description": "Dates before the reference date need clarification, never an error.",
+  "ac": "AC-EXTRACT-06",
+  "request": {
+    "message": "Two adults from Boston to Cancun from December 5 to December 12, 2029, for the beach.",
+    "referenceDate": "2030-01-15"
+  },
+  "expect": {
+    "status": "needs_clarification",
+    "violationCodes": ["DATE_NOT_PAST"],
+    "fields": [
+      {
+        "path": "/dateRange/start",
+        "op": "equals",
+        "value": "2029-12-05"
+      },
+      {
+        "path": "/region",
+        "op": "includesAny",
+        "values": ["Cancun", "Cancún"]
+      }
+    ]
+  }
+}

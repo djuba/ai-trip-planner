@@ -1,0 +1,31 @@
+{
+  "id": "adult-age-130",
+  "set": "quality",
+  "description": "An adult aged 130 keeps the stated age and is flagged.",
+  "ac": "AC-EXTRACT-04",
+  "request": {
+    "message": "Me (40) and my grandmother, who is 130, flying from Miami to Lisbon in May 2030 for the museums.",
+    "referenceDate": "2030-01-15"
+  },
+  "expect": {
+    "status": "needs_clarification",
+    "violationCodes": ["ADULT_AGE_RANGE"],
+    "fields": [
+      {
+        "path": "/people",
+        "op": "length",
+        "value": 2
+      },
+      {
+        "path": "/people/1/age",
+        "op": "equals",
+        "value": 130
+      },
+      {
+        "path": "/experiences",
+        "op": "contains",
+        "values": ["museums"]
+      }
+    ]
+  }
+}
