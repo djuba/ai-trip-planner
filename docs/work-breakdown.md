@@ -30,7 +30,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-20 | Hosting approach + API container image | WU-08 | done |
 | WU-21 | Hosted environment, pre-launch (replay mode) | WU-20 | done |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | done |
-| WU-18 | Eval harness + adversarial cases | WU-09 | todo |
+| WU-18 | Eval harness + adversarial cases | WU-09 | in-progress |
 | WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | todo |
 | WU-11 | Present stream + `/v1/trip/present` | WU-10 | todo |
 | WU-22 | Invite-code access gate + rate limit | WU-07, WU-20 | todo |
@@ -604,7 +604,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-18 — Eval harness + adversarial cases
-**Status:** todo · **Depends on:** WU-09 · **Commits:**
+**Status:** in-progress · **Depends on:** WU-09 · **Commits:**
 
 **Goal:** measure with live calls how well the prompts resist prompt injection and off-topic use, and how good extraction is (CLAUDE.md §6.8). It runs before WU-10, so the recommend and present prompts are written with these checks already in place.
 
