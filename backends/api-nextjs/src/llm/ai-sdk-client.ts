@@ -157,6 +157,9 @@ export function createAiSdkLlmClient({ modelFor, log, now }: AiSdkLlmClientDeps)
           // check (§7 "LLM output is untrusted input"): it guards against an SDK change.
           const parsed = request.schema.safeParse(result.output);
           if (!parsed.success) throw new OutputInvalidError({ cause: parsed.error });
+          // The caller's extra checks (LlmObjectRequest.accept) run only on schema-valid output.
+          const accepted = request.accept?.safeParse(parsed.data);
+          if (accepted?.success === false) throw new OutputInvalidError({ cause: accepted.error });
 
           log({ ...entry(attempt, started), ...usage, warnings, outcome: 'ok' });
           return parsed.data;
