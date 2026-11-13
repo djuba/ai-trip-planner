@@ -1,7 +1,7 @@
 // Shared constants (CLAUDE.md §4.7), also written to spec/generated/constants.json for any client.
 
 /** Semantic version of the HTTP contract, reported by `GET /v1/health`. */
-export const CONTRACT_VERSION = '0.4.0';
+export const CONTRACT_VERSION = '0.5.0';
 
 /** A profile with fewer populated fields than this yields INSUFFICIENT_DETAIL (§4.7). */
 export const MIN_POPULATED_FIELDS = 3;
@@ -32,6 +32,9 @@ export const MAX_UNMAPPED_EXPERIENCES = 10;
 
 /** Most travelers in `people`. */
 export const MAX_PEOPLE = 50;
+
+/** Most code points in `ExtractResponse.clarificationQuestion`: a sentence or two (ADR 0004). */
+export const MAX_CLARIFICATION_QUESTION_LENGTH = 300;
 
 /**
  * A string's length as the caps count it: Unicode code points, with a lone surrogate counting as

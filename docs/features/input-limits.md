@@ -21,6 +21,10 @@ What the length and count caps on the wire, and `normalize`'s discarding, must d
 - **AC-LIMITS-09:** Given an over-long `unmappedExperiences` item, when it is normalized, then that item is dropped and reported, and the list is dropped if nothing is left. Given a list over its count cap after item drops, then the whole list is dropped and reported (`too_many_items`).
 - **AC-LIMITS-10:** Given an extraction with any capped field at its cap, at its cap plus one, in astral characters, or containing a lone surrogate, or with every field over its cap at once, when it is normalized, then the profile parses against `TripProfile`.
 
+## Output caps
+
+- **AC-LIMITS-12:** Given an `ExtractResponse` with `status: 'needs_clarification'`, when it is validated, then a `clarificationQuestion` of `MAX_CLARIFICATION_QUESTION_LENGTH` code points (ASCII or astral) is valid, and one longer is invalid, in Zod and in the generated JSON Schema. `constants.json` carries the cap. The model-facing `ClarificationOutput` carries no constraints.
+
 ## Over HTTP
 
 - **AC-LIMITS-11:** Given the backend under test, when `/v1/trip/extract` gets a `message`, or any POST endpoint gets a profile `region`, at exactly its cap in astral characters, or a `people` list at its cap, then it answers 200 with a schema-valid body. At the cap plus one it answers 422 `VALIDATION_FAILED`. A fake backend that ignores the caps fails the check, and so does one that counts UTF-16 units.

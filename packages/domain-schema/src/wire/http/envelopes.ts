@@ -1,6 +1,6 @@
 // Request and response bodies of the v1 HTTP API (CLAUDE.md §5).
 import { z } from 'zod';
-import { MAX_MESSAGE_LENGTH } from '../constants.ts';
+import { MAX_CLARIFICATION_QUESTION_LENGTH, MAX_MESSAGE_LENGTH } from '../constants.ts';
 import { ErrorCode } from '../models/enums.ts';
 import { CritiqueIssue, Recommendation } from '../models/recommendation.ts';
 import { RuleViolation } from '../models/rule-violation.ts';
@@ -21,7 +21,7 @@ export const ExtractResponse = z.discriminatedUnion('status', [
     status: z.literal('needs_clarification'),
     profile: TripProfile,
     violations: z.array(RuleViolation).min(1),
-    clarificationQuestion: z.string().min(1),
+    clarificationQuestion: z.string().min(1).max(MAX_CLARIFICATION_QUESTION_LENGTH),
   }),
   z.object({ status: z.literal('ready'), profile: TripProfile }),
 ]);

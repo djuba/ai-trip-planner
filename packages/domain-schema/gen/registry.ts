@@ -2,6 +2,7 @@
 // the OpenAPI `components.schemas`. A private registry keeps anything else out of `generated/`.
 import { z } from 'zod';
 import * as envelopes from '../src/wire/http/envelopes.ts';
+import { ClarificationOutput } from '../src/wire/llm/clarification.ts';
 import { ExtractionSchema } from '../src/wire/llm/extraction.ts';
 import { RecommendationSet } from '../src/wire/llm/recommendation-set.ts';
 import * as enums from '../src/wire/models/enums.ts';
@@ -25,6 +26,7 @@ export const CONTRACT_SCHEMAS = {
   DateRange,
   TripProfile,
   ExtractionSchema,
+  ClarificationOutput,
   RuleViolation,
   FactualClaim,
   Recommendation,
@@ -51,6 +53,7 @@ for (const [id, schema] of Object.entries(CONTRACT_SCHEMAS)) {
 /** Schemas a model fills in: restricted to ADR 0001 Q3 constructs (CLAUDE.md §4.4). */
 export const LLM_FACING_IDS = [
   'ExtractionSchema',
+  'ClarificationOutput',
   'RecommendationSet',
   'PresentationModel',
 ] as const satisfies readonly ContractSchemaId[];
@@ -61,5 +64,6 @@ export const LLM_FACING_IDS = [
  */
 export const LLM_ONLY_IDS = [
   'ExtractionSchema',
+  'ClarificationOutput',
   'RecommendationSet',
 ] as const satisfies readonly ContractSchemaId[];

@@ -8,3 +8,4 @@ export * from './models/presentation.ts';
 export * from './http/envelopes.ts';
 export * from './llm/extraction.ts';
 export * from './llm/recommendation-set.ts';
+export * from './llm/clarification.ts';

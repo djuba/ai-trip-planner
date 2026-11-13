@@ -1,5 +1,5 @@
 {
-  "contractVersion": "0.4.0",
+  "contractVersion": "0.5.0",
   "minPopulatedFields": 3,
   "maxRequestBodyBytes": 1048576,
   "maxMessageLength": 2000,
@@ -8,5 +8,6 @@
   "maxDateTextLength": 32,
   "maxExperiences": 20,
   "maxUnmappedExperiences": 10,
-  "maxPeople": 50
+  "maxPeople": 50,
+  "maxClarificationQuestionLength": 300
 }

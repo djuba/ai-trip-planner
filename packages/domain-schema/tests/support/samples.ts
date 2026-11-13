@@ -3,6 +3,7 @@
 // does not exist) are VALID on the wire: they are rule violations, not contract violations (D1).
 import type { ContractSchemaId } from '../../gen/registry.ts';
 import {
+  MAX_CLARIFICATION_QUESTION_LENGTH,
   MAX_DATE_TEXT_LENGTH,
   MAX_EXPERIENCES,
   MAX_MESSAGE_LENGTH,
@@ -257,6 +258,10 @@ export const SAMPLES: Record<ContractSchemaId, SampleSet> = {
       {},
       null,
     ],
+  },
+  ClarificationOutput: {
+    valid: [{ question: 'How old is the child?' }, { question: '' }],
+    invalid: [{}, { question: null }, { question: 5 }, null],
   },
   RecommendationSet: {
     valid: [{ recommendations: [] }, { recommendations: [recommendation] }],
@@ -596,4 +601,27 @@ const profileFields: BoundaryCase[] = CAPPED_FIELDS.flatMap((field) =>
   ),
 );
 
-export const BOUNDARY_CASES: BoundaryCase[] = [...counting, ...message, ...profileFields];
+const clarificationQuestion: BoundaryCase[] = [
+  [ascii(MAX_CLARIFICATION_QUESTION_LENGTH), 'ASCII', true],
+  [ascii(MAX_CLARIFICATION_QUESTION_LENGTH + 1), 'ASCII', false],
+  [astral(MAX_CLARIFICATION_QUESTION_LENGTH), 'astral', true],
+  [astral(MAX_CLARIFICATION_QUESTION_LENGTH + 1), 'astral', false],
+].map(([text, kind, valid]) => ({
+  ac: 'AC-LIMITS-12',
+  label: `clarificationQuestion of ${valid ? 'exactly' : 'one over'} MAX_CLARIFICATION_QUESTION_LENGTH ${kind} code points`,
+  schema: 'ExtractResponse' as const,
+  value: {
+    status: 'needs_clarification',
+    profile: {},
+    violations: [{ code: 'INSUFFICIENT_DETAIL', path: '', params: { populated: 0, required: 3 } }],
+    clarificationQuestion: text,
+  },
+  valid: valid as boolean,
+}));
+
+export const BOUNDARY_CASES: BoundaryCase[] = [
+  ...counting,
+  ...message,
+  ...clarificationQuestion,
+  ...profileFields,
+];
