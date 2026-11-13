@@ -48,7 +48,7 @@ The canary and leak scorers are the headline numbers: they are deterministic, an
 
 ## Results
 
-Each run appends one JSON line to `backends/api-nextjs/eval/results/runs.jsonl` (committed): date, commit and whether the tree was dirty, models, prompt hash, case-set hash, repeats, whether the judge ran, pass rates per set and scorer, pass counts per case, usage per model, cost, budget, and whether the run stopped at the budget. Compare lines to see what a prompt or model change did. The per-case detail (raw outputs, judge reasons) goes to `eval/results/runs/`, which is git-ignored.
+Each run appends one JSON line to `backends/api-nextjs/eval/results/runs.jsonl` (committed): date, commit and whether the tree was dirty, models, prompt hash, case-set hash, repeats, whether the judge ran, pass rates per set and scorer, pass counts per case, how many runs were not judged (a not-judged run never counts as passed), usage per model, cost, budget, and whether the run stopped at the budget. Compare lines to see what a prompt or model change did. The per-case detail (raw outputs, judge reasons) goes to `eval/results/runs/`, which is git-ignored.
 
 ## Acceptance criteria
 

@@ -68,6 +68,7 @@ ai-trip-planner/
 | Contract tests (consumer + provider) | `pnpm test:contract` (builds and starts its own api-nextjs); `pnpm test:contract:external` tests the backend at `API_BASE_URL` instead |
 | API image: build, check, contract tests (needs Docker) | `pnpm test:image` |
 | Hosted environment: plan / apply (needs Terraform + gcloud; never from CI) | in `infra/`: `terraform plan -out=tfplan` / `terraform apply tfplan` (see `infra/README.md`) |
+| LLM evals (live, costs money, never gated; §6.8) | `pnpm eval --budget <usd>` (see `docs/features/eval.md`) |
 | Journeys | `pnpm test:journeys --grep "@smoke\|@critical"` (or `@full`) |
 | **Project gate** (≈ MR gate) | `pnpm verify` |
 | **Integrated gate** (≈ deploy gate) | `pnpm verify:integrated` |
@@ -266,7 +267,7 @@ The backend runs both halves with `LLM_MODE=replay`, and passes the rule-fixture
 Each gate is a single command. **GitHub Actions mirrors the project gate** on every PR and push to `main`: `.github/workflows/verify.yml`, job `verify`. The local gates stay the source of truth, and CI runs the same command. The same workflow's job `image` runs `pnpm test:image`, which needs Docker and so stays out of `pnpm verify`; CI is the one place it always runs. Its job `infra` checks the Terraform, so `pnpm verify` needs no Terraform. **`verify`, `image` and `infra` are the three required status checks for merging** (§10). CI holds no credentials: gated tests never call a live LLM (§6.1). None of those jobs has cloud access. **Deploys** run in `.github/workflows/deploy.yml` after each merge to `main`, and get cloud credentials only through GitHub OIDC and Workload Identity Federation, so no long-lived cloud key is stored anywhere. Its only Actions secrets are three non-credential identifiers, kept as secrets so the public logs mask them. Its identity can only push the API image and deploy the one service; Terraform is applied by hand, never from CI ([ADR 0005](docs/decisions/0005-hosting-and-access.md), `infra/README.md`). A failed post-deploy contract check is fixed forward or rolled back (`infra/README.md`). The integrated and full gates stay local. Performance testing is out of scope until there is a deployed environment; until then, per-stage latency is logged (§7.3).
 
 ### 6.8 What tests do not cover
-Tests prove plumbing, contracts and rules. They do **not** judge whether recommendations are good. LLM output quality is assessed separately by an opt-in, non-gating eval script (`pnpm eval`, live, costs money) once the pipeline exists.
+Tests prove plumbing, contracts and rules. They do **not** judge whether recommendations are good. LLM output quality is assessed separately by an opt-in, non-gating eval script (`pnpm eval`, live, costs money; `backends/api-nextjs/eval/`, [`eval.md`](docs/features/eval.md)). It drives the use cases in-process with a live `LlmClient`, scores deterministically first, and appends one line per run to `eval/results/runs.jsonl` so runs can be compared. WU-10 and WU-11 add cases for their stages.
 
 ## 7. AI pipeline
 
