@@ -31,7 +31,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-21 | Hosted environment, pre-launch (replay mode) | WU-20 | done |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | done |
 | WU-18 | Eval harness + adversarial cases | WU-09 | done |
-| WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | todo |
+| WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | in-progress |
 | WU-11 | Present stream + `/v1/trip/present` | WU-10 | todo |
 | WU-22 | Invite-code access gate + rate limit | WU-07, WU-20 | done |
 | WU-12 | Web shell, API client, Pact consumer | WU-04, WU-07, WU-22 | todo |
@@ -642,7 +642,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-10 — Recommend + critic + `/v1/trip/recommend`
-**Status:** todo · **Depends on:** WU-09, WU-18 · **Commits:**
+**Status:** in-progress · **Depends on:** WU-09, WU-18 · **Commits:**
 
 **Goal:** valid profile → critic-checked recommendations, with honest verification labels.
 
