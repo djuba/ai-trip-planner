@@ -38,9 +38,11 @@ ai-trip-planner/
 │   └── journeys/                # Cross-system Playwright journeys (isolated workspace, §6.6)
 ├── docs/features/               # Acceptance criteria per feature (§6.2)
 ├── docs/decisions/              # Architecture decision records (ADRs)
+├── infra/                       # Terraform for the hosted environment (ADR 0005); runbook in infra/README.md
 ├── spikes/                      # NON-PRODUCTION spikes; outside the workspace and every gate
 ├── .llm-cassettes/              # Recorded LLM HTTP exchanges for replay — COMMITTED
 ├── .dockerignore                # Allowlist: the only files the image build can see
+├── .github/workflows/           # verify.yml (PR checks), deploy.yml (deploys main to the hosted environment)
 ├── pnpm-workspace.yaml
 ├── package.json
 └── README.md
@@ -65,6 +67,7 @@ ai-trip-planner/
 | Functional tests | `pnpm test:functional` |
 | Contract tests (consumer + provider) | `pnpm test:contract` (builds and starts its own api-nextjs); `pnpm test:contract:external` tests the backend at `API_BASE_URL` instead |
 | API image: build, check, contract tests (needs Docker) | `pnpm test:image` |
+| Hosted environment: plan / apply (needs Terraform + gcloud; never from CI) | in `infra/`: `terraform plan -out=tfplan` / `terraform apply tfplan` (see `infra/README.md`) |
 | Journeys | `pnpm test:journeys --grep "@smoke\|@critical"` (or `@full`) |
 | **Project gate** (≈ MR gate) | `pnpm verify` |
 | **Integrated gate** (≈ deploy gate) | `pnpm verify:integrated` |
@@ -257,8 +260,10 @@ The backend runs both halves with `LLM_MODE=replay`, and passes the rule-fixture
 | **Integrated gate** (≈ deploy) | `pnpm verify:integrated` | build all, start the full stack, journeys `@smoke` + `@critical` | manual / before tagging a release |
 | **Full** (≈ nightly) | `pnpm verify:full` | journeys `@full`; provider contract tests against api-nextjs | manual |
 | **Image** (CI) | `pnpm test:image` | build the API image, check it runs as non-root with no secret-like variables or `.env` files, then the provider contract tests against the container in replay mode | CI job `image`; locally only where Docker is available |
+| **Infra** (CI) | — | `terraform fmt -check`, `terraform init -backend=false`, `terraform validate` in `infra/`; no credentials | CI job `infra` |
+| **Deploy** (after merge) | — | build and push the API image, deploy it to Cloud Run by digest, then the provider contract tests against the hosted URL in replay mode | `.github/workflows/deploy.yml`, on push to `main` |
 
-Each gate is a single command. **GitHub Actions mirrors the project gate** on every PR and push to `main`: `.github/workflows/verify.yml`, job `verify`. The local gates stay the source of truth, and CI runs the same command. The same workflow's job `image` runs `pnpm test:image`, which needs Docker and so stays out of `pnpm verify`; CI is the one place it always runs. **`verify` and `image` are the two required status checks for merging** (§10). CI never holds secrets: gated tests never call a live LLM (§6.1). Neither job has cloud access. Deploys (WU-21) get cloud credentials only through GitHub OIDC and Workload Identity Federation, in a separate workflow, so no long-lived cloud key is stored anywhere ([ADR 0005](docs/decisions/0005-hosting-and-access.md)). The integrated and full gates stay local. Performance testing is out of scope until there is a deployed environment; until then, per-stage latency is logged (§7.3).
+Each gate is a single command. **GitHub Actions mirrors the project gate** on every PR and push to `main`: `.github/workflows/verify.yml`, job `verify`. The local gates stay the source of truth, and CI runs the same command. The same workflow's job `image` runs `pnpm test:image`, which needs Docker and so stays out of `pnpm verify`; CI is the one place it always runs. Its job `infra` checks the Terraform, so `pnpm verify` needs no Terraform. **`verify`, `image` and `infra` are the three required status checks for merging** (§10). CI holds no credentials: gated tests never call a live LLM (§6.1). None of those jobs has cloud access. **Deploys** run in `.github/workflows/deploy.yml` after each merge to `main`, and get cloud credentials only through GitHub OIDC and Workload Identity Federation, so no long-lived cloud key is stored anywhere. Its only Actions secrets are three non-credential identifiers, kept as secrets so the public logs mask them. Its identity can only push the API image and deploy the one service; Terraform is applied by hand, never from CI ([ADR 0005](docs/decisions/0005-hosting-and-access.md), `infra/README.md`). A failed post-deploy contract check is fixed forward or rolled back (`infra/README.md`). The integrated and full gates stay local. Performance testing is out of scope until there is a deployed environment; until then, per-stage latency is logged (§7.3).
 
 ### 6.8 What tests do not cover
 Tests prove plumbing, contracts and rules. They do **not** judge whether recommendations are good. LLM output quality is assessed separately by an opt-in, non-gating eval script (`pnpm eval`, live, costs money) once the pipeline exists.
@@ -320,7 +325,7 @@ Verified against `ai 7.0.154` / `@ai-sdk/anthropic 4.0.89`. Re-check the ADR on 
 Format: `type(scope): imperative summary` — ≤72 chars, lowercase type.
 
 - **Types:** `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `build`, `ci`, `chore`
-- **Scopes (enforced list):** `web`, `api-nextjs`, `domain-schema`, `contract`, `journeys`, `usecases`, `repo`
+- **Scopes (enforced list):** `web`, `api-nextjs`, `domain-schema`, `contract`, `journeys`, `usecases`, `infra`, `repo`
 - **Breaking contract changes:** `feat(domain-schema)!: …` plus a `BREAKING CHANGE:` footer, and bump `contractVersion`.
 - One logical change per commit. Tests go in the same commit as the behavior they cover. Regenerate `spec/generated/` and re-record affected cassettes/pacts in the same commit as the change that caused them.
 - Never commit without the user's explicit approval of the specific changes (§12). Commit messages end with the attribution trailer configured for the session.
@@ -331,7 +336,7 @@ History is searchable by scope: `git log --oneline --grep "^feat(domain-schema)"
 - every PR lands as a merge commit; the GitHub repo allows no other merge method and deletes branches after merge;
 - before merging, the branch must contain the tip of `main`. If `main` has moved, rebase onto `origin/main`, re-verify, and `git push --force-with-lease`. Never merge `main` into the branch; GitHub's "Update branch" button is disabled.
 
-Branch protection on `main` enforces this. It requires a PR (0 approvals) and the `verify` and `image` status checks (§6.7), on a branch that is up to date with `main`. So what CI verified is exactly the tree that lands. Admins may bypass protection only in an emergency, and must say so in the PR. The user performs the merge. `git log --first-parent main` then reads as one line per change.
+Branch protection on `main` enforces this. It requires a PR (0 approvals) and the `verify`, `image` and `infra` status checks (§6.7), on a branch that is up to date with `main`. So what CI verified is exactly the tree that lands. Admins may bypass protection only in an emergency, and must say so in the PR. The user performs the merge. `git log --first-parent main` then reads as one line per change.
 
 ## 11. Build plan
 

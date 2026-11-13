@@ -54,6 +54,7 @@ See [ADR 0003](docs/decisions/0003-spec-first-one-implementation.md) for the dec
 | Conformance suite | The running backend's responses match the contract | `tests/contract/conformance/`, run by `pnpm test:contract` (or `test:contract:external` for any running backend) | Built; `/extract` is real (replayed cassettes), `/recommend` and `/present` are stubs until WU-10–11 |
 | Pact | The backend does what the web client expects | `contracts/pacts/`, `tests/contract/pact-verify.test.ts` | Verifier built; consumer pacts planned (WU-12) |
 | Container image | The API image builds from a clean checkout, runs as a non-root user with no secrets, and passes the provider contract tests in replay mode | `backends/api-nextjs/Dockerfile`, run by `pnpm test:image` in the CI `image` job | Built |
+| Deployment check | After every merge to `main`, the image is deployed to the hosted environment (replay mode, unadvertised) and passes the provider contract tests there, through the platform's front end | `.github/workflows/deploy.yml`, `infra/` | Built |
 | Journeys | The whole system works from the user's side | `tests/journeys/` | Planned (WU-15) |
 
 ## Prerequisites
@@ -104,6 +105,7 @@ pnpm test:contract:external   # API_BASE_URL defaults to http://localhost:4000 i
 | The Anthropic client and record/replay | `backends/api-nextjs/src/llm/` |
 | The API container image | `backends/api-nextjs/Dockerfile` and `.dockerignore` (an allowlist) |
 | Hosting and access decisions | [ADR 0005](docs/decisions/0005-hosting-and-access.md) |
+| The hosted environment (Terraform) and its runbook | `infra/`, [`infra/README.md`](infra/README.md) |
 | The web client | `apps/web-nextjs/` |
 | Acceptance criteria and decisions | `docs/features/` and `docs/decisions/` |
 
