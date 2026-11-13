@@ -33,7 +33,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-18 | Eval harness + adversarial cases | WU-09 | done |
 | WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | todo |
 | WU-11 | Present stream + `/v1/trip/present` | WU-10 | todo |
-| WU-22 | Invite-code access gate + rate limit | WU-07, WU-20 | todo |
+| WU-22 | Invite-code access gate + rate limit | WU-07, WU-20 | in-progress |
 | WU-12 | Web shell, API client, Pact consumer | WU-04, WU-07, WU-22 | todo |
 | WU-13 | Conversation & clarification UI | WU-09, WU-12 | todo |
 | WU-14 | Streamed presentation cards + a11y | WU-11, WU-13 | todo |
@@ -714,7 +714,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-22 — Invite-code access gate + rate limit
-**Status:** todo · **Depends on:** WU-07, WU-20 · **Commits:**
+**Status:** in-progress · **Depends on:** WU-07, WU-20 · **Commits:**
 
 **Goal:** only people given an invite code can use the trip endpoints, and each code has a rate limit. This is the access control ADR 0005 chooses in place of user accounts. It lands before WU-12, so the web client and its pact include it from the start.
 
