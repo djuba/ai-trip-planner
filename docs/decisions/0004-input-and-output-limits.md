@@ -87,9 +87,9 @@ Out of scope for this ADR, each with an owner:
 
 | Item | Owner |
 |---|---|
-| Authentication | Backlog ("Abuse controls" in `docs/work-breakdown.md`); needs user identity |
-| Per-user rate limits and quotas | Backlog; needs user identity or a deployed environment |
-| Provider spend limits, with a separate Anthropic workspace per environment | Backlog; an account setting, not code |
+| Authentication | WU-22: per-recipient invite codes, not user accounts ([ADR 0005](0005-hosting-and-access.md)) |
+| Per-user rate limits and quotas | WU-22: a rate limit per invite code ([ADR 0005](0005-hosting-and-access.md)) |
+| Provider spend limits, with a separate Anthropic workspace per environment | WU-23; an account setting, not code ([ADR 0005](0005-hosting-and-access.md)) |
 | An on-topic guard step that rejects requests that aren't about travel | Backlog; may move into WU-18 if the evals show it's needed |
 | Second-order prompt injection: user strings (message, `currentProfile`, violation params) go into later prompts only as delimited JSON data, never as instructions | WU-09 (shared prompt-data helper), reused by WU-10 and WU-11 |
 | Output caps on recommendation, presentation and clarification text | WU-09, WU-10, WU-11 |

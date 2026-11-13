@@ -19,6 +19,7 @@ ai-trip-planner/
 │       └── tests/functional/    # Playwright, API mocked at the network edge
 ├── backends/
 │   └── api-nextjs/              # The TypeScript backend (Route Handlers only)
+│       ├── Dockerfile           # The API container image (ADR 0005); built from the repo root
 │       └── tests/{integration,functional}/  # unit tests sit beside the code (§6.3)
 ├── packages/
 │   └── domain-schema/           # TS source of the contract; generates spec/ (see §4)
@@ -39,6 +40,7 @@ ai-trip-planner/
 ├── docs/decisions/              # Architecture decision records (ADRs)
 ├── spikes/                      # NON-PRODUCTION spikes; outside the workspace and every gate
 ├── .llm-cassettes/              # Recorded LLM HTTP exchanges for replay — COMMITTED
+├── .dockerignore                # Allowlist: the only files the image build can see
 ├── pnpm-workspace.yaml
 ├── package.json
 └── README.md
@@ -62,6 +64,7 @@ ai-trip-planner/
 | Integration tests | `pnpm test:integration` |
 | Functional tests | `pnpm test:functional` |
 | Contract tests (consumer + provider) | `pnpm test:contract` (builds and starts its own api-nextjs); `pnpm test:contract:external` tests the backend at `API_BASE_URL` instead |
+| API image: build, check, contract tests (needs Docker) | `pnpm test:image` |
 | Journeys | `pnpm test:journeys --grep "@smoke\|@critical"` (or `@full`) |
 | **Project gate** (≈ MR gate) | `pnpm verify` |
 | **Integrated gate** (≈ deploy gate) | `pnpm verify:integrated` |
@@ -253,8 +256,9 @@ The backend runs both halves with `LLM_MODE=replay`, and passes the rule-fixture
 | **Project gate** (≈ MR) | `pnpm verify` | typecheck, lint, `gen` drift check (no diff in `spec/generated/`), `pnpm audit --prod`, unit, integration, functional, contract (consumer + provider vs. api-nextjs), coverage thresholds | `pre-push` (a push of only Markdown outside `spec/` gets a format check instead) |
 | **Integrated gate** (≈ deploy) | `pnpm verify:integrated` | build all, start the full stack, journeys `@smoke` + `@critical` | manual / before tagging a release |
 | **Full** (≈ nightly) | `pnpm verify:full` | journeys `@full`; provider contract tests against api-nextjs | manual |
+| **Image** (CI) | `pnpm test:image` | build the API image, check it runs as non-root with no secret-like variables or `.env` files, then the provider contract tests against the container in replay mode | CI job `image`; locally only where Docker is available |
 
-Each gate is a single command. **GitHub Actions mirrors the project gate** on every PR and push to `main`: `.github/workflows/verify.yml`, job `verify`, which is the required status check for merging (§10). The local gates stay the source of truth, and CI runs the same command. CI never holds secrets: gated tests never call a live LLM (§6.1). The integrated and full gates stay local. Performance testing is out of scope until there is a deployed environment; until then, per-stage latency is logged (§7.3).
+Each gate is a single command. **GitHub Actions mirrors the project gate** on every PR and push to `main`: `.github/workflows/verify.yml`, job `verify`. The local gates stay the source of truth, and CI runs the same command. The same workflow's job `image` runs `pnpm test:image`, which needs Docker and so stays out of `pnpm verify`; CI is the one place it always runs. **`verify` and `image` are the two required status checks for merging** (§10). CI never holds secrets: gated tests never call a live LLM (§6.1). Neither job has cloud access. Deploys (WU-21) get cloud credentials only through GitHub OIDC and Workload Identity Federation, in a separate workflow, so no long-lived cloud key is stored anywhere ([ADR 0005](docs/decisions/0005-hosting-and-access.md)). The integrated and full gates stay local. Performance testing is out of scope until there is a deployed environment; until then, per-stage latency is logged (§7.3).
 
 ### 6.8 What tests do not cover
 Tests prove plumbing, contracts and rules. They do **not** judge whether recommendations are good. LLM output quality is assessed separately by an opt-in, non-gating eval script (`pnpm eval`, live, costs money) once the pipeline exists.
@@ -327,7 +331,7 @@ History is searchable by scope: `git log --oneline --grep "^feat(domain-schema)"
 - every PR lands as a merge commit; the GitHub repo allows no other merge method and deletes branches after merge;
 - before merging, the branch must contain the tip of `main`. If `main` has moved, rebase onto `origin/main`, re-verify, and `git push --force-with-lease`. Never merge `main` into the branch; GitHub's "Update branch" button is disabled.
 
-Branch protection on `main` enforces this. It requires a PR (0 approvals) and the `verify` status check (§6.7), on a branch that is up to date with `main`. So what CI verified is exactly the tree that lands. Admins may bypass protection only in an emergency, and must say so in the PR. The user performs the merge. `git log --first-parent main` then reads as one line per change.
+Branch protection on `main` enforces this. It requires a PR (0 approvals) and the `verify` and `image` status checks (§6.7), on a branch that is up to date with `main`. So what CI verified is exactly the tree that lands. Admins may bypass protection only in an emergency, and must say so in the PR. The user performs the merge. `git log --first-parent main` then reads as one line per change.
 
 ## 11. Build plan
 
