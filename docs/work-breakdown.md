@@ -27,7 +27,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-08 | `LlmClient` with record / replay / mock | WU-03, WU-06 | done |
 | WU-19 | Refocus: spec-first, one implementation | WU-08 | done |
 | WU-17 | Input and output limits (prompt-injection hardening) | WU-05, WU-07, WU-19 | done |
-| WU-20 | Hosting approach + API container image | WU-08 | in-progress |
+| WU-20 | Hosting approach + API container image | WU-08 | done |
 | WU-21 | Hosted environment, pre-launch (replay mode) | WU-20 | todo |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | todo |
 | WU-18 | Eval harness + adversarial cases | WU-09 | todo |
@@ -446,7 +446,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-20 — Hosting approach + API container image
-**Status:** in-progress · **Depends on:** WU-08 · **Commits:**
+**Status:** done · **Depends on:** WU-08 · **Commits:** [PR #24](https://github.com/djuba/ai-trip-planner/pull/24)
 
 **Goal:** decide how the app is hosted, and build the API as a container image that CI checks against the contract. The image is useful before anything is hosted: it is the artifact that will be shipped, and CI proves it conforms.
 
@@ -495,6 +495,13 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From deployment planning: review tier `sonnet`; likely commits: the ADR, then the image and the CI job.
 - Risk: with `output: 'standalone'`, Next warns that `next start` doesn't work. The functional tests boot the built app, so check how they start it and keep them working ([WU-08 plan](plans/WU-08.md), R2, is related: `ai/test` in the bundle).
 - Docker is optional locally: `pnpm test:image` needs it, `pnpm verify` doesn't. The dev machine (~3.9 GB RAM) can't run Docker Desktop well, so CI is where the image is built and tested, and the Dockerfile is iterated on a scratch draft PR ([WU-20 plan](plans/WU-20.md), Q1). The image is built for `linux/amd64`.
+- Done: see [the plan](plans/WU-20.md) and [ADR 0005](decisions/0005-hosting-and-access.md). `backends/api-nextjs/Dockerfile` builds Next's standalone output (only when `NEXT_OUTPUT=standalone`, so `next start` still serves the tests) and runs as `node` with the cassettes baked in. `pnpm test:image` checks it and runs the provider contract tests against it; the CI `image` job runs that, and is the second required check.
+- Decided at plan approval: no Docker on the dev machine, so the image is iterated on a throwaway PR and proven in CI (option A); `image` becomes a required check; review tier `sonnet`.
+- Learned:
+  - Vitest collects tests from git-ignored directories, including Claude Code worktrees in `.claude/worktrees/`. A concurrent unit's worktree broke `pnpm verify` until `vitest.config.ts` excluded `.claude/**`. A `--exclude` flag on the command line doesn't reach projects that set their own `exclude`.
+  - BuildKit warns about a constant `FROM --platform`; set the platform in the build command instead.
+  - The image needs every workspace `package.json` for pnpm's frozen install, even when only one project is installed.
+- Usage: main/Opus 63 req, 63k out; wu-reviewer/Sonnet 9 req, 10k out.
 
 ---
 
@@ -530,6 +537,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - The README does not mention this environment. WU-23 adds the live demo line.
 - This unit is deliberately movable: only WU-23 depends on it. If it slips, WU-23 absorbs its scope.
 - If WU-22 lands first, the post-deploy contract check needs an invite code. See WU-22's open question.
+- From WU-20: the image listens on `PORT` (default 8080) on `0.0.0.0`, defaults to `LLM_MODE=replay` with the cassettes at `/app/.llm-cassettes/api-nextjs`, and `/v1/health` suits the startup probe. Its files are owned by root and read-only to the `node` user, so record mode can't run in the container (it isn't meant to). See [ADR 0005](decisions/0005-hosting-and-access.md).
 
 ---
 
@@ -564,6 +572,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From security planning: treat every user-controlled string as untrusted data in prompts. That covers the message, the client-supplied `currentProfile` and the violation params. They go only in the user message, serialized as JSON in a clearly delimited data block, and the static system prompt says the block is data, not instructions. Build this as one shared prompt-data helper that WU-10 and WU-11 reuse. Unit-test each prompt builder: every profile string appears only inside the data block.
 - From security planning: size the extraction call's `maxOutputTokens` from the WU-17 caps (every field at its cap, plus a margin), and the clarification call's for a question of a sentence or two. Log what `normalize` discarded as a security signal.
 - From security planning: add a containment test, an integration test with a cassette recorded from a real injection attempt (a message telling the model to put off-topic content in free-text fields and in the clarification question). Assert the response is wire-valid, nothing exceeds a cap, and the clarification question is within its limit. It proves containment, not that the model resists; WU-18 measures that.
+- From WU-20: cassettes the contract suite replays are keyed on the model IDs in `CONTRACT_TEST_ENV` (`backends/api-nextjs/tests/support/api-server.ts`). `pnpm test:image` and the README's hand-run `docker run` give the container the same IDs, so record the contract cassettes with them. This is also the first unit to bundle `ai/test` into the server (WU-08 R2); the CI `image` job will show whether Next's standalone trace copes with it.
 - From WU-08: `tests/support/api-server.ts`'s `baseEnv` uses `test-model-*` model IDs and forces `LLM_MODE=replay`, and `pnpm record:cassettes` runs only the integration project. The model is part of the cassette key, so before recording any server-side cassette, switch `baseEnv` to the real §8.1 IDs and give recording a path to the spawned server. Recommended: `startApi` passes record mode and the key through when `recordingAllowed()`, and `record:cassettes` accepts `--project functional-api`. See [`llm-client.md`](features/llm-client.md) and the WU-08 implementation review (#3).
 - From WU-08: the routes need a seam to inject a mock `LlmClient` (`createMockLlmClient` + `mockObject` from `src/llm`) for the rule-fixture test. Build the real client with `createLlmClient(getConfig())`. An unresolvable cassette directory now fails there, not at startup ([plan](plans/WU-08.md), deviation 3).
 - From WU-08: this is the first unit where `next build` bundles `src/llm`, including `ai/test` through `mock.ts`. If that breaks the build or the bundle, keep `mock.ts` out of the route's import graph ([plan](plans/WU-08.md), R2).
