@@ -1,0 +1,22 @@
+# An allowlist (WU-20 plan D2): everything is excluded, then only what the api-nextjs image build
+# needs is added back. A new file anywhere, such as an .env.local or a key file, stays out of the
+# build context unless it is listed here on purpose.
+*
+
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+# Manifests only, so the frozen install sees the whole workspace.
+!apps/web-nextjs/package.json
+!tests/contract/package.json
+!tests/journeys/package.json
+!packages/domain-schema/
+!backends/api-nextjs/
+!.llm-cassettes/api-nextjs/
+
+# Never, even inside an allowed directory.
+**/node_modules
+**/.next
+**/coverage
+**/.env*

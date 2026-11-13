@@ -16,6 +16,9 @@ const nextConfig = {
   poweredByHeader: false,
   // Stops `next dev` writing an AGENTS.md when it detects a coding agent; CLAUDE.md governs here.
   agentRules: false,
+  // Only the container build (Dockerfile) sets NEXT_OUTPUT. Other builds keep the default output,
+  // so `next start` still serves the functional and contract tests (WU-20 plan D1).
+  ...(process.env.NEXT_OUTPUT === 'standalone' ? { output: 'standalone' } : {}),
   outputFileTracingRoot: repoRoot,
   turbopack: { root: repoRoot },
   // `pnpm typecheck` is the gate; the build doesn't need to run it a second time.

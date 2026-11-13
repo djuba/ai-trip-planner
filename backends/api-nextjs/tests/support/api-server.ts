@@ -18,6 +18,18 @@ const HEALTH_INTERVAL_MS = 100;
 const SIGKILL_AFTER_MS = 5_000;
 
 /**
+ * The LLM config every contract run gives the backend. Cassette keys hash the model request, which
+ * names the model, so scripts/test-image.ts gives the container these same values (WU-20 plan D4).
+ */
+export const CONTRACT_TEST_ENV = {
+  LLM_MODE: 'replay',
+  MODEL_FAST: 'test-model-fast',
+  MODEL_REASONING: 'test-model-reasoning',
+  MODEL_CRITIC: 'test-model-critic',
+  WEB_ORIGIN: 'http://localhost:3000',
+} as const;
+
+/**
  * Sets every config variable, so a developer's root .env.local can't change a test: Node's env file
  * loader never overrides a variable that is already set, even to a blank value.
  */
@@ -25,11 +37,7 @@ export const baseEnv = (): NodeJS.ProcessEnv => ({
   ...process.env,
   NODE_ENV: 'production', // Vitest sets `test`, which Next warns about.
   NEXT_TELEMETRY_DISABLED: '1',
-  LLM_MODE: 'replay',
-  MODEL_FAST: 'test-model-fast',
-  MODEL_REASONING: 'test-model-reasoning',
-  MODEL_CRITIC: 'test-model-critic',
-  WEB_ORIGIN: 'http://localhost:3000',
+  ...CONTRACT_TEST_ENV,
   ANTHROPIC_API_KEY: '',
   LLM_CASSETTE_DIR: CASSETTE_DIR,
 });
