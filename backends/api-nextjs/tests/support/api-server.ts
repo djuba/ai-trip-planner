@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { createServer, type AddressInfo } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { recordingAllowed } from '../../../../scripts/test-support/llm-guard.ts';
 
 export const BACKEND_DIR = fileURLToPath(new URL('../../', import.meta.url));
 export const NEXT_BIN = createRequire(import.meta.url).resolve('next/dist/bin/next');
@@ -20,12 +21,13 @@ const SIGKILL_AFTER_MS = 5_000;
 /**
  * The LLM config every contract run gives the backend. Cassette keys hash the model request, which
  * names the model, so scripts/test-image.ts gives the container these same values (WU-20 plan D4).
+ * They are the real CLAUDE.md §8.1 IDs, so the recorded cassettes are real model output (WU-09 D8).
  */
 export const CONTRACT_TEST_ENV = {
   LLM_MODE: 'replay',
-  MODEL_FAST: 'test-model-fast',
-  MODEL_REASONING: 'test-model-reasoning',
-  MODEL_CRITIC: 'test-model-critic',
+  MODEL_FAST: 'claude-haiku-5-5',
+  MODEL_REASONING: 'claude-sonnet-5-5',
+  MODEL_CRITIC: 'claude-sonnet-5-5',
   WEB_ORIGIN: 'http://localhost:3000',
 } as const;
 
@@ -33,14 +35,19 @@ export const CONTRACT_TEST_ENV = {
  * Sets every config variable, so a developer's root .env.local can't change a test: Node's env file
  * loader never overrides a variable that is already set, even to a blank value.
  */
-export const baseEnv = (): NodeJS.ProcessEnv => ({
-  ...process.env,
-  NODE_ENV: 'production', // Vitest sets `test`, which Next warns about.
-  NEXT_TELEMETRY_DISABLED: '1',
-  ...CONTRACT_TEST_ENV,
-  ANTHROPIC_API_KEY: '',
-  LLM_CASSETTE_DIR: CASSETTE_DIR,
-});
+export const baseEnv = (): NodeJS.ProcessEnv => {
+  // Only `pnpm record:cassettes` passes this guard, so a gated run can never go live (WU-09 plan D8).
+  const recording = recordingAllowed(process.env);
+  return {
+    ...process.env,
+    NODE_ENV: 'production', // Vitest sets `test`, which Next warns about.
+    NEXT_TELEMETRY_DISABLED: '1',
+    ...CONTRACT_TEST_ENV,
+    LLM_MODE: recording ? 'record' : CONTRACT_TEST_ENV.LLM_MODE,
+    ANTHROPIC_API_KEY: recording ? (process.env.ANTHROPIC_API_KEY ?? '') : '',
+    LLM_CASSETTE_DIR: CASSETTE_DIR,
+  };
+};
 
 async function freePort(): Promise<number> {
   const probe = createServer();
