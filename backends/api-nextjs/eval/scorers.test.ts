@@ -467,6 +467,10 @@ describe('questionAddresses', () => {
       'no question mark',
     );
   });
+  it('AC-EVAL-07: passes a question followed by a sentence of context', () => {
+    const question = 'How old is the child? It helps us pick activities.';
+    expect(ask(clarify(question, ['CHILD_AGE_RANGE']))?.pass).toBe(true);
+  });
   it('AC-EVAL-07: trims before checking the question mark', () => {
     expect(ask(clarify('  How old is the child?  ', ['CHILD_AGE_RANGE']))?.pass).toBe(true);
   });

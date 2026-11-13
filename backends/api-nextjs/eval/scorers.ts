@@ -287,7 +287,8 @@ export const questionAddresses: Scorer = (obs) => {
   const { clarificationQuestion, violations } = obs.outcome.response;
   const question = clarificationQuestion.trim();
   const problems: string[] = [];
-  if (!question.endsWith('?')) problems.push('no question mark');
+  // Contains, not ends with: a good question may close with a sentence of context (first eval run).
+  if (!question.includes('?')) problems.push('no question mark');
   if (codePointLength(question) > MAX_CLARIFICATION_QUESTION_LENGTH)
     problems.push('over length cap');
   if (URL_PATTERN.test(question)) problems.push('contains a URL');
