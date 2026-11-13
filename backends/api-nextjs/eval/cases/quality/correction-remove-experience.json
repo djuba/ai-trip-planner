@@ -1,0 +1,55 @@
+{
+  "id": "correction-remove-experience",
+  "set": "quality",
+  "description": "A correction removes one experience and keeps the others.",
+  "ac": "AC-EXTRACT-03",
+  "request": {
+    "message": "Actually, skip the golf. None of us play it anyway.",
+    "currentProfile": {
+      "departure": {
+        "city": "Denver",
+        "mode": "plane"
+      },
+      "dateRange": {
+        "kind": "flexible",
+        "month": 4,
+        "year": 2030,
+        "durationNights": 5
+      },
+      "region": "Cabo, Mexico",
+      "experiences": ["beach", "golf", "nightlife"],
+      "people": [
+        {
+          "userType": "adult",
+          "age": 33
+        },
+        {
+          "userType": "adult",
+          "age": 35
+        }
+      ]
+    },
+    "referenceDate": "2030-01-15"
+  },
+  "expect": {
+    "status": "ready",
+    "violationCodes": [],
+    "fields": [
+      {
+        "path": "/experiences",
+        "op": "excludes",
+        "values": ["golf"]
+      },
+      {
+        "path": "/experiences",
+        "op": "contains",
+        "values": ["beach", "nightlife"]
+      },
+      {
+        "path": "/region",
+        "op": "includesAny",
+        "values": ["Mexico", "Cabo"]
+      }
+    ]
+  }
+}

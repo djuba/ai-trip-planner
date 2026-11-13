@@ -1,0 +1,31 @@
+{
+  "id": "child-age-19",
+  "set": "quality",
+  "description": "A 19-year-old \"kid\" keeps the stated age and is flagged.",
+  "ac": "AC-EXTRACT-04",
+  "request": {
+    "message": "Me (45), my wife (43) and our kid, who is 19, flying from Chicago to Florida from March 3 to March 10, 2030, for the beach.",
+    "referenceDate": "2030-01-15"
+  },
+  "expect": {
+    "status": "needs_clarification",
+    "violationCodes": ["CHILD_AGE_RANGE"],
+    "fields": [
+      {
+        "path": "/people",
+        "op": "length",
+        "value": 3
+      },
+      {
+        "path": "/people/2/userType",
+        "op": "equals",
+        "value": "child"
+      },
+      {
+        "path": "/people/2/age",
+        "op": "equals",
+        "value": 19
+      }
+    ]
+  }
+}

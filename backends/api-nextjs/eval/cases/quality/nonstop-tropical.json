@@ -1,0 +1,35 @@
+{
+  "id": "nonstop-tropical",
+  "set": "quality",
+  "description": "Non-stop only becomes maxStops 0, and the weather becomes climate.",
+  "request": {
+    "message": "Only non-stop flights, please. From Seattle to somewhere tropical with good snorkeling, two adults, in April 2030.",
+    "referenceDate": "2030-01-15"
+  },
+  "expect": {
+    "status": "ready",
+    "violationCodes": [],
+    "fields": [
+      {
+        "path": "/departure/maxStops",
+        "op": "equals",
+        "value": 0
+      },
+      {
+        "path": "/departure/mode",
+        "op": "equals",
+        "value": "plane"
+      },
+      {
+        "path": "/climate",
+        "op": "equals",
+        "value": "tropical"
+      },
+      {
+        "path": "/experiences",
+        "op": "contains",
+        "values": ["snorkeling"]
+      }
+    ]
+  }
+}

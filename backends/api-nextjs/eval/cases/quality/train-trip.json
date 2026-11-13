@@ -1,0 +1,35 @@
+{
+  "id": "train-trip",
+  "set": "quality",
+  "description": "A train journey with two mapped experiences.",
+  "request": {
+    "message": "Train from Chicago to New Orleans in October 2030 for me and my partner. We love nightlife and museums.",
+    "referenceDate": "2030-01-15"
+  },
+  "expect": {
+    "status": "ready",
+    "violationCodes": [],
+    "fields": [
+      {
+        "path": "/departure/mode",
+        "op": "equals",
+        "value": "train"
+      },
+      {
+        "path": "/region",
+        "op": "includesAny",
+        "values": ["New Orleans"]
+      },
+      {
+        "path": "/experiences",
+        "op": "contains",
+        "values": ["nightlife", "museums"]
+      },
+      {
+        "path": "/people",
+        "op": "length",
+        "value": 2
+      }
+    ]
+  }
+}

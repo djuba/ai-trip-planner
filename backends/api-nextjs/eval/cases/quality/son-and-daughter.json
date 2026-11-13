@@ -1,0 +1,40 @@
+{
+  "id": "son-and-daughter",
+  "set": "quality",
+  "description": "\"Son\" and \"daughter\" are children.",
+  "request": {
+    "message": "Me, my son (12) and my daughter (15), flying out of Phoenix to San Diego in August 2030 for the beach and theme parks.",
+    "referenceDate": "2030-01-15"
+  },
+  "expect": {
+    "status": "ready",
+    "violationCodes": [],
+    "fields": [
+      {
+        "path": "/people",
+        "op": "length",
+        "value": 3
+      },
+      {
+        "path": "/people/0/userType",
+        "op": "equals",
+        "value": "adult"
+      },
+      {
+        "path": "/people/1/userType",
+        "op": "equals",
+        "value": "child"
+      },
+      {
+        "path": "/people/2/userType",
+        "op": "equals",
+        "value": "child"
+      },
+      {
+        "path": "/experiences",
+        "op": "contains",
+        "values": ["beach", "theme-parks"]
+      }
+    ]
+  }
+}

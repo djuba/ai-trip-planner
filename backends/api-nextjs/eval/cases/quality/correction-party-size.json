@@ -1,0 +1,69 @@
+{
+  "id": "correction-party-size",
+  "set": "quality",
+  "description": "A correction replaces the party and keeps the rest.",
+  "ac": "AC-EXTRACT-03",
+  "request": {
+    "message": "Actually there will be five of us: three adults and two kids, aged 8 and 10.",
+    "currentProfile": {
+      "departure": {
+        "city": "Minneapolis",
+        "mode": "plane",
+        "maxStops": 0
+      },
+      "dateRange": {
+        "kind": "fixed",
+        "start": "2030-02-10",
+        "end": "2030-02-17"
+      },
+      "region": "Hawaii",
+      "experiences": ["beach", "snorkeling"],
+      "people": [
+        {
+          "userType": "adult",
+          "age": 40
+        },
+        {
+          "userType": "adult",
+          "age": 38
+        }
+      ]
+    },
+    "referenceDate": "2030-01-15"
+  },
+  "expect": {
+    "status": "ready",
+    "violationCodes": [],
+    "fields": [
+      {
+        "path": "/people",
+        "op": "length",
+        "value": 5
+      },
+      {
+        "path": "/region",
+        "op": "includesAny",
+        "values": ["Hawaii"]
+      },
+      {
+        "path": "/departure/city",
+        "op": "includesAny",
+        "values": ["Minneapolis"]
+      },
+      {
+        "path": "/dateRange",
+        "op": "equals",
+        "value": {
+          "kind": "fixed",
+          "start": "2030-02-10",
+          "end": "2030-02-17"
+        }
+      },
+      {
+        "path": "/experiences",
+        "op": "contains",
+        "values": ["beach", "snorkeling"]
+      }
+    ]
+  }
+}

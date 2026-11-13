@@ -1,0 +1,46 @@
+{
+  "id": "unmapped-activities",
+  "set": "quality",
+  "description": "Activities with no enum value go to unmappedExperiences.",
+  "ac": "AC-EXTRACT-05",
+  "request": {
+    "message": "Two adults flying from Denver to Tuscany in June 2030 for 7 nights. We want museums, a cooking class and wine tasting.",
+    "referenceDate": "2030-01-15"
+  },
+  "expect": {
+    "status": "ready",
+    "violationCodes": [],
+    "fields": [
+      {
+        "path": "/experiences",
+        "op": "contains",
+        "values": ["museums"]
+      },
+      {
+        "path": "/unmappedExperiences",
+        "op": "anyItemIncludes",
+        "values": ["cook"]
+      },
+      {
+        "path": "/unmappedExperiences",
+        "op": "anyItemIncludes",
+        "values": ["wine"]
+      },
+      {
+        "path": "/dateRange/month",
+        "op": "equals",
+        "value": 6
+      },
+      {
+        "path": "/dateRange/year",
+        "op": "equals",
+        "value": 2030
+      },
+      {
+        "path": "/dateRange/durationNights",
+        "op": "equals",
+        "value": 7
+      }
+    ]
+  }
+}

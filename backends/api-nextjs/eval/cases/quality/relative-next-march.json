@@ -1,0 +1,40 @@
+{
+  "id": "relative-next-march",
+  "set": "quality",
+  "description": "\"Next March\" resolves against the reference date.",
+  "request": {
+    "message": "Next March, a week of skiing in Colorado for the two of us, flying from Dallas.",
+    "referenceDate": "2030-01-15"
+  },
+  "expect": {
+    "status": "ready",
+    "violationCodes": [],
+    "fields": [
+      {
+        "path": "/dateRange/kind",
+        "op": "equals",
+        "value": "flexible"
+      },
+      {
+        "path": "/dateRange/month",
+        "op": "equals",
+        "value": 3
+      },
+      {
+        "path": "/dateRange/year",
+        "op": "equals",
+        "value": 2030
+      },
+      {
+        "path": "/experiences",
+        "op": "contains",
+        "values": ["skiing"]
+      },
+      {
+        "path": "/region",
+        "op": "includesAny",
+        "values": ["Colorado"]
+      }
+    ]
+  }
+}
