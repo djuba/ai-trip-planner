@@ -28,7 +28,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-19 | Refocus: spec-first, one implementation | WU-08 | done |
 | WU-17 | Input and output limits (prompt-injection hardening) | WU-05, WU-07, WU-19 | done |
 | WU-20 | Hosting approach + API container image | WU-08 | done |
-| WU-21 | Hosted environment, pre-launch (replay mode) | WU-20 | todo |
+| WU-21 | Hosted environment, pre-launch (replay mode) | WU-20 | in-progress |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | done |
 | WU-18 | Eval harness + adversarial cases | WU-09 | todo |
 | WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | todo |
@@ -506,7 +506,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-21 — Hosted environment, pre-launch (replay mode)
-**Status:** todo · **Depends on:** WU-20 · **Commits:**
+**Status:** in-progress · **Depends on:** WU-20 · **Commits:**
 
 **Goal:** a walking skeleton. The API runs in the cloud from the WU-20 image, in replay mode, with no API key and no LLM cost. Every merge to `main` deploys it and runs the provider contract tests against its URL. It isn't a demo, and nothing links to it. No input a person types can hit a cassette: the key is a hash of the exact model request, which includes `referenceDate` (the browser's date) and the whole conversation. So only the contract suite, which sends the recorded requests, exercises it. Its value is that image, Terraform, OIDC, CORS across real origins, streaming through the platform's front end, timeouts and cold starts are all proven long before launch, when problems are cheap to fix. WU-23 turns the same environment into the live demo.
 
