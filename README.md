@@ -53,6 +53,7 @@ See [ADR 0003](docs/decisions/0003-spec-first-one-implementation.md) for the dec
 | Normalize examples | Model output becomes exactly the expected profile, with over-cap values discarded | `spec/fixtures/normalize/`, run by `normalize`'s unit tests and through `/extract` | Unit tests built; `/extract` tests planned (WU-09) |
 | Conformance suite | The running backend's responses match the contract | `tests/contract/conformance/`, run by `pnpm test:contract` (or `test:contract:external` for any running backend) | Built; runs against stub endpoints until WU-09–11 |
 | Pact | The backend does what the web client expects | `contracts/pacts/`, `tests/contract/pact-verify.test.ts` | Verifier built; consumer pacts planned (WU-12) |
+| Container image | The API image builds from a clean checkout, runs as a non-root user with no secrets, and passes the provider contract tests in replay mode | `backends/api-nextjs/Dockerfile`, run by `pnpm test:image` in the CI `image` job | Built |
 | Journeys | The whole system works from the user's side | `tests/journeys/` | Planned (WU-15) |
 
 ## Prerequisites
@@ -61,6 +62,7 @@ See [ADR 0003](docs/decisions/0003-spec-first-one-implementation.md) for the dec
 - pnpm 12.15.0, provided through corepack (`corepack enable`)
 - [gitleaks](https://github.com/gitleaks/gitleaks) 8.30.1 on `PATH` for the pre-commit secret scan (`winget install Gitleaks.Gitleaks` or `brew install gitleaks`). Without it, commits are blocked.
 - On Windows, the Microsoft Visual C++ 2015–2022 Redistributable (x64) for the Pact verifier's native library (`winget install Microsoft.VCRedist.2015+.x64`). Without it, `pnpm test:contract` fails with a message saying so.
+- Optional: Docker, only to build and test the API container image (`pnpm test:image`). `pnpm verify` doesn't use it, and CI always runs the image check.
 
 ## Commands
 
@@ -70,11 +72,21 @@ pnpm verify               # project gate: typecheck, lint, format, audit, tests 
 pnpm test:unit            # or test:integration, test:functional, test:contract
 pnpm verify:integrated    # integrated gate (stub until WU-15)
 pnpm verify:full          # nightly-equivalent gate (stub until WU-15)
+pnpm test:image           # needs Docker: build the API image, check it, contract tests against it
 ```
 
 Git hooks: `commit-msg` enforces Conventional Commits with the scopes in CLAUDE.md §10, `pre-commit` lints and formats staged files and runs gitleaks, and `pre-push` runs `pnpm verify`.
 
 Use pnpm only; do not use npm or Yarn.
+
+To run the API image by hand, in replay mode (no API key, no LLM cost), then test it. The model IDs are the contract runner's (`CONTRACT_TEST_ENV` in `backends/api-nextjs/tests/support/api-server.ts`): cassette keys include the model ID, so the contract suite's cassettes only replay with these.
+
+```sh
+docker build --platform linux/amd64 -f backends/api-nextjs/Dockerfile -t vp-api-nextjs .
+docker run --rm -p 4000:8080 -e MODEL_FAST=test-model-fast \
+  -e MODEL_REASONING=test-model-reasoning -e MODEL_CRITIC=test-model-critic vp-api-nextjs
+pnpm test:contract:external   # API_BASE_URL defaults to http://localhost:4000 in .env.example
+```
 
 ## Where to find things
 
@@ -90,6 +102,8 @@ Use pnpm only; do not use npm or Yarn.
 | API endpoints | `backends/api-nextjs/app/v1/**/route.ts` |
 | Business logic for each AI stage | `backends/api-nextjs/src/usecases/` |
 | The Anthropic client and record/replay | `backends/api-nextjs/src/llm/` |
+| The API container image | `backends/api-nextjs/Dockerfile` and `.dockerignore` (an allowlist) |
+| Hosting and access decisions | [ADR 0005](docs/decisions/0005-hosting-and-access.md) |
 | The web client | `apps/web-nextjs/` |
 | Acceptance criteria and decisions | `docs/features/` and `docs/decisions/` |
 
