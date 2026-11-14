@@ -133,6 +133,9 @@ export default tseslint.config(
       '.llm-cassettes/**',
       // Non-production spikes are not linted (docs/decisions/; WU-03).
       'spikes/**',
+      // Claude Code's git worktrees for other units: their code isn't this branch's (WU-22
+      // deviation 6; vitest.config.ts and .prettierignore already skip them).
+      '.claude/**',
     ],
   },
   js.configs.recommended,
