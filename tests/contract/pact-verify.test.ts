@@ -4,7 +4,7 @@
 import { fileURLToPath } from 'node:url';
 import { Verifier } from '@pact-foundation/pact';
 import { describe, it } from 'vitest';
-import { listPactFiles, targetUrl } from './support/artifacts.ts';
+import { inviteCode, listPactFiles, targetUrl } from './support/artifacts.ts';
 import { explainPactError } from './support/pact-errors.ts';
 
 const PROVIDER = 'vacation-api';
@@ -21,6 +21,16 @@ async function verify(pactUrls: string[]): Promise<void> {
       providerBaseUrl: targetUrl(),
       pactUrls,
       logLevel: 'warn',
+      // Every replayed request carries the suite's invite code (WU-22). Assigning the header
+      // replaces any Authorization the pact recorded, so a pact's example code never reaches the backend.
+      requestFilter: (
+        req: { headers: Record<string, unknown> },
+        _res: unknown,
+        next: () => void,
+      ) => {
+        req.headers.authorization = `Bearer ${inviteCode()}`;
+        next();
+      },
     }).verifyProvider();
   } catch (error) {
     throw explainPactError(error);

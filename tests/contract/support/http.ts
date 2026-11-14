@@ -2,11 +2,26 @@
 // what a client in any language would.
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
+import { inviteCode } from './artifacts.ts';
 
 export interface HttpResult {
   status: number;
   header(name: string): string | undefined;
   text: string;
+}
+
+/**
+ * Authorization for a request: left out, the helper sends the suite's invite code as a Bearer
+ * token; `null` sends no Authorization header; a string is sent as given.
+ */
+export interface AuthOptions {
+  authorization?: string | null;
+}
+
+function authHeaders(options: AuthOptions): Record<string, string> {
+  const value =
+    options.authorization === undefined ? `Bearer ${inviteCode()}` : options.authorization;
+  return value === null ? {} : { authorization: value };
 }
 
 function fromResponse(response: Response, text: string): HttpResult {
@@ -17,9 +32,14 @@ function fromResponse(response: Response, text: string): HttpResult {
   };
 }
 
-export async function get(baseUrl: string, path: string, origin?: string): Promise<HttpResult> {
+export async function get(
+  baseUrl: string,
+  path: string,
+  origin?: string,
+  options: AuthOptions = {},
+): Promise<HttpResult> {
   const response = await fetch(`${baseUrl}${path}`, {
-    headers: origin ? { origin } : {},
+    headers: { ...(origin ? { origin } : {}), ...authHeaders(options) },
   });
   return fromResponse(response, await response.text());
 }
@@ -30,19 +50,29 @@ export async function postText(
   path: string,
   body: string,
   origin?: string,
+  options: AuthOptions = {},
 ): Promise<HttpResult> {
   const response = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', ...(origin ? { origin } : {}) },
+    headers: {
+      'content-type': 'application/json',
+      ...(origin ? { origin } : {}),
+      ...authHeaders(options),
+    },
     body,
   });
   return fromResponse(response, await response.text());
 }
 
-export const postJson = (baseUrl: string, path: string, body: unknown, origin?: string) =>
-  postText(baseUrl, path, JSON.stringify(body), origin);
+export const postJson = (
+  baseUrl: string,
+  path: string,
+  body: unknown,
+  origin?: string,
+  options: AuthOptions = {},
+) => postText(baseUrl, path, JSON.stringify(body), origin, options);
 
-/** A CORS preflight for a JSON request, as a browser sends it. */
+/** A CORS preflight for a JSON request, as a browser sends it (never with Authorization). */
 export async function preflight(
   baseUrl: string,
   path: string,
@@ -54,7 +84,7 @@ export async function preflight(
     headers: {
       origin,
       'access-control-request-method': method,
-      'access-control-request-headers': 'content-type',
+      'access-control-request-headers': 'content-type, authorization',
     },
   });
   return fromResponse(response, await response.text());
@@ -65,10 +95,11 @@ export async function postStream(
   baseUrl: string,
   path: string,
   body: unknown,
+  options: AuthOptions = {},
 ): Promise<HttpResult & { chunks: number }> {
   const response = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...authHeaders(options) },
     body: JSON.stringify(body),
   });
   const decoder = new TextDecoder();
@@ -97,6 +128,7 @@ export function postOversized(
   path: string,
   size: number,
   origin?: string,
+  options: AuthOptions = {},
 ): Promise<HttpResult> {
   const url = new URL(`${baseUrl}${path}`);
   const send = url.protocol === 'https:' ? httpsRequest : httpRequest;
@@ -115,6 +147,7 @@ export function postOversized(
           'content-type': 'application/json',
           'content-length': String(size),
           ...(origin ? { origin } : {}),
+          ...authHeaders(options),
         },
       },
       (res) => {

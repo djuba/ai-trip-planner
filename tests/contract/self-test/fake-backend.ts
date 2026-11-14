@@ -2,7 +2,7 @@
 // against the generated schemas when it is constructed, so the fake cannot drift from the contract.
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { loadConstants } from '../support/artifacts.ts';
+import { inviteCode, loadConstants } from '../support/artifacts.ts';
 import { assertSchema } from '../support/schemas.ts';
 import { POST_ENDPOINTS } from '../conformance/checks/requests.ts';
 
@@ -10,6 +10,8 @@ export interface FakeRequest {
   method: string;
   path: string;
   origin: string | undefined;
+  /** The raw Authorization header, if any. */
+  authorization: string | undefined;
   /** Declared content-length is over `maxRequestBodyBytes`. */
   oversized: boolean;
   bodyText: string;
@@ -31,6 +33,8 @@ export interface FakeOptions {
   early413?: boolean;
   /** The origin that gets CORS headers. */
   origin?: string;
+  /** The invite code the fake accepts; defaults to the suite's CONTRACT_INVITE_CODE. */
+  inviteCode?: string;
   /** Preflight status. */
   preflightStatus?: number;
 }
@@ -123,6 +127,7 @@ export async function startFakeBackend(options: FakeOptions = {}): Promise<FakeB
   const allowedOrigin = options.origin ?? process.env.WEB_ORIGIN ?? 'http://localhost:3000';
   const maxBytes = loadConstants().maxRequestBodyBytes;
   const bodies = defaults();
+  const code = options.inviteCode ?? inviteCode();
   const schemaFor = new Map(POST_ENDPOINTS.map((e) => [e.path, e.schema]));
   const okBody = new Map([
     ['/v1/trip/extract', bodies.extract],
@@ -144,7 +149,7 @@ export async function startFakeBackend(options: FakeOptions = {}): Promise<FakeB
         headers: {
           ...corsHeaders,
           'access-control-allow-methods': 'GET, POST, OPTIONS',
-          'access-control-allow-headers': 'content-type',
+          'access-control-allow-headers': 'content-type, authorization',
         },
         chunks: [],
       };
@@ -154,6 +159,12 @@ export async function startFakeBackend(options: FakeOptions = {}): Promise<FakeB
     }
     const schema = schemaFor.get(req.path);
     if (!schema || req.method !== 'POST') return withCors(json(404, errorBody('INTERNAL_ERROR')));
+    const [scheme, token, ...rest] = (req.authorization ?? '').trim().split(/\s+/);
+    if (scheme?.toLowerCase() !== 'bearer' || token !== code || rest.length > 0) {
+      const denied = json(401, errorBody('UNAUTHORIZED'));
+      denied.headers['www-authenticate'] = 'Bearer';
+      return withCors(denied);
+    }
     if (req.oversized) return withCors(json(413, errorBody('PAYLOAD_TOO_LARGE')));
     try {
       assertSchema(schema, JSON.parse(req.bodyText), 'request');
@@ -189,6 +200,7 @@ export async function startFakeBackend(options: FakeOptions = {}): Promise<FakeB
       method: req.method ?? 'GET',
       path: new URL(req.url ?? '/', 'http://fake').pathname,
       origin: req.headers.origin,
+      authorization: req.headers.authorization,
       oversized,
       bodyText,
     };

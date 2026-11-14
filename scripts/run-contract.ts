@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import buildOnce from '../backends/api-nextjs/tests/support/build-once.ts';
 import { startApi, type RunningApi } from '../backends/api-nextjs/tests/support/api-server.ts';
-import { RunPlanError, planRun, type RunPlan } from './contract/plan-run.ts';
+import { RunPlanError, freshInvite, planRun, type RunPlan } from './contract/plan-run.ts';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 // The bin isn't in vitest's exports map, so resolve it next to the package.json, which is.
@@ -58,19 +58,24 @@ async function main(): Promise<number> {
   try {
     let baseUrl: string;
     let webOrigin: string;
+    let inviteCode: string;
     if (plan.startServer) {
       buildOnce();
       webOrigin = DEFAULT_WEB_ORIGIN;
-      api = await startApi({ env: { WEB_ORIGIN: webOrigin } });
+      const invite = freshInvite();
+      inviteCode = invite.code;
+      api = await startApi({ env: { WEB_ORIGIN: webOrigin, ...invite.serverEnv } });
       baseUrl = api.baseUrl;
     } else {
       baseUrl = plan.baseUrl;
+      inviteCode = plan.inviteCode;
       webOrigin = process.env.WEB_ORIGIN?.trim() || DEFAULT_WEB_ORIGIN;
     }
     console.log(`test:contract: target ${baseUrl}, WEB_ORIGIN ${webOrigin}`);
     return await runVitest(plan.vitestArgs, {
       ...process.env,
       CONTRACT_TARGET_URL: baseUrl,
+      CONTRACT_INVITE_CODE: inviteCode,
       WEB_ORIGIN: webOrigin,
       PACT_DO_NOT_TRACK: 'true',
     });

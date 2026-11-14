@@ -9,7 +9,8 @@ The rule fixtures go through `/extract` in api-nextjs's own integration tests (W
 ## What the checks require
 
 The checks require only what the contract specifies, never how api-nextjs happens to answer:
-- **Preflight:** any 2xx status. `Access-Control-Allow-Origin` equals `WEB_ORIGIN`. `Access-Control-Allow-Methods` contains the requested method, and `Access-Control-Allow-Headers` contains `content-type`, each compared as case-insensitive comma-separated tokens; `*` is accepted for both.
+- **Preflight:** any 2xx status. `Access-Control-Allow-Origin` equals `WEB_ORIGIN`. `Access-Control-Allow-Methods` contains the requested method, and `Access-Control-Allow-Headers` contains `content-type` and `authorization`, each compared as case-insensitive comma-separated tokens; `*` is accepted for both.
+- **Authorization:** every request to a trip endpoint carries `Authorization: Bearer <CONTRACT_INVITE_CODE>` (the suite throws if the variable is unset); preflights never do, as in a browser. Health is sent with the code too, but the access checks (AC-GATE-01, -02, -04) also send none and a random code. The Pact verifier replaces any `Authorization` a pact recorded with the suite's code.
 - **Content types** are compared by media type only (`application/json`, `text/plain`); parameters such as `charset` are ignored.
 - **413:** oversized bodies are sent with an explicit `content-length`. A server may answer before the upload finishes and then close the connection; only a connection that fails before any response counts as a failure. A server that resets the connection the instant it finishes writing can lose its own 413 in transit (seen on Windows), so close gracefully after answering.
 - **No exact-cap case here:** a valid body of exactly `maxRequestBodyBytes` would reach the LLM once the endpoints are real, so it is proven at api-nextjs's integration layer instead (AC-API-04).
@@ -28,7 +29,7 @@ The checks require only what the contract specifies, never how api-nextjs happen
 
 **AC-CONTRACT-06.** Given a valid request to `/v1/trip/present`, then the response is a 200 with media type `text/plain`, and the complete body parses as JSON valid against `PresentationModel`. Framed streams (such as AI SDK data-stream lines) fail.
 
-**AC-CONTRACT-07.** Given each endpoint, when a browser-style preflight arrives from `WEB_ORIGIN`, then it is answered as described under "What the checks require". 200, 413 and 422 responses to requests from `WEB_ORIGIN` carry `Access-Control-Allow-Origin: <WEB_ORIGIN>`.
+**AC-CONTRACT-07.** Given each endpoint, when a browser-style preflight arrives from `WEB_ORIGIN`, then it is answered as described under "What the checks require", including `authorization` among the allowed headers. 200, 413 and 422 responses to requests from `WEB_ORIGIN` carry `Access-Control-Allow-Origin: <WEB_ORIGIN>`.
 
 **AC-CONTRACT-08.** Given the wiring pact in `tests/contract/support/`, then the Pact verifier verifies it against the backend. Given no pact files in `contracts/pacts/`, then consumer verification is skipped with a reason; given some, every one verifies.
 
