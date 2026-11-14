@@ -24,6 +24,7 @@ What the length and count caps on the wire, and `normalize`'s discarding, must d
 ## Output caps
 
 - **AC-LIMITS-12:** Given an `ExtractResponse` with `status: 'needs_clarification'`, when it is validated, then a `clarificationQuestion` of `MAX_CLARIFICATION_QUESTION_LENGTH` code points (ASCII or astral) is valid, and one longer is invalid, in Zod and in the generated JSON Schema. `constants.json` carries the cap. The model-facing `ClarificationOutput` carries no constraints.
+- **AC-LIMITS-13:** Given a `RecommendResponse` or `PresentRequest`, when it is validated, then each recommendation and critique cap (`Recommendation.id`, `destination`, `summary`, `matchedExperiences`, `claims`; `FactualClaim.statement`; the `recommendations` list; `CritiqueIssue.issue` and `recommendationId`; `critique.unresolved`) accepts a value at exactly its cap (strings in astral characters) and rejects one over it, in Zod and in the generated JSON Schema. `constants.json` carries the new caps. The model-facing `RecommendationSet` and `CritiqueResult` carry no constraints.
 
 ## Over HTTP
 

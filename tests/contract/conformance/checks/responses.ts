@@ -1,11 +1,13 @@
 import { postJson } from '../../support/http.ts';
 import { assertSchema, ConformanceError } from '../../support/schemas.ts';
+import { assertError } from './errors.ts';
 import { parseJson } from './health.ts';
 import {
   EXTRACT_PATH,
   RECOMMEND_PATH,
   confirmExtractRequest,
   extractRequest,
+  notReadyRecommendRequest,
   recommendRequest,
   vagueExtractRequest,
 } from './requests.ts';
@@ -31,6 +33,17 @@ export const checkExtractResponse = (baseUrl: string) =>
 
 export const checkRecommendResponse = (baseUrl: string) =>
   checkOk(baseUrl, RECOMMEND_PATH, recommendRequest(), 'RecommendResponse');
+
+/** AC-CONTRACT-13: a profile that is not ready is a 422, never a recommendation. */
+export async function checkRecommendNotReady(baseUrl: string): Promise<void> {
+  const res = await postJson(baseUrl, RECOMMEND_PATH, notReadyRecommendRequest());
+  assertError(
+    res,
+    422,
+    'VALIDATION_FAILED',
+    `POST ${RECOMMEND_PATH} with a profile that is not ready`,
+  );
+}
 
 async function extractBody(baseUrl: string, request: unknown, context: string): Promise<unknown> {
   const res = await postJson(baseUrl, EXTRACT_PATH, request);

@@ -4,6 +4,7 @@
   "type": "object",
   "properties": {
     "recommendations": {
+      "maxItems": 3,
       "type": "array",
       "items": {
         "$ref": "Recommendation.schema.json"
@@ -16,6 +17,7 @@
           "type": "boolean"
         },
         "unresolved": {
+          "maxItems": 24,
           "type": "array",
           "items": {
             "$ref": "CritiqueIssue.schema.json"

@@ -4,13 +4,19 @@
   "type": "object",
   "properties": {
     "recommendationId": {
-      "type": [
-        "string",
-        "null"
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 100
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "issue": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 300
     }
   },
   "required": [

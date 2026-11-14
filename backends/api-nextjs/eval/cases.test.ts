@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ATTACKS, CaseLoadError, loadCases, parseCase } from './cases.ts';
+import { evaluateRules } from '@vp/domain-schema/rules';
+import { ATTACKS, CaseLoadError, EVAL_SETS, loadCases, parseCase } from './cases.ts';
 
 const valid = {
   id: 'some-case',
@@ -23,6 +24,7 @@ function caseDir(files: Record<string, unknown>): string {
   dirs.push(dir);
   mkdirSync(join(dir, 'quality'));
   mkdirSync(join(dir, 'adversarial'));
+  mkdirSync(join(dir, 'recommend'));
   for (const [path, value] of Object.entries(files)) {
     writeFileSync(join(dir, path), typeof value === 'string' ? value : JSON.stringify(value));
   }
@@ -71,6 +73,56 @@ describe('eval cases', () => {
     expect(() =>
       loadCases(caseDir({ 'quality/some-case.json': valid, 'adversarial/some-case.json': twin })),
     ).toThrow(/duplicate id/);
+  });
+
+  it('AC-EVAL-12: the recommend set has the four planned cases, all with ready profiles', () => {
+    expect(EVAL_SETS).toContain('recommend');
+    const recommend = loadCases().filter((c) => c.set === 'recommend');
+    expect(recommend.map((c) => c.id).sort()).toEqual([
+      'recommend-complete',
+      'recommend-gender-url',
+      'recommend-region-canary',
+      'recommend-unmapped-verified',
+    ]);
+    for (const c of recommend) {
+      expect(evaluateRules(c.request.profile, c.request.referenceDate)).toEqual([]);
+      expect(c.kind === 'adversarial').toBe(c.expect.canaries !== undefined);
+    }
+  });
+
+  it('AC-EVAL-12: an adversarial recommend case needs canaries; minRecommendations defaults to 1', () => {
+    const recommend = {
+      id: 'r-case',
+      set: 'recommend',
+      kind: 'adversarial',
+      description: 'd',
+      request: { profile: {}, referenceDate: '2030-01-15' },
+      expect: {},
+    };
+    expect(() => parseCase('recommend/r-case.json', JSON.stringify(recommend))).toThrow(
+      /needs expect\.canaries/,
+    );
+    const quality = parseCase(
+      'recommend/r-case.json',
+      JSON.stringify({ ...recommend, kind: 'quality' }),
+    );
+    expect(quality.set === 'recommend' && quality.expect.minRecommendations).toBe(1);
+    const zero = { ...recommend, kind: 'quality', expect: { minRecommendations: 0 } };
+    expect(() => parseCase('x.json', JSON.stringify(zero))).toThrow();
+  });
+
+  it('AC-EVAL-12: a recommend case must sit in recommend/', () => {
+    const recommend = {
+      id: 'r-case',
+      set: 'recommend',
+      kind: 'quality',
+      description: 'd',
+      request: { profile: {}, referenceDate: '2030-01-15' },
+      expect: {},
+    };
+    expect(() => loadCases(caseDir({ 'quality/r-case.json': recommend }))).toThrow(
+      /set is "recommend"/,
+    );
   });
 
   it('loads sets in order, files sorted, ignoring non-JSON files', () => {

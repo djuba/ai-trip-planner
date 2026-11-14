@@ -13,3 +13,18 @@ export class LlmError extends Error {
     this.code = code;
   }
 }
+
+/**
+ * `/recommend` got a profile that breaks a rule, so it isn't `ready` (CLAUDE.md §5, §7; WU-10 plan
+ * D7). Maps to a 422 `VALIDATION_FAILED`; no model is called.
+ */
+export class ProfileNotReadyError extends Error {
+  readonly codes: readonly string[];
+
+  constructor(codes: readonly string[]) {
+    const unique = [...new Set(codes)];
+    super(`The profile is not ready for recommendations: ${unique.join(', ')}`);
+    this.name = 'ProfileNotReadyError';
+    this.codes = unique;
+  }
+}

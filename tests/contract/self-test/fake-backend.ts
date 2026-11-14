@@ -182,6 +182,15 @@ export async function startFakeBackend(options: FakeOptions = {}): Promise<FakeB
       const { currentProfile } = JSON.parse(req.bodyText) as { currentProfile?: unknown };
       return withCors(json(200, (currentProfile ? bodies.extract : bodies.extractClarify) ?? ''));
     }
+    if (req.path === '/v1/trip/recommend') {
+      const { profile } = JSON.parse(req.bodyText) as {
+        profile: { people?: { userType?: string }[] };
+      };
+      const people = profile.people ?? [];
+      if (people.length > 0 && !people.some((p) => p.userType === 'adult')) {
+        return withCors(json(422, errorBody('VALIDATION_FAILED')));
+      }
+    }
     return withCors(json(200, okBody.get(req.path) ?? ''));
   }
 

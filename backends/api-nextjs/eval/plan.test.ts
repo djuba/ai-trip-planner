@@ -4,7 +4,7 @@ import { EvalPlanError, planEval } from './plan.ts';
 const env = { npm_lifecycle_event: 'eval', ANTHROPIC_API_KEY: 'sk-test' };
 
 describe('planEval', () => {
-  it('AC-EVAL-01: defaults to 3 repeats, both sets, all cases, judged', () => {
+  it('AC-EVAL-01: defaults to 3 repeats, the extraction sets, all cases, judged', () => {
     expect(planEval(['--budget', '5'], env)).toEqual({
       budgetUsd: 5,
       repeat: 3,
@@ -36,6 +36,18 @@ describe('planEval', () => {
       caseIds: ['a', 'b'],
       judge: false,
     });
+  });
+
+  it('AC-EVAL-12: --case without --set searches every set, so a recommend case can be named', () => {
+    expect(planEval(['--budget', '1', '--case', 'recommend-complete'], env).sets).toEqual([
+      'quality',
+      'adversarial',
+      'recommend',
+    ]);
+  });
+
+  it('AC-EVAL-01: --set recommend selects the recommend set', () => {
+    expect(planEval(['--budget', '1', '--set', 'recommend'], env).sets).toEqual(['recommend']);
   });
 
   it('AC-EVAL-01: --set repeats and keeps the EVAL_SETS order', () => {

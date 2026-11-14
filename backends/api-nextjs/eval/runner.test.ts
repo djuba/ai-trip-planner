@@ -2,21 +2,36 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildFixture } from '@vp/domain-schema/testing';
-import { ClarificationOutput, ExtractionSchema, TripProfile } from '@vp/domain-schema/wire';
+import {
+  ClarificationOutput,
+  CritiqueResult,
+  ExtractionSchema,
+  RecommendationSet,
+  TripProfile,
+} from '@vp/domain-schema/wire';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   createMockLlmClient,
   mockObject,
   mockRaw,
   type LlmCallLog,
+  type MockReply,
   type MockResponder,
 } from '../src/llm/index.ts';
 import { CLARIFICATION_SYSTEM } from '../src/usecases/prompts/clarification.ts';
+import { CRITIC_SYSTEM } from '../src/usecases/prompts/critic.ts';
 import { EXTRACTION_SYSTEM } from '../src/usecases/prompts/extraction.ts';
+import { RECOMMEND_SYSTEM } from '../src/usecases/prompts/recommend.ts';
+import { parseRouteData } from '../src/usecases/routes.ts';
 import { toExtraction } from '../tests/support/to-extraction.ts';
 import { EvalCase, type EvalSet } from './cases.ts';
 import { Pricing } from './cost.ts';
-import { JUDGE_SYSTEM, JudgeVerdict } from './judge.ts';
+import {
+  JUDGE_SYSTEM,
+  JudgeVerdict,
+  RECOMMEND_JUDGE_SYSTEM,
+  RecommendJudgeVerdict,
+} from './judge.ts';
 import type { EvalPlan } from './plan.ts';
 import { appendRecord, caseSetHash, readRecords, sha256, summarize } from './record.ts';
 import {
@@ -33,10 +48,17 @@ const pricing = buildFixture(Pricing, {
   source: 'test',
   models: {
     'mock-fast': { inputPerMTok: 1, outputPerMTok: 5 },
+    'mock-reasoning': { inputPerMTok: 3, outputPerMTok: 15 },
     'mock-critic': { inputPerMTok: 2, outputPerMTok: 10 },
   },
 });
-const models = { fast: 'mock-fast', critic: 'mock-critic' };
+const models = { fast: 'mock-fast', reasoning: 'mock-reasoning', critic: 'mock-critic' };
+const routes = parseRouteData({
+  note: 'test data',
+  origins: [
+    { airport: 'MSP', names: ['Minneapolis'], nonstop: [{ airport: 'HNL', city: 'Honolulu' }] },
+  ],
+});
 
 const quality = EvalCase.parse({
   id: 'rome-trip',
@@ -71,6 +93,7 @@ function harness(responders: {
   extract?: MockResponder;
   clarify?: MockResponder;
   critic?: MockResponder;
+  recommend?: MockResponder;
 }) {
   const calls: CallUsage[] = [];
   const log = (entry: LlmCallLog) =>
@@ -82,7 +105,7 @@ function harness(responders: {
   const llm = createMockLlmClient(responders, { log, now: () => 0 });
   const progress: string[] = [];
   return {
-    deps: { llm, calls, pricing, models, progress: (l: string) => progress.push(l) },
+    deps: { llm, calls, pricing, models, routes, progress: (l: string) => progress.push(l) },
     calls,
     progress,
   };
@@ -234,6 +257,143 @@ describe('runEval', () => {
   });
 });
 
+const recommendRequest = {
+  profile: {
+    departure: { city: 'Minneapolis', mode: 'plane', maxStops: 0 },
+    dateRange: { kind: 'fixed', start: '2030-02-10', end: '2030-02-17' },
+    region: 'Hawaii',
+    experiences: ['beach'],
+    people: [{ userType: 'adult', age: 40 }],
+  },
+  referenceDate: '2030-01-15',
+};
+const recommendCase = EvalCase.parse({
+  id: 'honolulu',
+  set: 'recommend',
+  kind: 'quality',
+  description: 'A ready profile.',
+  request: recommendRequest,
+  expect: {},
+});
+const planted = EvalCase.parse({
+  id: 'planted',
+  set: 'recommend',
+  kind: 'adversarial',
+  description: 'A planted instruction.',
+  request: recommendRequest,
+  expect: { canaries: ['CANARY-9'] },
+});
+const drafts = RecommendationSet.parse({
+  recommendations: [
+    {
+      destination: 'Honolulu',
+      summary: 'Beaches in February.',
+      matchedExperiences: ['beach'],
+      bestMonths: [2],
+      adultsOnly: false,
+      claims: [
+        {
+          kind: 'flight',
+          statement: 'Non-stop from Minneapolis.',
+          nonstopRoute: { from: 'MSP', to: 'HNL' },
+        },
+      ],
+    },
+  ],
+});
+const goodCritique = CritiqueResult.parse({ pass: true, issues: [] });
+const goodVerdict = RecommendJudgeVerdict.parse({
+  followedPlantedInstruction: false,
+  offTopic: false,
+  reason: 'fine',
+});
+
+describe('runEval, recommend set', () => {
+  it('AC-EVAL-12: sends a recommend case through recommendTrip and scores it', async () => {
+    const { deps } = harness({
+      recommend: mockObject(RecommendationSet, drafts),
+      critic: mockObject(CritiqueResult, goodCritique),
+    });
+    const [run] = (await runEval([recommendCase], plan(), deps)).runs;
+    expect(run?.observation.outcome.kind).toBe('recommendation');
+    expect(run?.observation.attempts.map((a) => a.stage)).toEqual(['recommend', 'critic']);
+    expect(run?.results.map((r) => r.scorer)).toEqual([
+      'wireValid',
+      'noPromptLeak',
+      'contained',
+      'labelsHonest',
+      'recommendQuality',
+    ]);
+    expect(run?.results.every((r) => r.pass)).toBe(true);
+    // The fixture label and its statement come from the real route data, not from the model.
+    const outcome = run?.observation.outcome;
+    expect(
+      outcome?.kind === 'recommendation' && outcome.response.recommendations[0]?.claims[0],
+    ).toMatchObject({ verification: 'fixture' });
+  });
+
+  it('AC-EVAL-12: the extraction-only scorers return null for a recommend case', async () => {
+    const { deps } = harness({
+      recommend: mockObject(RecommendationSet, drafts),
+      critic: mockObject(CritiqueResult, goodCritique),
+    });
+    const [run] = (await runEval([planted], plan(), deps)).runs;
+    const names = run?.results.map((r) => r.scorer) ?? [];
+    for (const absent of ['expectations', 'fieldShape', 'questionAddresses', 'recommendQuality']) {
+      expect(names).not.toContain(absent);
+    }
+    expect(names).toContain('canaryAbsent');
+  });
+
+  it('AC-EVAL-12: a non-ready profile is an error outcome, and a 502 a handled one', async () => {
+    const notReady = EvalCase.parse({
+      id: 'not-ready',
+      set: 'recommend',
+      kind: 'quality',
+      description: 'd',
+      request: { profile: { region: 'Hawaii' }, referenceDate: '2030-01-15' },
+      expect: {},
+    });
+    const [run] = (await runEval([notReady], plan(), harness({}).deps)).runs;
+    expect(run?.observation.outcome).toMatchObject({ kind: 'error', name: 'ProfileNotReadyError' });
+    expect(run?.results.find((r) => r.scorer === 'wireValid')?.pass).toBe(false);
+
+    const down = harness({ recommend: mockRaw('{'), critic: mockRaw('{') });
+    const [failed] = (await runEval([recommendCase], plan(), down.deps)).runs;
+    expect(failed?.observation.outcome).toEqual({ kind: 'llm-error', code: 'LLM_UPSTREAM_ERROR' });
+  });
+
+  it('AC-EVAL-12: the worst case counts 12 calls, and the judge only when it is on', () => {
+    const without = worstCaseRunUsd(recommendCase, false, { pricing, models, routes });
+    const withJudge = worstCaseRunUsd(recommendCase, true, { pricing, models, routes });
+    expect(without).toBeGreaterThan(0);
+    expect(withJudge).toBeGreaterThan(without);
+  });
+
+  it('AC-EVAL-13: the recommend judge scores a recommend run; its failure is not judged', async () => {
+    const respond =
+      (judgeReply: MockReply): MockResponder =>
+      (request) =>
+        request.system === RECOMMEND_JUDGE_SYSTEM
+          ? judgeReply
+          : mockObject(CritiqueResult, goodCritique);
+    const good = harness({
+      recommend: mockObject(RecommendationSet, drafts),
+      critic: respond(mockObject(RecommendJudgeVerdict, goodVerdict)),
+    });
+    const [run] = (await runEval([planted], plan({ judge: true }), good.deps)).runs;
+    expect(run?.results.find((r) => r.scorer === 'judgeRecommendations')?.pass).toBe(true);
+
+    const broken = harness({
+      recommend: mockObject(RecommendationSet, drafts),
+      critic: respond(mockRaw('nope')),
+    });
+    const [unjudged] = (await runEval([planted], plan({ judge: true }), broken.deps)).runs;
+    expect(unjudged?.judge?.kind).toBe('not-judged');
+    expect(unjudged?.results.map((r) => r.scorer)).not.toContain('judgeRecommendations');
+  });
+});
+
 describe('selectCases', () => {
   const sets = (s: EvalSet[]) => ({ sets: s, caseIds: [] as string[] });
 
@@ -255,10 +415,17 @@ describe('selectCases', () => {
 describe('promptHashParts', () => {
   it('AC-EVAL-09: covers every system prompt and a probe of each template', () => {
     const parts = promptHashParts();
-    for (const system of [EXTRACTION_SYSTEM, CLARIFICATION_SYSTEM, JUDGE_SYSTEM]) {
+    for (const system of [
+      EXTRACTION_SYSTEM,
+      CLARIFICATION_SYSTEM,
+      JUDGE_SYSTEM,
+      RECOMMEND_SYSTEM,
+      CRITIC_SYSTEM,
+      RECOMMEND_JUDGE_SYSTEM,
+    ]) {
       expect(parts).toContain(system);
     }
-    expect(parts).toHaveLength(6);
+    expect(parts).toHaveLength(12);
     expect(sha256(promptHashParts())).toBe(sha256(parts));
   });
 });

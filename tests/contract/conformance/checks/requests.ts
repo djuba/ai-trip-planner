@@ -71,5 +71,15 @@ export const confirmExtractRequest = () =>
 export const recommendRequest = () =>
   valid('RecommendRequest', { profile: PROFILE, referenceDate: '2030-01-15' });
 
+/**
+ * A schema-valid request whose profile is not ready: a party with no adult breaks PARTY_HAS_ADULT
+ * whatever backend runs it (AC-CONTRACT-13).
+ */
+export const notReadyRecommendRequest = () =>
+  valid('RecommendRequest', {
+    profile: { ...PROFILE, people: [{ userType: 'child', age: 8 }] },
+    referenceDate: '2030-01-15',
+  });
+
 export const presentRequest = () =>
   valid('PresentRequest', { profile: PROFILE, recommendations: [RECOMMENDATION] });

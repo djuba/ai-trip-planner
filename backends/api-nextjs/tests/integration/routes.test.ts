@@ -1,10 +1,5 @@
 // The real route modules, called directly with real Request objects (CLAUDE.md §6.3).
-import {
-  CONTRACT_VERSION,
-  HealthResponse,
-  PresentationModel,
-  RecommendResponse,
-} from '@vp/domain-schema/wire';
+import { CONTRACT_VERSION, HealthResponse, PresentationModel } from '@vp/domain-schema/wire';
 import { readdirSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -58,14 +53,6 @@ describe('routes', () => {
     const response = await GET(new Request('http://api.test/v1/health'));
     expect(response.status).toBe(200);
     expect(response.headers.get('access-control-expose-headers')).toContain('retry-after');
-  });
-
-  it('POST /v1/trip/recommend stub returns a schema-valid body', async () => {
-    const response = await recommend(
-      post('/v1/trip/recommend', { profile: {}, referenceDate: REFERENCE_DATE }),
-    );
-    expect(response.status).toBe(200);
-    expect(RecommendResponse.safeParse(await response.json()).success).toBe(true);
   });
 
   it('POST /v1/trip/present stub streams text/plain in several chunks that parse as PresentationModel', async () => {

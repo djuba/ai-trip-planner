@@ -2,14 +2,24 @@
 // mapped in code; the rest is model-written copy. Uses only ADR 0001 Q3 constructs. Clients treat
 // every field as possibly missing or truncated until the stream ends.
 import { z } from 'zod';
-import { FactualClaim } from './recommendation.ts';
+import { ClaimKind, Verification } from './enums.ts';
+
+/**
+ * `FactualClaim` without its wire caps: `PresentationModel` is model-facing, so it may carry no
+ * constraints (ADR 0001 Q3). WU-11 caps the presentation (ADR 0004).
+ */
+const PresentationClaim = z.object({
+  kind: ClaimKind,
+  statement: z.string(),
+  verification: Verification,
+});
 
 export const PresentationCard = z.object({
   recommendationId: z.string(),
   title: z.string(),
   blurb: z.string(),
   highlights: z.array(z.string()),
-  claims: z.array(FactualClaim),
+  claims: z.array(PresentationClaim),
 });
 export type PresentationCard = z.infer<typeof PresentationCard>;
 

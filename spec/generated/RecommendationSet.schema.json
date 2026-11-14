@@ -6,7 +6,81 @@
     "recommendations": {
       "type": "array",
       "items": {
-        "$ref": "Recommendation.schema.json"
+        "type": "object",
+        "properties": {
+          "destination": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "matchedExperiences": {
+            "type": "array",
+            "items": {
+              "$ref": "Experience.schema.json"
+            }
+          },
+          "bestMonths": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "adultsOnly": {
+            "type": "boolean"
+          },
+          "claims": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "$ref": "ClaimKind.schema.json"
+                },
+                "statement": {
+                  "type": "string"
+                },
+                "nonstopRoute": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "string"
+                        },
+                        "to": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "from",
+                        "to"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "statement",
+                "nonstopRoute"
+              ]
+            }
+          }
+        },
+        "required": [
+          "destination",
+          "summary",
+          "matchedExperiences",
+          "bestMonths",
+          "adultsOnly",
+          "claims"
+        ]
       }
     }
   },

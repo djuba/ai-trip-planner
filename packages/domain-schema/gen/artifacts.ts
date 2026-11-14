@@ -5,15 +5,21 @@ import { stringify } from 'yaml';
 import { z } from 'zod';
 import {
   CONTRACT_VERSION,
+  MAX_CLAIM_LENGTH,
+  MAX_CLAIMS,
   MAX_CLARIFICATION_QUESTION_LENGTH,
+  MAX_CRITIQUE_ISSUE_LENGTH,
   MAX_DATE_TEXT_LENGTH,
   MAX_EXPERIENCES,
   MAX_MESSAGE_LENGTH,
   MAX_NOTE_LENGTH,
   MAX_PEOPLE,
+  MAX_RECOMMENDATIONS,
   MAX_REQUEST_BODY_BYTES,
   MAX_SHORT_TEXT_LENGTH,
+  MAX_SUMMARY_LENGTH,
   MAX_UNMAPPED_EXPERIENCES,
+  MAX_UNRESOLVED_ISSUES,
   MIN_POPULATED_FIELDS,
 } from '../src/wire/index.ts';
 import {
@@ -87,8 +93,9 @@ export function buildOpenApi(): JsonSchema {
       version: CONTRACT_VERSION,
       description:
         'Language-neutral HTTP contract. Generated from packages/domain-schema/src/wire; ' +
-        'do not edit by hand. Business rules (rules.md) are not expressed here: a rule ' +
-        'violation is a 200 `needs_clarification`, not a 422.',
+        'do not edit by hand. Business rules (rules.md) are not expressed here. On ' +
+        '/v1/trip/extract a rule violation is a 200 `needs_clarification`; ' +
+        '/v1/trip/recommend only takes a ready profile, so a rule violation there is a 422.',
     },
     servers: [{ url: 'http://localhost:4000', description: 'local api-nextjs' }],
     paths: {
@@ -112,7 +119,13 @@ export function buildOpenApi(): JsonSchema {
           operationId: 'recommendTrips',
           ...gated,
           summary: 'Recommend destinations for a ready profile (critic applied)',
-          requestBody: { required: true, ...jsonBody('RecommendRequest', 'A ready profile') },
+          requestBody: {
+            required: true,
+            ...jsonBody(
+              'RecommendRequest',
+              'A ready profile: one with any rule violation is a 422 VALIDATION_FAILED',
+            ),
+          },
           responses: {
             '200': jsonBody('RecommendResponse', 'Critic-checked recommendations'),
             ...gatedResponses,
@@ -203,7 +216,8 @@ export function buildOpenApi(): JsonSchema {
         ),
         ValidationFailed: jsonBody(
           'ErrorResponse',
-          'Request body fails the contract (VALIDATION_FAILED)',
+          'Request body fails the contract, or (on /v1/trip/recommend) its profile breaks a rule ' +
+            '(VALIDATION_FAILED)',
         ),
         UpstreamFailure: jsonBody('ErrorResponse', 'Upstream LLM failure or refusal (LLM_*)'),
         InternalError: jsonBody('ErrorResponse', 'Bug (INTERNAL_ERROR)'),
@@ -225,6 +239,12 @@ export function buildConstants() {
     maxUnmappedExperiences: MAX_UNMAPPED_EXPERIENCES,
     maxPeople: MAX_PEOPLE,
     maxClarificationQuestionLength: MAX_CLARIFICATION_QUESTION_LENGTH,
+    maxRecommendations: MAX_RECOMMENDATIONS,
+    maxClaims: MAX_CLAIMS,
+    maxSummaryLength: MAX_SUMMARY_LENGTH,
+    maxClaimLength: MAX_CLAIM_LENGTH,
+    maxCritiqueIssueLength: MAX_CRITIQUE_ISSUE_LENGTH,
+    maxUnresolvedIssues: MAX_UNRESOLVED_ISSUES,
   };
 }
 

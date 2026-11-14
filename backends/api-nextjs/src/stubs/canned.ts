@@ -1,24 +1,5 @@
-// STUB data, replaced in WU-10/11. Typed with the wire types so it cannot drift from the contract.
-import type { PresentationModel, RecommendResponse } from '@vp/domain-schema/wire';
-
-export const CANNED_RECOMMEND = {
-  recommendations: [
-    {
-      id: 'rec-1',
-      destination: 'Maui, Hawaii',
-      summary: 'Warm beaches and calm snorkeling water in February.',
-      matchedExperiences: ['beach', 'snorkeling'],
-      claims: [
-        {
-          kind: 'flight',
-          statement: 'Flights from Minneapolis may be available with one stop.',
-          verification: 'unverified',
-        },
-      ],
-    },
-  ],
-  critique: { pass: true, unresolved: [] },
-} satisfies RecommendResponse;
+// STUB data, replaced in WU-11. Typed with the wire types so it cannot drift from the contract.
+import type { PresentationModel } from '@vp/domain-schema/wire';
 
 export const CANNED_PRESENT = {
   headline: 'A week of sun and snorkeling in Maui',

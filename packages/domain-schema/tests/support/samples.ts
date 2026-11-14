@@ -3,7 +3,13 @@
 // does not exist) are VALID on the wire: they are rule violations, not contract violations (D1).
 import type { ContractSchemaId } from '../../gen/registry.ts';
 import {
+  MAX_CLAIM_LENGTH,
+  MAX_CLAIMS,
   MAX_CLARIFICATION_QUESTION_LENGTH,
+  MAX_CRITIQUE_ISSUE_LENGTH,
+  MAX_RECOMMENDATIONS,
+  MAX_SUMMARY_LENGTH,
+  MAX_UNRESOLVED_ISSUES,
   MAX_DATE_TEXT_LENGTH,
   MAX_EXPERIENCES,
   MAX_MESSAGE_LENGTH,
@@ -30,6 +36,16 @@ const recommendation = {
   summary: 'Beaches and snorkeling.',
   matchedExperiences: ['beach', 'snorkeling'],
   claims: [claim],
+};
+const draft = {
+  destination: 'Maui, Hawaii',
+  summary: 'Beaches and snorkeling.',
+  matchedExperiences: ['beach'],
+  bestMonths: [1, 2, 3],
+  adultsOnly: false,
+  claims: [
+    { kind: 'flight', statement: 'Non-stop MSP to OGG', nonstopRoute: { from: 'MSP', to: 'OGG' } },
+  ],
 };
 const card = {
   recommendationId: 'rec-1',
@@ -267,8 +283,42 @@ export const SAMPLES: Record<ContractSchemaId, SampleSet> = {
     invalid: [{}, { question: null }, { question: 5 }, null],
   },
   RecommendationSet: {
-    valid: [{ recommendations: [] }, { recommendations: [recommendation] }],
-    invalid: [{}, { recommendations: [{ id: 'x' }] }, { recommendations: 'none' }, null],
+    valid: [
+      { recommendations: [] },
+      { recommendations: [draft] },
+      // Unconstrained (ADR 0001 Q3): bad months and long text are critic issues, not parse errors.
+      {
+        recommendations: [{ ...draft, bestMonths: [0, 13], summary: 'x'.repeat(5000), claims: [] }],
+      },
+      {
+        recommendations: [
+          { ...draft, claims: [{ kind: 'price', statement: 'From $500', nonstopRoute: null }] },
+        ],
+      },
+    ],
+    invalid: [
+      {},
+      { recommendations: [recommendation] }, // a wire recommendation is not a draft
+      { recommendations: [{ ...draft, adultsOnly: undefined }] },
+      { recommendations: [{ ...draft, bestMonths: [1.5] }] },
+      { recommendations: [{ ...draft, claims: [{ kind: 'flight', statement: 'x' }] }] },
+      { recommendations: 'none' },
+      null,
+    ],
+  },
+  CritiqueResult: {
+    valid: [
+      { pass: true, issues: [] },
+      { pass: false, issues: [{ recommendationId: 'rec-1', issue: 'Too cold in July' }] },
+      { pass: false, issues: [{ recommendationId: null, issue: 'x'.repeat(5000) }] },
+    ],
+    invalid: [
+      { pass: true },
+      { issues: [] },
+      { pass: 'yes', issues: [] },
+      { pass: false, issues: [{ issue: 'x' }] },
+      null,
+    ],
   },
   CritiqueIssue: {
     valid: [
@@ -622,9 +672,104 @@ const clarificationQuestion: BoundaryCase[] = [
   valid: valid as boolean,
 }));
 
+/** AC-LIMITS-13: recommendation and critique output caps (WU-10 plan D2). */
+const critique = (unresolved: unknown[]) => ({ pass: false, unresolved });
+const withRecommendation = (patch: Record<string, unknown>) => ({
+  recommendations: [{ ...recommendation, ...patch }],
+  critique: { pass: true, unresolved: [] },
+});
+const outputCaps: { name: string; cap: number; value: (n: number) => unknown }[] = [
+  {
+    name: 'Recommendation.id',
+    cap: MAX_SHORT_TEXT_LENGTH,
+    value: (n) => withRecommendation({ id: astral(n) }),
+  },
+  {
+    name: 'Recommendation.destination',
+    cap: MAX_SHORT_TEXT_LENGTH,
+    value: (n) => withRecommendation({ destination: astral(n) }),
+  },
+  {
+    name: 'Recommendation.summary',
+    cap: MAX_SUMMARY_LENGTH,
+    value: (n) => withRecommendation({ summary: astral(n) }),
+  },
+  {
+    name: 'Recommendation.matchedExperiences count',
+    cap: MAX_EXPERIENCES,
+    value: (n) =>
+      withRecommendation({ matchedExperiences: Array.from({ length: n }, () => 'beach') }),
+  },
+  {
+    name: 'Recommendation.claims count',
+    cap: MAX_CLAIMS,
+    value: (n) => withRecommendation({ claims: Array.from({ length: n }, () => claim) }),
+  },
+  {
+    name: 'FactualClaim.statement',
+    cap: MAX_CLAIM_LENGTH,
+    value: (n) => withRecommendation({ claims: [{ ...claim, statement: astral(n) }] }),
+  },
+  {
+    name: 'recommendations count',
+    cap: MAX_RECOMMENDATIONS,
+    value: (n) => ({
+      recommendations: Array.from({ length: n }, (_, i) => ({
+        ...recommendation,
+        id: `rec-${i + 1}`,
+      })),
+      critique: { pass: true, unresolved: [] },
+    }),
+  },
+  {
+    name: 'CritiqueIssue.issue',
+    cap: MAX_CRITIQUE_ISSUE_LENGTH,
+    value: (n) => ({
+      recommendations: [],
+      critique: critique([{ recommendationId: null, issue: astral(n) }]),
+    }),
+  },
+  {
+    name: 'CritiqueIssue.recommendationId',
+    cap: MAX_SHORT_TEXT_LENGTH,
+    value: (n) => ({
+      recommendations: [],
+      critique: critique([{ recommendationId: astral(n), issue: 'x' }]),
+    }),
+  },
+  {
+    name: 'critique.unresolved count',
+    cap: MAX_UNRESOLVED_ISSUES,
+    value: (n) => ({
+      recommendations: [],
+      critique: critique(Array.from({ length: n }, () => ({ recommendationId: null, issue: 'x' }))),
+    }),
+  },
+];
+const recommendationOutput: BoundaryCase[] = outputCaps.flatMap((field) =>
+  [field.cap, field.cap + 1].map((n) => ({
+    ac: 'AC-LIMITS-13',
+    label: `RecommendResponse: ${field.name} at ${n === field.cap ? 'the cap' : 'the cap + 1'} (${n})`,
+    schema: 'RecommendResponse' as const,
+    value: field.value(n),
+    valid: n === field.cap,
+  })),
+);
+const presentRecommendations: BoundaryCase[] = [MAX_RECOMMENDATIONS, MAX_RECOMMENDATIONS + 1].map(
+  (n) => ({
+    ac: 'AC-LIMITS-13',
+    label: `PresentRequest: recommendations count at ${n === MAX_RECOMMENDATIONS ? 'the cap' : 'the cap + 1'} (${n})`,
+    schema: 'PresentRequest' as const,
+    value: { profile: {}, recommendations: Array.from({ length: n }, () => recommendation) },
+    valid: n === MAX_RECOMMENDATIONS,
+  }),
+);
+
 export const BOUNDARY_CASES: BoundaryCase[] = [
   ...counting,
   ...message,
   ...clarificationQuestion,
+  ...recommendationOutput,
+  ...presentRecommendations,
   ...profileFields,
 ];

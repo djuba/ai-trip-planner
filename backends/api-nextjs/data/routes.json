@@ -1,0 +1,505 @@
+{
+  "note": "Illustrative sample data for a portfolio demo. Not live or current airline schedules; routes change, so always check with the airline.",
+  "origins": [
+    {
+      "airport": "MSP",
+      "names": ["Minneapolis", "St. Paul", "Saint Paul", "Minneapolis-St. Paul", "Twin Cities"],
+      "nonstop": [
+        {
+          "airport": "HNL",
+          "city": "Honolulu",
+          "aliases": ["Oahu", "Waikiki"]
+        },
+        {
+          "airport": "OGG",
+          "city": "Maui (Kahului)"
+        },
+        {
+          "airport": "CUN",
+          "city": "Cancun",
+          "aliases": ["Riviera Maya", "Playa del Carmen"]
+        },
+        {
+          "airport": "SJD",
+          "city": "Los Cabos",
+          "aliases": ["Cabo", "Cabo San Lucas", "San José del Cabo"]
+        },
+        {
+          "airport": "PVR",
+          "city": "Puerto Vallarta"
+        },
+        {
+          "airport": "MCO",
+          "city": "Orlando"
+        },
+        {
+          "airport": "MIA",
+          "city": "Miami"
+        },
+        {
+          "airport": "LAS",
+          "city": "Las Vegas"
+        },
+        {
+          "airport": "PHX",
+          "city": "Phoenix"
+        },
+        {
+          "airport": "SAN",
+          "city": "San Diego"
+        },
+        {
+          "airport": "DEN",
+          "city": "Denver"
+        },
+        {
+          "airport": "SLC",
+          "city": "Salt Lake City"
+        },
+        {
+          "airport": "AMS",
+          "city": "Amsterdam"
+        },
+        {
+          "airport": "CDG",
+          "city": "Paris"
+        },
+        {
+          "airport": "STT",
+          "city": "St. Thomas"
+        }
+      ]
+    },
+    {
+      "airport": "ORD",
+      "names": ["Chicago", "O'Hare", "Chicago O'Hare", "Chicago Illinois"],
+      "nonstop": [
+        {
+          "airport": "HNL",
+          "city": "Honolulu",
+          "aliases": ["Oahu", "Waikiki"]
+        },
+        {
+          "airport": "OGG",
+          "city": "Maui (Kahului)"
+        },
+        {
+          "airport": "CUN",
+          "city": "Cancun",
+          "aliases": ["Riviera Maya", "Playa del Carmen"]
+        },
+        {
+          "airport": "SJD",
+          "city": "Los Cabos",
+          "aliases": ["Cabo", "Cabo San Lucas", "San José del Cabo"]
+        },
+        {
+          "airport": "PUJ",
+          "city": "Punta Cana"
+        },
+        {
+          "airport": "MCO",
+          "city": "Orlando"
+        },
+        {
+          "airport": "MIA",
+          "city": "Miami"
+        },
+        {
+          "airport": "LAS",
+          "city": "Las Vegas"
+        },
+        {
+          "airport": "DEN",
+          "city": "Denver"
+        },
+        {
+          "airport": "EGE",
+          "city": "Eagle/Vail"
+        },
+        {
+          "airport": "LHR",
+          "city": "London"
+        },
+        {
+          "airport": "FCO",
+          "city": "Rome"
+        },
+        {
+          "airport": "NAS",
+          "city": "Nassau"
+        },
+        {
+          "airport": "SJU",
+          "city": "San Juan"
+        }
+      ]
+    },
+    {
+      "airport": "ATL",
+      "names": ["Atlanta", "Hartsfield-Jackson", "Hartsfield Jackson Atlanta"],
+      "nonstop": [
+        {
+          "airport": "CUN",
+          "city": "Cancun",
+          "aliases": ["Riviera Maya", "Playa del Carmen"]
+        },
+        {
+          "airport": "MBJ",
+          "city": "Montego Bay"
+        },
+        {
+          "airport": "NAS",
+          "city": "Nassau"
+        },
+        {
+          "airport": "PUJ",
+          "city": "Punta Cana"
+        },
+        {
+          "airport": "SJU",
+          "city": "San Juan"
+        },
+        {
+          "airport": "MCO",
+          "city": "Orlando"
+        },
+        {
+          "airport": "MIA",
+          "city": "Miami"
+        },
+        {
+          "airport": "LAS",
+          "city": "Las Vegas"
+        },
+        {
+          "airport": "HNL",
+          "city": "Honolulu",
+          "aliases": ["Oahu", "Waikiki"]
+        },
+        {
+          "airport": "DEN",
+          "city": "Denver"
+        },
+        {
+          "airport": "CDG",
+          "city": "Paris"
+        },
+        {
+          "airport": "LHR",
+          "city": "London"
+        },
+        {
+          "airport": "FCO",
+          "city": "Rome"
+        }
+      ]
+    },
+    {
+      "airport": "DFW",
+      "names": ["Dallas", "Fort Worth", "Dallas-Fort Worth", "DFW Airport"],
+      "nonstop": [
+        {
+          "airport": "CUN",
+          "city": "Cancun",
+          "aliases": ["Riviera Maya", "Playa del Carmen"]
+        },
+        {
+          "airport": "SJD",
+          "city": "Los Cabos",
+          "aliases": ["Cabo", "Cabo San Lucas", "San José del Cabo"]
+        },
+        {
+          "airport": "PVR",
+          "city": "Puerto Vallarta"
+        },
+        {
+          "airport": "HNL",
+          "city": "Honolulu",
+          "aliases": ["Oahu", "Waikiki"]
+        },
+        {
+          "airport": "OGG",
+          "city": "Maui (Kahului)"
+        },
+        {
+          "airport": "LAS",
+          "city": "Las Vegas"
+        },
+        {
+          "airport": "MCO",
+          "city": "Orlando"
+        },
+        {
+          "airport": "MIA",
+          "city": "Miami"
+        },
+        {
+          "airport": "DEN",
+          "city": "Denver"
+        },
+        {
+          "airport": "ASE",
+          "city": "Aspen"
+        },
+        {
+          "airport": "LHR",
+          "city": "London"
+        },
+        {
+          "airport": "MBJ",
+          "city": "Montego Bay"
+        },
+        {
+          "airport": "SJU",
+          "city": "San Juan"
+        }
+      ]
+    },
+    {
+      "airport": "DEN",
+      "names": ["Denver", "Denver Colorado"],
+      "nonstop": [
+        {
+          "airport": "HNL",
+          "city": "Honolulu",
+          "aliases": ["Oahu", "Waikiki"]
+        },
+        {
+          "airport": "OGG",
+          "city": "Maui (Kahului)"
+        },
+        {
+          "airport": "CUN",
+          "city": "Cancun",
+          "aliases": ["Riviera Maya", "Playa del Carmen"]
+        },
+        {
+          "airport": "SJD",
+          "city": "Los Cabos",
+          "aliases": ["Cabo", "Cabo San Lucas", "San José del Cabo"]
+        },
+        {
+          "airport": "PVR",
+          "city": "Puerto Vallarta"
+        },
+        {
+          "airport": "LAS",
+          "city": "Las Vegas"
+        },
+        {
+          "airport": "MCO",
+          "city": "Orlando"
+        },
+        {
+          "airport": "SAN",
+          "city": "San Diego"
+        },
+        {
+          "airport": "SLC",
+          "city": "Salt Lake City"
+        },
+        {
+          "airport": "LHR",
+          "city": "London"
+        },
+        {
+          "airport": "CDG",
+          "city": "Paris"
+        },
+        {
+          "airport": "MBJ",
+          "city": "Montego Bay"
+        }
+      ]
+    },
+    {
+      "airport": "LAX",
+      "names": ["Los Angeles", "LA", "L.A.", "Los Angeles California"],
+      "nonstop": [
+        {
+          "airport": "HNL",
+          "city": "Honolulu",
+          "aliases": ["Oahu", "Waikiki"]
+        },
+        {
+          "airport": "OGG",
+          "city": "Maui (Kahului)"
+        },
+        {
+          "airport": "KOA",
+          "city": "Kona",
+          "aliases": ["Big Island", "Hawaii Island", "Kailua-Kona"]
+        },
+        {
+          "airport": "LIH",
+          "city": "Kauai (Lihue)"
+        },
+        {
+          "airport": "CUN",
+          "city": "Cancun",
+          "aliases": ["Riviera Maya", "Playa del Carmen"]
+        },
+        {
+          "airport": "SJD",
+          "city": "Los Cabos",
+          "aliases": ["Cabo", "Cabo San Lucas", "San José del Cabo"]
+        },
+        {
+          "airport": "PVR",
+          "city": "Puerto Vallarta"
+        },
+        {
+          "airport": "LAS",
+          "city": "Las Vegas"
+        },
+        {
+          "airport": "DEN",
+          "city": "Denver"
+        },
+        {
+          "airport": "LHR",
+          "city": "London"
+        },
+        {
+          "airport": "CDG",
+          "city": "Paris"
+        },
+        {
+          "airport": "NRT",
+          "city": "Tokyo (Narita)"
+        },
+        {
+          "airport": "SYD",
+          "city": "Sydney"
+        }
+      ]
+    },
+    {
+      "airport": "JFK",
+      "names": ["New York", "New York City", "NYC", "New York JFK", "Queens"],
+      "nonstop": [
+        {
+          "airport": "MCO",
+          "city": "Orlando"
+        },
+        {
+          "airport": "MIA",
+          "city": "Miami"
+        },
+        {
+          "airport": "LAS",
+          "city": "Las Vegas"
+        },
+        {
+          "airport": "HNL",
+          "city": "Honolulu",
+          "aliases": ["Oahu", "Waikiki"]
+        },
+        {
+          "airport": "SJU",
+          "city": "San Juan"
+        },
+        {
+          "airport": "PUJ",
+          "city": "Punta Cana"
+        },
+        {
+          "airport": "MBJ",
+          "city": "Montego Bay"
+        },
+        {
+          "airport": "NAS",
+          "city": "Nassau"
+        },
+        {
+          "airport": "CUN",
+          "city": "Cancun",
+          "aliases": ["Riviera Maya", "Playa del Carmen"]
+        },
+        {
+          "airport": "LHR",
+          "city": "London"
+        },
+        {
+          "airport": "CDG",
+          "city": "Paris"
+        },
+        {
+          "airport": "FCO",
+          "city": "Rome"
+        },
+        {
+          "airport": "LIS",
+          "city": "Lisbon"
+        },
+        {
+          "airport": "DUB",
+          "city": "Dublin"
+        }
+      ]
+    },
+    {
+      "airport": "SEA",
+      "names": ["Seattle", "Seattle-Tacoma", "Sea-Tac", "Seattle Washington"],
+      "nonstop": [
+        {
+          "airport": "HNL",
+          "city": "Honolulu",
+          "aliases": ["Oahu", "Waikiki"]
+        },
+        {
+          "airport": "OGG",
+          "city": "Maui (Kahului)"
+        },
+        {
+          "airport": "KOA",
+          "city": "Kona",
+          "aliases": ["Big Island", "Hawaii Island", "Kailua-Kona"]
+        },
+        {
+          "airport": "LIH",
+          "city": "Kauai (Lihue)"
+        },
+        {
+          "airport": "CUN",
+          "city": "Cancun",
+          "aliases": ["Riviera Maya", "Playa del Carmen"]
+        },
+        {
+          "airport": "SJD",
+          "city": "Los Cabos",
+          "aliases": ["Cabo", "Cabo San Lucas", "San José del Cabo"]
+        },
+        {
+          "airport": "LAS",
+          "city": "Las Vegas"
+        },
+        {
+          "airport": "PHX",
+          "city": "Phoenix"
+        },
+        {
+          "airport": "SAN",
+          "city": "San Diego"
+        },
+        {
+          "airport": "DEN",
+          "city": "Denver"
+        },
+        {
+          "airport": "LHR",
+          "city": "London"
+        },
+        {
+          "airport": "KEF",
+          "city": "Reykjavik"
+        },
+        {
+          "airport": "ANC",
+          "city": "Anchorage"
+        }
+      ]
+    }
+  ]
+}

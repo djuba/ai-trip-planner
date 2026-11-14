@@ -1,6 +1,6 @@
 import { ErrorResponse } from '@vp/domain-schema/wire';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { LlmError } from '../usecases/errors.ts';
+import { LlmError, ProfileNotReadyError } from '../usecases/errors.ts';
 import { PayloadTooLargeError, RequestValidationError, toErrorResponse } from './errors.ts';
 import { QuotaExhaustedError, RateLimitedError, UnauthorizedError } from './gate.ts';
 
@@ -17,6 +17,17 @@ describe('toErrorResponse', () => {
     expect((await read(response)).error).toEqual({
       code: 'VALIDATION_FAILED',
       message: 'message: required',
+    });
+  });
+
+  it('AC-RECOMMEND-02: maps ProfileNotReadyError to 422 VALIDATION_FAILED naming each code once', async () => {
+    const response = toErrorResponse(
+      new ProfileNotReadyError(['CHILD_AGE_RANGE', 'PARTY_HAS_ADULT', 'CHILD_AGE_RANGE']),
+    );
+    expect(response.status).toBe(422);
+    expect((await read(response)).error).toEqual({
+      code: 'VALIDATION_FAILED',
+      message: 'The profile is not ready for recommendations: CHILD_AGE_RANGE, PARTY_HAS_ADULT',
     });
   });
 

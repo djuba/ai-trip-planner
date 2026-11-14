@@ -31,7 +31,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-21 | Hosted environment, pre-launch (replay mode) | WU-20 | done |
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | done |
 | WU-18 | Eval harness + adversarial cases | WU-09 | done |
-| WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | todo |
+| WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | done |
 | WU-11 | Present stream + `/v1/trip/present` | WU-10 | todo |
 | WU-22 | Invite-code access gate + rate limit | WU-07, WU-20 | done |
 | WU-12 | Web shell, API client, Pact consumer | WU-04, WU-07, WU-22 | todo |
@@ -642,7 +642,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-10 — Recommend + critic + `/v1/trip/recommend`
-**Status:** todo · **Depends on:** WU-09, WU-18 · **Commits:**
+**Status:** done · **Depends on:** WU-09, WU-18 · **Commits:** [PR #30](https://github.com/djuba/ai-trip-planner/pull/30)
 
 **Goal:** valid profile → critic-checked recommendations, with honest verification labels.
 
@@ -678,6 +678,8 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From WU-21: the hosted timeout is `request_timeout_seconds` in `infra/variables.tf` (300 s today). If the worst-case latency approaches it, raise it and apply by hand ([`infra/README.md`](../infra/README.md), "Reviewing and applying infra changes"). Any `/recommend` cassette the contract suite replays must use the `CONTRACT_TEST_ENV` model IDs, which the hosted service also runs (`scripts/infra-config.test.ts`).
 - From WU-09: reuse `dataBlock` and `DATA_BLOCK_RULE` from `backends/api-nextjs/src/usecases/prompts/prompt-data.ts` for every client-supplied string, and keep system prompts constant. Put output caps in exported constants (CLAUDE.md §4.5). Use `LlmObjectRequest.accept` for checks the model's schema can't express. Derive `maxOutputTokens` from the caps, as `src/usecases/token-budget.ts` does, at 2 tokens per code point. Record the contract cassettes with `pnpm record:cassettes --contract` ([WU-09 plan](plans/WU-09.md)).
 - From WU-18: in the first eval run, extraction kept attack text planted in `currentProfile` unchanged in 4 of 6 runs (correct for extract: the client owns its profile). So the profile `/recommend` receives can hold instructions; keep it to data blocks, as above. Add `/recommend` eval cases with planted profile strings: give `EvalCase` a stage, run the case through the recommend use case, and reuse the canary, leak and judge scorers ([`eval.md`](features/eval.md), [WU-18 plan](plans/WU-18.md)). Compare against the first run's line in `runs.jsonl`.
+- Done: see the [plan](plans/WU-10.md) and [`recommendation.md`](features/recommendation.md). Contract 0.7.0 (WU-22 took 0.6.0). Route data covers 8 origins (MSP, ORD, ATL, DFW, DEN, LAX, JFK, SEA) as illustrative sample data; only code sets `fixture`, and only for a listed non-stop from the traveler's own airport that serves the recommendation's destination. The LLM critic doesn't judge `bestMonths` or `adultsOnly`, because it fought the deterministic season check. First recommend eval run: 12/12 passed every scorer (no canary, no leak, every fixture label backed), US$0.37. A real flight-data source or web search is later feature work, with no unit yet. Ten deviations, in the plan.
+- Usage: main/Opus 221 req, 219k out; wu-implementer/Sonnet 84 req, 95k out; wu-reviewer/Opus 41 req, 38k out.
 
 ---
 
@@ -710,6 +712,8 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From WU-17: the conformance suite's AC-LIMITS-11 checks post `/present` a profile with `region` at its cap and with `people` at `maxPeople`, and require a stream that ends in a valid `PresentationModel`. Once the stub is gone, record replay cassettes for both probes, or the contract gate fails on a cassette miss (WU-17 unit review #1).
 - From WU-08: the recorder writes any 2xx response. An SSE body can still fail partway through (`event: error`) after a 200, so skip writing a stream cassette that contains `event: error` or has no `message_stop` (WU-08 implementation review #6).
 - From deployment planning: if WU-21 is done, its post-deploy contract check covers the `/present` stream through the platform's front end. If the stream arrives as a single chunk there, fix it in this unit.
+- From WU-10: `PresentRequest.recommendations` is capped (`MAX_RECOMMENDATIONS` and every `Recommendation` cap), but `PresentationModel` is not: its cards use a private, uncapped `PresentationClaim` so the model-facing schema stays constraint-free (WU-10 deviation 1). Cap the `PresentationModel` wire fields here with exported constants (CLAUDE.md §4.5), keeping the model-facing schema unconstrained (ADR 0001 Q3).
+- From WU-10: claims arrive with `verification` set by code, and a `fixture` statement is written by code. `/present` must carry each claim and its label through unchanged, mapped in code, and never let the model write or relabel one ([`recommendation.md`](features/recommendation.md)).
 
 ---
 
@@ -911,6 +915,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
   - **CI credential:** replace `CONTRACT_INVITE_CODE` with a Google ID token from the deploy identity (OIDC; one IAM role, Service Account OpenID Connect Identity Token Creator). The gate verifies it and maps allowlisted emails to labels with no per-code limits, still counted by the global daily window. Delete the secret afterwards.
   - **Spend and alerts:** the dedicated Anthropic workspace bounds a leaked code. Add a log-based alert on `revoked` and `quota_exhausted` gate events and on unusual volume for any one label.
 - From WU-21: the model IDs need no change for live mode: the hosted service already runs the CLAUDE.md §8.1 IDs, because the cassettes are keyed on them. Revisit `request_timeout_seconds` with WU-10's latency figure.
+- From WU-10: measured `/recommend` cost and size. A first-try pass is 2 Sonnet calls (recommend about 460–780 output tokens, critic 16); the worst recorded case was 6 calls and about 1,600 output tokens in about 17 s. The theoretical bound is 12 calls with retries, each up to its `maxOutputTokens` (recommend 17,408, critic 13,824). The live eval (12 runs, judge on) cost US$0.37, about 1% of its US$33.62 worst-case estimate, so size the spend limit from measured spend and keep the worst case as the bound. A passing critic call is about 16 output tokens, so `MODEL_CRITIC` on Haiku is worth trying. The 300 s `request_timeout_seconds` is far above the measured 17 s ([WU-10 plan](plans/WU-10.md)).
 
 ---
 

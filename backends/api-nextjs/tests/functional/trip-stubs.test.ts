@@ -1,9 +1,7 @@
-import { PresentationModel, RecommendResponse } from '@vp/domain-schema/wire';
+import { PresentationModel } from '@vp/domain-schema/wire';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startApi, type RunningApi } from '../support/api-server.ts';
 import { authHeaders } from '../support/invite.ts';
-
-const REFERENCE_DATE = '2030-01-01';
 
 describe('trip stub routes over real HTTP', () => {
   let api: RunningApi;
@@ -22,15 +20,6 @@ describe('trip stub routes over real HTTP', () => {
       headers: { 'content-type': 'application/json', ...authHeaders() },
       body: JSON.stringify(body),
     });
-
-  it('POST /v1/trip/recommend returns a schema-valid body', async () => {
-    const response = await send('/v1/trip/recommend', {
-      profile: {},
-      referenceDate: REFERENCE_DATE,
-    });
-    expect(response.status).toBe(200);
-    expect(RecommendResponse.safeParse(await response.json()).success).toBe(true);
-  });
 
   it('POST /v1/trip/present streams text that parses as PresentationModel', async () => {
     const response = await send('/v1/trip/present', { profile: {}, recommendations: [] });

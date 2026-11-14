@@ -2,8 +2,8 @@
 openapi: 3.1.1
 info:
   title: AI Trip Planner API
-  version: 0.6.0
-  description: "Language-neutral HTTP contract. Generated from packages/domain-schema/src/wire; do not edit by hand. Business rules (rules.md) are not expressed here: a rule violation is a 200 `needs_clarification`, not a 422."
+  version: 0.7.0
+  description: Language-neutral HTTP contract. Generated from packages/domain-schema/src/wire; do not edit by hand. Business rules (rules.md) are not expressed here. On /v1/trip/extract a rule violation is a 200 `needs_clarification`; /v1/trip/recommend only takes a ready profile, so a rule violation there is a 422.
 servers:
   - url: http://localhost:4000
     description: local api-nextjs
@@ -48,7 +48,7 @@ paths:
       summary: Recommend destinations for a ready profile (critic applied)
       requestBody:
         required: true
-        description: A ready profile
+        description: "A ready profile: one with any rule violation is a 422 VALIDATION_FAILED"
         content:
           application/json:
             schema:
@@ -492,6 +492,7 @@ components:
           $ref: "#/components/schemas/ClaimKind"
         statement:
           type: string
+          maxLength: 200
         verification:
           $ref: "#/components/schemas/Verification"
       required:
@@ -503,15 +504,20 @@ components:
       properties:
         id:
           type: string
+          maxLength: 100
         destination:
           type: string
+          maxLength: 100
         summary:
           type: string
+          maxLength: 500
         matchedExperiences:
+          maxItems: 20
           type: array
           items:
             $ref: "#/components/schemas/Experience"
         claims:
+          maxItems: 5
           type: array
           items:
             $ref: "#/components/schemas/FactualClaim"
@@ -525,11 +531,13 @@ components:
       type: object
       properties:
         recommendationId:
-          type:
-            - string
-            - "null"
+          anyOf:
+            - type: string
+              maxLength: 100
+            - type: "null"
         issue:
           type: string
+          maxLength: 300
       required:
         - recommendationId
         - issue
@@ -549,7 +557,18 @@ components:
         claims:
           type: array
           items:
-            $ref: "#/components/schemas/FactualClaim"
+            type: object
+            properties:
+              kind:
+                $ref: "#/components/schemas/ClaimKind"
+              statement:
+                type: string
+              verification:
+                $ref: "#/components/schemas/Verification"
+            required:
+              - kind
+              - statement
+              - verification
       required:
         - recommendationId
         - title
@@ -636,6 +655,7 @@ components:
       type: object
       properties:
         recommendations:
+          maxItems: 3
           type: array
           items:
             $ref: "#/components/schemas/Recommendation"
@@ -645,6 +665,7 @@ components:
             pass:
               type: boolean
             unresolved:
+              maxItems: 24
               type: array
               items:
                 $ref: "#/components/schemas/CritiqueIssue"
@@ -660,6 +681,7 @@ components:
         profile:
           $ref: "#/components/schemas/TripProfile"
         recommendations:
+          maxItems: 3
           type: array
           items:
             $ref: "#/components/schemas/Recommendation"
@@ -731,7 +753,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
     ValidationFailed:
-      description: Request body fails the contract (VALIDATION_FAILED)
+      description: Request body fails the contract, or (on /v1/trip/recommend) its profile breaks a rule (VALIDATION_FAILED)
       content:
         application/json:
           schema:

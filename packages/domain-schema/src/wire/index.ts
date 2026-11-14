@@ -9,3 +9,4 @@ export * from './http/envelopes.ts';
 export * from './llm/extraction.ts';
 export * from './llm/recommendation-set.ts';
 export * from './llm/clarification.ts';
+export * from './llm/critique.ts';

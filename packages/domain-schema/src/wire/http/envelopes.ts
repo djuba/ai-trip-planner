@@ -1,6 +1,11 @@
 // Request and response bodies of the v1 HTTP API (CLAUDE.md §5).
 import { z } from 'zod';
-import { MAX_CLARIFICATION_QUESTION_LENGTH, MAX_MESSAGE_LENGTH } from '../constants.ts';
+import {
+  MAX_CLARIFICATION_QUESTION_LENGTH,
+  MAX_MESSAGE_LENGTH,
+  MAX_RECOMMENDATIONS,
+  MAX_UNRESOLVED_ISSUES,
+} from '../constants.ts';
 import { ErrorCode } from '../models/enums.ts';
 import { CritiqueIssue, Recommendation } from '../models/recommendation.ts';
 import { RuleViolation } from '../models/rule-violation.ts';
@@ -27,6 +32,7 @@ export const ExtractResponse = z.discriminatedUnion('status', [
 ]);
 export type ExtractResponse = z.infer<typeof ExtractResponse>;
 
+/** The profile must be `ready`: one with rule violations is a 422 (§5; WU-10 plan D7). */
 export const RecommendRequest = z.object({
   profile: TripProfile,
   referenceDate: ReferenceDate,
@@ -35,14 +41,17 @@ export type RecommendRequest = z.infer<typeof RecommendRequest>;
 
 /** Critic already applied (§7 stage 2b); `unresolved` is empty when the critic passed. */
 export const RecommendResponse = z.object({
-  recommendations: z.array(Recommendation),
-  critique: z.object({ pass: z.boolean(), unresolved: z.array(CritiqueIssue) }),
+  recommendations: z.array(Recommendation).max(MAX_RECOMMENDATIONS),
+  critique: z.object({
+    pass: z.boolean(),
+    unresolved: z.array(CritiqueIssue).max(MAX_UNRESOLVED_ISSUES),
+  }),
 });
 export type RecommendResponse = z.infer<typeof RecommendResponse>;
 
 export const PresentRequest = z.object({
   profile: TripProfile,
-  recommendations: z.array(Recommendation),
+  recommendations: z.array(Recommendation).max(MAX_RECOMMENDATIONS),
 });
 export type PresentRequest = z.infer<typeof PresentRequest>;
 
