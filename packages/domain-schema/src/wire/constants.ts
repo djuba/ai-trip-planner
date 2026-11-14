@@ -1,7 +1,7 @@
 // Shared constants (CLAUDE.md §4.7), also written to spec/generated/constants.json for any client.
 
 /** Semantic version of the HTTP contract, reported by `GET /v1/health`. */
-export const CONTRACT_VERSION = '0.6.0';
+export const CONTRACT_VERSION = '0.7.0';
 
 /** A profile with fewer populated fields than this yields INSUFFICIENT_DETAIL (§4.7). */
 export const MIN_POPULATED_FIELDS = 3;
@@ -35,6 +35,27 @@ export const MAX_PEOPLE = 50;
 
 /** Most code points in `ExtractResponse.clarificationQuestion`: a sentence or two (ADR 0004). */
 export const MAX_CLARIFICATION_QUESTION_LENGTH = 300;
+
+// Output caps on recommendations (ADR 0004; WU-10 plan D2). The model's RecommendationSet and
+// CritiqueResult stay unconstrained (ADR 0001 Q3); code discards over-cap model output.
+
+/** Most recommendations in `RecommendResponse` and `PresentRequest`. */
+export const MAX_RECOMMENDATIONS = 3;
+
+/** Most claims on one recommendation. */
+export const MAX_CLAIMS = 5;
+
+/** Most code points in `Recommendation.summary`. */
+export const MAX_SUMMARY_LENGTH = 500;
+
+/** Most code points in `FactualClaim.statement`. */
+export const MAX_CLAIM_LENGTH = 200;
+
+/** Most code points in `CritiqueIssue.issue`. */
+export const MAX_CRITIQUE_ISSUE_LENGTH = 300;
+
+/** Most issues in `RecommendResponse.critique.unresolved`. */
+export const MAX_UNRESOLVED_ISSUES = 24;
 
 /**
  * A string's length as the caps count it: Unicode code points, with a lone surrogate counting as

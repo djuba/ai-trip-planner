@@ -68,6 +68,12 @@ describe('buildArtifacts', () => {
       maxUnmappedExperiences: 10,
       maxPeople: 50,
       maxClarificationQuestionLength: 300,
+      maxRecommendations: 3,
+      maxClaims: 5,
+      maxSummaryLength: 500,
+      maxClaimLength: 200,
+      maxCritiqueIssueLength: 300,
+      maxUnresolvedIssues: 24,
     });
   });
 });
@@ -124,12 +130,13 @@ describe('OpenAPI document', () => {
     expect(responses.TooManyRequests?.headers?.['Retry-After']?.required).toBe(false);
   });
 
-  it('AC-GATE-11: the error codes include the gate’s three, and the contract is 0.6.0', () => {
+  it('AC-GATE-11: the error codes include the gate’s three, and the contract is past 0.5.0', () => {
     const { schemas } = doc.components as { schemas: Record<string, { enum?: string[] }> };
     expect(schemas.ErrorCode?.enum).toEqual(
       expect.arrayContaining(['UNAUTHORIZED', 'RATE_LIMITED', 'QUOTA_EXHAUSTED']),
     );
-    expect(CONTRACT_VERSION).toBe('0.6.0');
+    // The gate shipped in 0.6.0; later breaking changes bump the minor again (WU-10: 0.7.0).
+    expect(Number(CONTRACT_VERSION.split('.')[1])).toBeGreaterThanOrEqual(6);
   });
 
   it('leaves LLM-only schemas out of components but keeps their JSON Schema files', () => {

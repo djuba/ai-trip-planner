@@ -21,7 +21,23 @@
     "claims": {
       "type": "array",
       "items": {
-        "$ref": "FactualClaim.schema.json"
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "ClaimKind.schema.json"
+          },
+          "statement": {
+            "type": "string"
+          },
+          "verification": {
+            "$ref": "Verification.schema.json"
+          }
+        },
+        "required": [
+          "kind",
+          "statement",
+          "verification"
+        ]
       }
     }
   },

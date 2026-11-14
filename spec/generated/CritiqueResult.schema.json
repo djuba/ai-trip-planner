@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "CritiqueResult.schema.json",
+  "type": "object",
+  "properties": {
+    "pass": {
+      "type": "boolean"
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "recommendationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issue": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "recommendationId",
+          "issue"
+        ]
+      }
+    }
+  },
+  "required": [
+    "pass",
+    "issues"
+  ]
+}

@@ -4,21 +4,26 @@
   "type": "object",
   "properties": {
     "id": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 100
     },
     "destination": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 100
     },
     "summary": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 500
     },
     "matchedExperiences": {
+      "maxItems": 20,
       "type": "array",
       "items": {
         "$ref": "Experience.schema.json"
       }
     },
     "claims": {
+      "maxItems": 5,
       "type": "array",
       "items": {
         "$ref": "FactualClaim.schema.json"

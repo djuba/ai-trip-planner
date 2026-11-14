@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import * as envelopes from '../src/wire/http/envelopes.ts';
 import { ClarificationOutput } from '../src/wire/llm/clarification.ts';
+import { CritiqueResult } from '../src/wire/llm/critique.ts';
 import { ExtractionSchema } from '../src/wire/llm/extraction.ts';
 import { RecommendationSet } from '../src/wire/llm/recommendation-set.ts';
 import * as enums from '../src/wire/models/enums.ts';
@@ -31,6 +32,7 @@ export const CONTRACT_SCHEMAS = {
   FactualClaim,
   Recommendation,
   RecommendationSet,
+  CritiqueResult,
   CritiqueIssue,
   PresentationCard,
   PresentationModel,
@@ -55,6 +57,7 @@ export const LLM_FACING_IDS = [
   'ExtractionSchema',
   'ClarificationOutput',
   'RecommendationSet',
+  'CritiqueResult',
   'PresentationModel',
 ] as const satisfies readonly ContractSchemaId[];
 
@@ -66,4 +69,5 @@ export const LLM_ONLY_IDS = [
   'ExtractionSchema',
   'ClarificationOutput',
   'RecommendationSet',
+  'CritiqueResult',
 ] as const satisfies readonly ContractSchemaId[];
