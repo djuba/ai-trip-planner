@@ -1,13 +1,14 @@
-// `pnpm eval --budget <usd> [--repeat n] [--set quality|adversarial] [--case id] [--no-judge]`
+// `pnpm eval --budget <usd> [--repeat n] [--set quality|adversarial|recommend] [--case id] [--no-judge]`
 // (WU-18; docs/features/eval.md). LIVE model calls that cost money: opt-in, capped by the budget,
 // and never part of a gate (CLAUDE.md §6.8). This file holds everything impure: environment, clock,
 // git, files and the console. The logic it wires together is unit-tested.
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ConfigError, loadConfig } from '../src/config.ts';
 import { createLlmClient } from '../src/llm/index.ts';
+import { parseRouteData } from '../src/usecases/routes.ts';
 import { CaseLoadError, loadCases } from './cases.ts';
 import { loadPricing, missingPrices } from './cost.ts';
 import { EvalPlanError, planEval } from './plan.ts';
@@ -23,6 +24,7 @@ import {
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const RESULTS = fileURLToPath(new URL('./results/', import.meta.url));
+const ROUTES_PATH = fileURLToPath(new URL('../data/routes.json', import.meta.url));
 
 function git(...args: string[]): string {
   return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
@@ -75,12 +77,17 @@ async function main(): Promise<number> {
     // Always live, whatever LLM_MODE says: the eval never reads or writes cassettes.
     config = loadConfig({ ...process.env, LLM_MODE: 'live' });
     pricing = loadPricing();
+    selected = selectCases(loadCases(), plan);
+    const recommends = selected.some((c) => c.set === 'recommend');
     const missing = missingPrices(
-      [config.models.fast, ...(plan.judge ? [config.models.critic] : [])],
+      [
+        config.models.fast,
+        ...(recommends ? [config.models.reasoning] : []),
+        ...(plan.judge || recommends ? [config.models.critic] : []),
+      ],
       pricing,
     );
     if (missing.length > 0) return fail(`no price in eval/pricing.json for ${missing.join(', ')}`);
-    selected = selectCases(loadCases(), plan);
   } catch (error) {
     if (
       error instanceof EvalPlanError ||
@@ -93,14 +100,21 @@ async function main(): Promise<number> {
     throw error;
   }
 
-  const models = { fast: config.models.fast, critic: config.models.critic };
+  const models = {
+    fast: config.models.fast,
+    reasoning: config.models.reasoning,
+    critic: config.models.critic,
+  };
+  const routes = parseRouteData(JSON.parse(readFileSync(ROUTES_PATH, 'utf8')));
+  const recommends = selected.some((c) => c.set === 'recommend');
+  const extracts = selected.some((c) => c.set !== 'recommend');
   const worst = selected.reduce(
-    (sum, c) => sum + plan.repeat * worstCaseRunUsd(c, plan.judge, { pricing, models }),
+    (sum, c) => sum + plan.repeat * worstCaseRunUsd(c, plan.judge, { pricing, models, routes }),
     0,
   );
   console.log(
     `eval: LIVE calls (costs money). ${selected.length} cases × ${plan.repeat}, judge ${plan.judge ? 'on' : 'off'}; ` +
-      `models fast=${models.fast}${plan.judge ? ` critic=${models.critic}` : ''}; ` +
+      `models${extracts ? ` fast=${models.fast}` : ''}${recommends ? ` reasoning=${models.reasoning}` : ''}${plan.judge || recommends ? ` critic=${models.critic}` : ''}; ` +
       `prices as of ${pricing.asOf}; budget US$${plan.budgetUsd} (worst case US$${worst.toFixed(2)})`,
   );
 
@@ -118,6 +132,7 @@ async function main(): Promise<number> {
     calls,
     pricing,
     models,
+    routes,
     progress: (line) => console.log(`  ${line}`),
   });
 
@@ -127,7 +142,11 @@ async function main(): Promise<number> {
     date,
     commit,
     dirty: git('status', '--porcelain') !== '',
-    models: plan.judge ? models : { fast: models.fast },
+    models: {
+      ...(extracts ? { fast: models.fast } : {}),
+      ...(recommends ? { reasoning: models.reasoning } : {}),
+      ...(plan.judge || recommends ? { critic: models.critic } : {}),
+    },
     promptHash: sha256(promptHashParts()),
     caseSetHash: caseSetHash(selected),
     repeat: plan.repeat,

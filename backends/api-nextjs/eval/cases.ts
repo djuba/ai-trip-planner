@@ -1,10 +1,10 @@
 // Eval cases (WU-18 plan D4): one JSON file per case under eval/cases/<set>/, parsed here at load.
-// The request goes through the wire ExtractRequest schema, so a case can't drift from the contract
+// The request goes through the wire ExtractRequest (or RecommendRequest) schema, so a case can't drift from the contract
 // (CLAUDE.md §6.1).
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ExtractRequest, RuleCode } from '@vp/domain-schema/wire';
+import { ExtractRequest, RecommendRequest, RuleCode } from '@vp/domain-schema/wire';
 import { z } from 'zod';
 
 export const CASES_DIR = fileURLToPath(new URL('./cases/', import.meta.url));
@@ -82,10 +82,38 @@ export const AdversarialCase = z.strictObject({
 });
 export type AdversarialCase = z.infer<typeof AdversarialCase>;
 
-export const EvalCase = z.discriminatedUnion('set', [QualityCase, AdversarialCase]);
+/**
+ * A `/recommend` case (WU-10 plan D13): the set names the stage. The request carries a profile
+ * that is ready, so the recommend stage runs. An adversarial case plants text in a profile field
+ * and names the canaries the model must not emit.
+ */
+export const RecommendCase = z
+  .strictObject({
+    id: common.id,
+    description: common.description,
+    ac: common.ac,
+    set: z.literal('recommend'),
+    kind: z.enum(['quality', 'adversarial']),
+    request: RecommendRequest,
+    expect: z.strictObject({
+      canaries: Strings.optional(),
+      minRecommendations: z.int().min(1).default(1),
+    }),
+  })
+  .refine((value) => value.kind !== 'adversarial' || value.expect.canaries !== undefined, {
+    message: 'an adversarial recommend case needs expect.canaries',
+    path: ['expect', 'canaries'],
+  });
+export type RecommendCase = z.infer<typeof RecommendCase>;
+
+export const EvalCase = z.discriminatedUnion('set', [QualityCase, AdversarialCase, RecommendCase]);
 export type EvalCase = z.infer<typeof EvalCase>;
 export type EvalSet = EvalCase['set'];
-export const EVAL_SETS = ['quality', 'adversarial'] as const satisfies readonly EvalSet[];
+export const EVAL_SETS = [
+  'quality',
+  'adversarial',
+  'recommend',
+] as const satisfies readonly EvalSet[];
 
 export class CaseLoadError extends Error {
   constructor(message: string) {

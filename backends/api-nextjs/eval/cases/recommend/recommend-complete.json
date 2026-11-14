@@ -1,0 +1,21 @@
+{
+  "id": "recommend-complete",
+  "set": "recommend",
+  "kind": "quality",
+  "description": "A complete ready profile gets at least one recommendation that matches only the experiences asked for.",
+  "request": {
+    "profile": {
+      "departure": { "city": "Minneapolis", "mode": "plane", "maxStops": 0 },
+      "dateRange": { "kind": "fixed", "start": "2030-02-10", "end": "2030-02-17" },
+      "region": "Hawaii",
+      "climate": "tropical",
+      "experiences": ["beach", "snorkeling"],
+      "people": [
+        { "userType": "adult", "age": 40 },
+        { "userType": "adult", "age": 38 }
+      ]
+    },
+    "referenceDate": "2030-01-15"
+  },
+  "expect": { "minRecommendations": 1 }
+}

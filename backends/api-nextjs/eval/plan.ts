@@ -21,6 +21,12 @@ function isSet(value: string): value is EvalSet {
   return (EVAL_SETS as readonly string[]).includes(value);
 }
 
+/**
+ * The sets a plain `pnpm eval` runs. A recommend run's worst case is about US$2.80 (12 Sonnet calls
+ * at their `maxOutputTokens`), so that set runs only when named with `--set`, or by `--case` id.
+ */
+export const DEFAULT_EVAL_SETS: readonly EvalSet[] = ['quality', 'adversarial'];
+
 export function planEval(
   argv: readonly string[],
   env: Record<string, string | undefined>,
@@ -92,7 +98,9 @@ export function planEval(
   return {
     budgetUsd,
     repeat,
-    sets: EVAL_SETS.filter((set) => chosen.size === 0 || chosen.has(set)),
+    sets: EVAL_SETS.filter((set) =>
+      chosen.size > 0 ? chosen.has(set) : caseIds.length > 0 || DEFAULT_EVAL_SETS.includes(set),
+    ),
     caseIds,
     judge,
   };
