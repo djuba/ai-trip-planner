@@ -7,10 +7,13 @@ import {
 } from '@vp/domain-schema/wire';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { jsonResponse, postRoute, preflight, route } from '../../src/http/route.ts';
+import type { Gate } from '../../src/http/gate.ts';
 import { LlmError } from '../../src/usecases/errors.ts';
 
 const WEB_ORIGIN = 'https://web.example.test';
 const URL_EXTRACT = 'http://api.test/v1/trip/extract';
+const passThrough: Gate = { check: async () => {} };
+const open = { gate: () => passThrough };
 const valid = { message: 'A week in Lisbon', referenceDate: '2026-11-05' };
 
 type Body = string | Uint8Array<ArrayBuffer> | ReadableStream<Uint8Array>;
@@ -44,7 +47,7 @@ const errorOf = async (response: Response) => ErrorResponse.parse(await response
 
 describe('http adapter', () => {
   const echo = vi.fn((body: ExtractRequest) => Response.json({ received: body.message }));
-  const handler = postRoute(ExtractRequest, echo);
+  const handler = postRoute(ExtractRequest, echo, open);
 
   beforeEach(() => {
     echo.mockClear();
@@ -156,7 +159,7 @@ describe('http adapter', () => {
     ],
   ])('AC-API-08: a %i from a handler carries the CORS origin', async (status, handle) => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    const response = await route(handle)(new Request(URL_EXTRACT));
+    const response = await route(handle, open)(new Request(URL_EXTRACT));
     expect(response.status).toBe(status);
     expect(response.headers.get('access-control-allow-origin')).toBe(WEB_ORIGIN);
   });
@@ -175,15 +178,18 @@ describe('http adapter', () => {
     expect(response.status).toBe(204);
     expect(response.headers.get('access-control-allow-origin')).toBe(WEB_ORIGIN);
     expect(response.headers.get('access-control-allow-methods')).toContain('POST');
-    expect(response.headers.get('access-control-allow-headers')).toContain('content-type');
+    expect(response.headers.get('access-control-allow-headers')).toBe(
+      'content-type, authorization',
+    );
   });
 
   it('AC-API-11: a response that breaks the contract becomes a 500, not the bad body', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const bad = { status: 'nonsense', secret: 'off-contract' } as unknown as ExtractResponse;
-    const response = await route(() => jsonResponse(ExtractResponse, bad))(
-      new Request(URL_EXTRACT),
-    );
+    const response = await route(
+      () => jsonResponse(ExtractResponse, bad),
+      open,
+    )(new Request(URL_EXTRACT));
     expect(response.status).toBe(500);
     const body = await response.text();
     expect(body).not.toContain('off-contract');
@@ -215,6 +221,7 @@ describe('http adapter', () => {
     });
     const response = await route(
       () => new Response(source, { headers: { 'content-type': 'text/plain; charset=utf-8' } }),
+      open,
     )(new Request(URL_EXTRACT));
 
     expect(response.headers.get('content-type')).toBe('text/plain; charset=utf-8');

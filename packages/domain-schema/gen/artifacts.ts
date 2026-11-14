@@ -51,11 +51,23 @@ const jsonBody = (id: ContractSchemaId, description: string) => ({
   description,
   content: { 'application/json': { schema: ref(id) } },
 });
+/** Responses every POST can give, gated or not. */
 const errorResponses = {
   '413': { $ref: '#/components/responses/PayloadTooLarge' },
   '422': { $ref: '#/components/responses/ValidationFailed' },
   '500': { $ref: '#/components/responses/InternalError' },
   '502': { $ref: '#/components/responses/UpstreamFailure' },
+};
+
+/** The trip endpoints need an invite code (WU-22 plan D1): one scheme, and its two refusals. */
+const INVITE_CODE = 'inviteCode';
+const gated = {
+  security: [{ [INVITE_CODE]: [] }],
+};
+const gatedResponses = {
+  '401': { $ref: '#/components/responses/Unauthorized' },
+  '429': { $ref: '#/components/responses/TooManyRequests' },
+  ...errorResponses,
 };
 
 export function buildOpenApi(): JsonSchema {
@@ -83,6 +95,7 @@ export function buildOpenApi(): JsonSchema {
       '/v1/trip/extract': {
         post: {
           operationId: 'extractTrip',
+          ...gated,
           summary: 'Turn a message into an updated trip profile',
           requestBody: {
             required: true,
@@ -90,24 +103,26 @@ export function buildOpenApi(): JsonSchema {
           },
           responses: {
             '200': jsonBody('ExtractResponse', 'Ready, or needs clarification'),
-            ...errorResponses,
+            ...gatedResponses,
           },
         },
       },
       '/v1/trip/recommend': {
         post: {
           operationId: 'recommendTrips',
+          ...gated,
           summary: 'Recommend destinations for a ready profile (critic applied)',
           requestBody: { required: true, ...jsonBody('RecommendRequest', 'A ready profile') },
           responses: {
             '200': jsonBody('RecommendResponse', 'Critic-checked recommendations'),
-            ...errorResponses,
+            ...gatedResponses,
           },
         },
       },
       '/v1/trip/present': {
         post: {
           operationId: 'presentTrips',
+          ...gated,
           summary: 'Stream presentation copy for recommendations',
           requestBody: {
             required: true,
@@ -125,13 +140,14 @@ export function buildOpenApi(): JsonSchema {
                 },
               },
             },
-            ...errorResponses,
+            ...gatedResponses,
           },
         },
       },
       '/v1/health': {
         get: {
           operationId: 'health',
+          security: [],
           summary: 'Liveness and contract version',
           responses: {
             '200': jsonBody('HealthResponse', 'Backend is up'),
@@ -142,7 +158,45 @@ export function buildOpenApi(): JsonSchema {
     },
     components: {
       schemas: components,
+      securitySchemes: {
+        [INVITE_CODE]: {
+          type: 'http',
+          scheme: 'bearer',
+          description:
+            'A per-recipient invite code: `Authorization: Bearer <code>`. The scheme name is ' +
+            'case-insensitive. Required on the trip endpoints; health and CORS preflights are open.',
+        },
+      },
       responses: {
+        Unauthorized: {
+          ...jsonBody(
+            'ErrorResponse',
+            'Invite code missing, malformed, unknown or revoked (UNAUTHORIZED). The response ' +
+              'does not say which.',
+          ),
+          headers: {
+            'WWW-Authenticate': {
+              description: 'Names the Bearer scheme (RFC 6750).',
+              required: true,
+              schema: { type: 'string' },
+            },
+          },
+        },
+        TooManyRequests: {
+          ...jsonBody(
+            'ErrorResponse',
+            'RATE_LIMITED: a per-code or global window is full; retry after Retry-After. ' +
+              'QUOTA_EXHAUSTED: the code has used its lifetime allowance for this endpoint; ' +
+              'retrying will not help, and there is no Retry-After.',
+          ),
+          headers: {
+            'Retry-After': {
+              description: 'Whole seconds until the window resets. Sent with RATE_LIMITED only.',
+              required: false,
+              schema: { type: 'integer', minimum: 1 },
+            },
+          },
+        },
         PayloadTooLarge: jsonBody(
           'ErrorResponse',
           `Request body over ${MAX_REQUEST_BODY_BYTES} bytes (PAYLOAD_TOO_LARGE)`,

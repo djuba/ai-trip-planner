@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "ask": [
-      "Bash(git commit *)",
-      "PowerShell(git commit *)"
-    ]
-  }
-}

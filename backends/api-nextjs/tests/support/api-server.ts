@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { createServer, type AddressInfo } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { inviteEnv } from './invite.ts';
 import { recordingAllowed } from '../../../../scripts/test-support/llm-guard.ts';
 
 export const BACKEND_DIR = fileURLToPath(new URL('../../', import.meta.url));
@@ -43,6 +44,7 @@ export const baseEnv = (): NodeJS.ProcessEnv => {
     NODE_ENV: 'production', // Vitest sets `test`, which Next warns about.
     NEXT_TELEMETRY_DISABLED: '1',
     ...CONTRACT_TEST_ENV,
+    ...inviteEnv(),
     LLM_MODE: recording ? 'record' : CONTRACT_TEST_ENV.LLM_MODE,
     ANTHROPIC_API_KEY: recording ? (process.env.ANTHROPIC_API_KEY ?? '') : '',
     LLM_CASSETTE_DIR: CASSETTE_DIR,

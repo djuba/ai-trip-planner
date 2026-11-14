@@ -1,6 +1,7 @@
 import { PresentationModel, RecommendResponse } from '@vp/domain-schema/wire';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startApi, type RunningApi } from '../support/api-server.ts';
+import { authHeaders } from '../support/invite.ts';
 
 const REFERENCE_DATE = '2030-01-01';
 
@@ -18,7 +19,7 @@ describe('trip stub routes over real HTTP', () => {
   const send = (path: string, body: unknown) =>
     fetch(`${api.baseUrl}${path}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...authHeaders() },
       body: JSON.stringify(body),
     });
 

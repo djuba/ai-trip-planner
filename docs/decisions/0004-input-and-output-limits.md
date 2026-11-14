@@ -87,8 +87,8 @@ Out of scope for this ADR, each with an owner:
 
 | Item | Owner |
 |---|---|
-| Authentication | WU-22: per-recipient invite codes, not user accounts ([ADR 0005](0005-hosting-and-access.md)) |
-| Per-user rate limits and quotas | WU-22: a rate limit per invite code ([ADR 0005](0005-hosting-and-access.md)) |
+| Authentication | Done in WU-22: per-recipient invite codes, not user accounts ([ADR 0005](0005-hosting-and-access.md), WU-22 addendum) |
+| Per-user rate limits and quotas | Done in WU-22: a lifetime quota per endpoint and an hourly window per code, plus a global daily window; WU-23 makes the counts persistent and sets the live values ([ADR 0005](0005-hosting-and-access.md), WU-22 addendum) |
 | Provider spend limits, with a separate Anthropic workspace per environment | WU-23; an account setting, not code ([ADR 0005](0005-hosting-and-access.md)) |
 | An on-topic guard step that rejects requests that aren't about travel | Backlog; may move into WU-18 if the evals show it's needed |
 | Second-order prompt injection: user strings (message, `currentProfile`, violation params) go into later prompts only as delimited JSON data, never as instructions | WU-09 (shared prompt-data helper), reused by WU-10 and WU-11 |

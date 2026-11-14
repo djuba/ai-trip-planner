@@ -1,6 +1,7 @@
 // Maps anything a handler throws to the error envelope (CLAUDE.md §5).
 import { ErrorResponse, type ErrorCode } from '@vp/domain-schema/wire';
 import { LlmError } from '../usecases/errors.ts';
+import { QuotaExhaustedError, RateLimitedError, UnauthorizedError } from './gate.ts';
 
 /** The request body broke the contract, so the client gets a 422 explaining why. */
 export class RequestValidationError extends Error {
@@ -18,11 +19,28 @@ export class PayloadTooLargeError extends Error {
   }
 }
 
-function envelope(status: number, code: ErrorCode, message: string): Response {
-  return Response.json(ErrorResponse.parse({ error: { code, message } }), { status });
+function envelope(
+  status: number,
+  code: ErrorCode,
+  message: string,
+  headers?: Record<string, string>,
+): Response {
+  return Response.json(ErrorResponse.parse({ error: { code, message } }), { status, headers });
 }
 
 export function toErrorResponse(error: unknown): Response {
+  if (error instanceof UnauthorizedError) {
+    // RFC 6750 requires the challenge on a 401.
+    return envelope(401, 'UNAUTHORIZED', error.message, { 'www-authenticate': 'Bearer' });
+  }
+  if (error instanceof RateLimitedError) {
+    return envelope(429, 'RATE_LIMITED', error.message, {
+      'retry-after': String(error.retryAfterSeconds),
+    });
+  }
+  if (error instanceof QuotaExhaustedError) {
+    return envelope(429, 'QUOTA_EXHAUSTED', error.message);
+  }
   if (error instanceof PayloadTooLargeError) {
     return envelope(413, 'PAYLOAD_TOO_LARGE', error.message);
   }

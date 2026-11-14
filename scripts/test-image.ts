@@ -7,6 +7,7 @@ import { createServer, type AddressInfo } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { CONTRACT_TEST_ENV } from '../backends/api-nextjs/tests/support/api-server.ts';
+import { freshInvite } from './contract/plan-run.ts';
 import {
   buildArgs,
   imageProblems,
@@ -54,10 +55,15 @@ async function waitForHealth(baseUrl: string): Promise<void> {
   throw new Error(`the container did not become healthy at ${baseUrl}`);
 }
 
-function runContract(baseUrl: string): Promise<number> {
+function runContract(baseUrl: string, inviteCode: string): Promise<number> {
   const child = spawn(process.execPath, ['scripts/run-contract.ts', '--external'], {
     cwd: ROOT,
-    env: { ...process.env, API_BASE_URL: baseUrl, WEB_ORIGIN: CONTRACT_TEST_ENV.WEB_ORIGIN },
+    env: {
+      ...process.env,
+      API_BASE_URL: baseUrl,
+      WEB_ORIGIN: CONTRACT_TEST_ENV.WEB_ORIGIN,
+      CONTRACT_INVITE_CODE: inviteCode,
+    },
     stdio: 'inherit',
   });
   return new Promise((resolve) => {
@@ -82,10 +88,12 @@ async function main(): Promise<number> {
   const hostPort = await freePort();
   const baseUrl = `http://127.0.0.1:${hostPort}`;
   let passed = false;
-  docker(runArgs({ name, hostPort, env: CONTRACT_TEST_ENV }), true);
+  // The container gets only the code's hash; the suite gets the code (WU-22 plan D7).
+  const invite = freshInvite();
+  docker(runArgs({ name, hostPort, env: { ...CONTRACT_TEST_ENV, ...invite.serverEnv } }), true);
   try {
     await waitForHealth(baseUrl);
-    const code = await runContract(baseUrl);
+    const code = await runContract(baseUrl, invite.code);
     passed = code === 0;
     return code;
   } finally {

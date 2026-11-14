@@ -12,6 +12,8 @@ import { GET } from '../../src/app/v1/health/route.ts';
 import { POST as extract } from '../../src/app/v1/trip/extract/route.ts';
 import { POST as present } from '../../src/app/v1/trip/present/route.ts';
 import { POST as recommend } from '../../src/app/v1/trip/recommend/route.ts';
+import { authHeaders } from '../support/invite.ts';
+import { stubInviteEnv } from '../support/stub-invite-env.ts';
 
 const WEB_ORIGIN = 'https://web.example.test';
 const REFERENCE_DATE = '2030-01-01';
@@ -19,7 +21,7 @@ const REFERENCE_DATE = '2030-01-01';
 const post = (path: string, body: unknown) =>
   new Request(`http://api.test${path}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...authHeaders() },
     body: JSON.stringify(body),
   });
 const APP_DIR = fileURLToPath(new URL('../../src/app/', import.meta.url));
@@ -30,6 +32,7 @@ const routeFiles = readdirSync(APP_DIR, { recursive: true, encoding: 'utf8' })
 
 describe('routes', () => {
   beforeAll(() => {
+    stubInviteEnv();
     vi.stubEnv('WEB_ORIGIN', WEB_ORIGIN);
     vi.stubEnv('LLM_MODE', 'mock');
     vi.stubEnv('MODEL_FAST', 'fast');
@@ -49,6 +52,12 @@ describe('routes', () => {
     const body: unknown = await response.json();
     expect(body).toEqual({ status: 'ok', contractVersion: CONTRACT_VERSION });
     expect(HealthResponse.safeParse(body).success).toBe(true);
+  });
+
+  it('AC-GATE-04: GET /v1/health needs no Authorization and exposes retry-after', async () => {
+    const response = await GET(new Request('http://api.test/v1/health'));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('access-control-expose-headers')).toContain('retry-after');
   });
 
   it('POST /v1/trip/recommend stub returns a schema-valid body', async () => {
@@ -105,5 +114,18 @@ describe('routes', () => {
     expect(response?.status).toBe(204);
     expect(response?.headers.get('access-control-allow-origin')).toBe(WEB_ORIGIN);
     expect(response?.headers.get('access-control-allow-methods')).toContain('POST');
+    expect(response?.headers.get('access-control-allow-headers')).toBe(
+      'content-type, authorization',
+    );
+  });
+
+  it.each(routeFiles)('AC-GATE-04: %s preflight allows authorization', async (file) => {
+    const module = (await import(pathToFileURL(`${APP_DIR}${file}`).href)) as {
+      OPTIONS?: () => Response;
+    };
+    const response = module.OPTIONS?.();
+    expect(response?.status).toBeGreaterThanOrEqual(200);
+    expect(response?.status).toBeLessThan(300);
+    expect(response?.headers.get('access-control-allow-headers')).toContain('authorization');
   });
 });

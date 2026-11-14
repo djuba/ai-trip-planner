@@ -5,6 +5,8 @@ import { ClarificationOutput, ExtractionSchema } from '@vp/domain-schema/wire';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createExtractPost } from '../../src/http/extract.ts';
 import { createMockLlmClient, mockObject, type LlmRuntime } from '../../src/llm/index.ts';
+import { authHeaders } from '../support/invite.ts';
+import { stubInviteEnv } from '../support/stub-invite-env.ts';
 import { loadNormalizeFixtures, loadRuleFixtures } from '../support/spec-fixtures.ts';
 import { expectedAfterNormalize, toExtraction } from '../support/to-extraction.ts';
 
@@ -25,7 +27,7 @@ async function extract(extraction: ExtractionSchema, referenceDate: string) {
   const response = await POST(
     new Request('http://api.test/v1/trip/extract', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ message: 'fixture', referenceDate }),
     }),
   );
@@ -37,6 +39,7 @@ const normalizeFiles = loadNormalizeFixtures();
 
 describe('spec fixtures through POST /v1/trip/extract', () => {
   beforeAll(() => {
+    stubInviteEnv();
     vi.stubEnv('LLM_MODE', 'mock');
     vi.stubEnv('MODEL_FAST', 'fast');
     vi.stubEnv('MODEL_REASONING', 'reasoning');

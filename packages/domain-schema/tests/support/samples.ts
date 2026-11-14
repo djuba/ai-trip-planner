@@ -73,6 +73,9 @@ export const SAMPLES: Record<ContractSchemaId, SampleSet> = {
   },
   ErrorCode: {
     valid: [
+      'UNAUTHORIZED',
+      'RATE_LIMITED',
+      'QUOTA_EXHAUSTED',
       'PAYLOAD_TOO_LARGE',
       'VALIDATION_FAILED',
       'LLM_REFUSAL',

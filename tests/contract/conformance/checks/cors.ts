@@ -19,7 +19,7 @@ function assertAllowOrigin(res: HttpResult, origin: string, context: string): vo
   }
 }
 
-/** Preflight must be 2xx and allow the method and content-type for the web origin (plan D5). */
+/** Preflight must be 2xx and allow the method, content-type and authorization for the web origin. */
 export async function checkPreflight(
   baseUrl: string,
   path: string,
@@ -42,6 +42,11 @@ export async function checkPreflight(
   if (!headers.includes('*') && !headers.includes('content-type')) {
     throw new ConformanceError(
       `${context}: Access-Control-Allow-Headers should include content-type, got ${headers.join(',')}`,
+    );
+  }
+  if (!headers.includes('*') && !headers.includes('authorization')) {
+    throw new ConformanceError(
+      `${context}: Access-Control-Allow-Headers should include authorization, got ${headers.join(',')}`,
     );
   }
 }

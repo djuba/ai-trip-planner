@@ -1,5 +1,5 @@
 {
-  "contractVersion": "0.5.0",
+  "contractVersion": "0.6.0",
   "minPopulatedFields": 3,
   "maxRequestBodyBytes": 1048576,
   "maxMessageLength": 2000,

@@ -33,7 +33,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-18 | Eval harness + adversarial cases | WU-09 | done |
 | WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | todo |
 | WU-11 | Present stream + `/v1/trip/present` | WU-10 | todo |
-| WU-22 | Invite-code access gate + rate limit | WU-07, WU-20 | todo |
+| WU-22 | Invite-code access gate + rate limit | WU-07, WU-20 | done |
 | WU-12 | Web shell, API client, Pact consumer | WU-04, WU-07, WU-22 | todo |
 | WU-13 | Conversation & clarification UI | WU-09, WU-12 | todo |
 | WU-14 | Streamed presentation cards + a11y | WU-11, WU-13 | todo |
@@ -714,7 +714,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-22 — Invite-code access gate + rate limit
-**Status:** todo · **Depends on:** WU-07, WU-20 · **Commits:**
+**Status:** done · **Depends on:** WU-07, WU-20 · **Commits:** [PR #29](https://github.com/djuba/ai-trip-planner/pull/29)
 
 **Goal:** only people given an invite code can use the trip endpoints, and each code has a rate limit. This is the access control ADR 0005 chooses in place of user accounts. It lands before WU-12, so the web client and its pact include it from the start.
 
@@ -747,6 +747,8 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From WU-21: the deploy workflow already reads three non-credential identifiers from Actions secrets (ADR 0005 addendum). A code with no live value would be a fourth, withheld from every step but the contract check. The hosted service also needs the codes' hashes: an env var in `infra/service.tf`, or a Secret Manager secret that WU-23 needs anyway.
 - Revoking a code means removing it from the secret and redeploying. That's fine for a handful of interviewers.
 - An invite link (`?invite=<code>`) is a web concern (WU-13). A code in a URL can end up in logs, which is acceptable for this threat model; say so in the ADR.
+- Done: see the [plan](plans/WU-22.md), [`access-gate.md`](features/access-gate.md) and the [ADR 0005 addendum](decisions/0005-hosting-and-access.md). Codes are `label:hash` entries (`pnpm invite:new <label>`), with a lifetime quota per endpoint, an hourly window per code and a global daily window; revoked codes stay listed and logged. Contract 0.6.0. Every server is hosted unless `LOCAL_DEV=true`; `ACCESS_GATE=off` is the local no-code switch. Eight deviations, in the plan.
+- Usage: main/Opus 231 req, 215k out; wu-implementer/Sonnet 49 req, 34k out; wu-reviewer/Opus 21 req, 28k out.
 
 ---
 
@@ -777,6 +779,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From WU-06: the `.ts` contract imports work under Turbopack with `transpilePackages`. Set `agentRules: false` in `next.config`, or `next dev` writes an `AGENTS.md` when it detects a coding agent. Treat a 413 (`PAYLOAD_TOO_LARGE`) as "message too long". See the [plan](plans/WU-06.md).
 - From WU-07: the Pact consumer writes `contracts/pacts/web-nextjs-vacation-api.json` for provider `vacation-api`. `tests/contract/pact-verify.test.ts` picks it up with no change, and its skip goes away. On Windows, Pact needs the Visual C++ runtime (README Prerequisites).
 - From deployment planning: the API client sends `Authorization: Bearer <invite code>` (WU-22) and maps 401 and 429 to typed errors. Include the header in the pact interactions.
+- From WU-22: the pact verifier sets `Authorization` through `requestFilter`, which replaces any header a pact records. The first gated interaction must check that. Ask for an invite code only after a 401, never up front: with `ACCESS_GATE=off` locally no 401 comes. Map 429 `RATE_LIMITED` (with `Retry-After`) and 429 `QUOTA_EXHAUSTED` (none) to different errors. See [`access-gate.md`](features/access-gate.md).
 - From deployment planning: add `apps/web-nextjs/Dockerfile` on the WU-20 pattern. `NEXT_PUBLIC_API_BASE_URL` is a build argument, because Next inlines it at build time. If WU-21 is done, add the web service to `infra/`, point the API's `WEB_ORIGIN` at it, and extend the deploy workflow.
 
 ---
@@ -802,6 +805,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From security planning: set the message input's `maxlength` from WU-17's shared cap constant, and show the remaining length, so an honest user never gets a 422.
 - From WU-17: the cap is `MAX_MESSAGE_LENGTH`, counted in Unicode code points. HTML `maxlength` counts UTF-16 units, so on its own it would stop a message of emoji at half the real limit. Count and show the remaining length with `codePointLength` from `@vp/domain-schema/wire`, and test a message of emoji at the cap. See [ADR 0004](decisions/0004-input-and-output-limits.md) §3.
 - From deployment planning: an invite-code entry state before the conversation, kept for the browser session. An invite link (`?invite=<code>`) fills it in and then removes the code from the address bar. The UI shows 401 ("this code isn't valid") and 429 ("try again in …" from `Retry-After`) as recoverable states, with axe checks.
+- From WU-22: show the code entry only after a 401 (see WU-12's note), and for `QUOTA_EXHAUSTED` say the invite is used up rather than "try again". Never put the owner's own code in an invite link: type it in. Decide whether `pnpm dev` asks for the code, so the recruiter experience can be rehearsed locally (`local-dev-invite`).
 - From WU-09: `clarificationQuestion` is plain text of at most `MAX_CLARIFICATION_QUESTION_LENGTH` (300 code points), and it is model-written. Render it as text, never as HTML or markdown. Show `violations` from `code` + `params`, not from the question. The response's `profile` is the full updated profile, so replace the client's copy with it on every turn ([`extraction.md`](features/extraction.md)).
 
 ---
@@ -893,12 +897,19 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - The checklist passes on the hosted environment.
 - Worst-case monthly spend is bounded by the Anthropic spend limit, which is at most $10, plus about $0 of hosting.
 - No secret exists outside Secret Manager and the Anthropic console.
+- Hosted live mode runs with a persistent usage store (WU-22: a hosted server refuses live mode with the in-memory one).
 
 **Notes:**
 - From deployment planning: review tier `sonnet`; likely one code commit.
 - If WU-21 was skipped, its scope moves here, ahead of everything above.
 - From WU-21 (plan review #5): once the runtime service account can read the API key secret, the deploy identity can reach the key too, by deploying an image that runs as that account. Accept it with the Anthropic spend limit as the bound, or move live deploys to their own identity behind the GitHub Environment this unit already plans. Record the choice in ADR 0005.
 - From WU-21: consider deploying with `--no-traffic --tag candidate`, running the contract check on the tagged URL, then moving traffic, so a failing revision never serves the demo. Pin the traffic block in Terraform's `ignore_changes` if so.
+- From WU-22 (see the [plan](plans/WU-22.md)'s deviations and the ADR 0005 addendum):
+  - **Persistent counts:** a Firestore `UsageStore` behind the existing interface. A hosted server refuses live mode with the memory store, so live can't start without it.
+  - **Final limits:** set from WU-10/WU-11's cost figures; replace `service.tf`'s replay-mode values (1,000,000 / 1000 / 10,000). Prove on the hosted service that a code's quota and hourly window hold across all three endpoints.
+  - **Per-code limits:** set by `pnpm invite:new` flags, stored with the entry, and editable without reissuing the code. A code may have no lifetime quota. The owner's code: no lifetime quota, a per-code hourly window, still counted by the global daily window, optionally an expiry date.
+  - **CI credential:** replace `CONTRACT_INVITE_CODE` with a Google ID token from the deploy identity (OIDC; one IAM role, Service Account OpenID Connect Identity Token Creator). The gate verifies it and maps allowlisted emails to labels with no per-code limits, still counted by the global daily window. Delete the secret afterwards.
+  - **Spend and alerts:** the dedicated Anthropic workspace bounds a leaked code. Add a log-based alert on `revoked` and `quota_exhausted` gate events and on unusual volume for any one label.
 - From WU-21: the model IDs need no change for live mode: the hosted service already runs the CLAUDE.md §8.1 IDs, because the cassettes are keyed on them. Revisit `request_timeout_seconds` with WU-10's latency figure.
 
 ---

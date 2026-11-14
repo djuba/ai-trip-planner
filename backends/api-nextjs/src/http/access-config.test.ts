@@ -1,0 +1,248 @@
+import { describe, expect, it } from 'vitest';
+import { ConfigError } from '../config.ts';
+import { TEST_INVITE_CODE } from '../../tests/support/invite.ts';
+import {
+  DEFAULT_LIMITS,
+  DEV_INVITE_CODE_HASH,
+  TEST_INVITE_CODE_HASH,
+  loadAccessConfig,
+  startupWarnings,
+  type AccessConfig,
+} from './access-config.ts';
+import { hashInviteCode } from './invite-code.ts';
+
+const HASH_A = hashInviteCode('code-a');
+const HASH_B = hashInviteCode('code-b');
+
+function failure(
+  env: Record<string, string | undefined>,
+  mode: 'live' | 'record' | 'replay' | 'mock' = 'replay',
+): ConfigError {
+  try {
+    loadAccessConfig(env, mode);
+  } catch (error) {
+    expect(error).toBeInstanceOf(ConfigError);
+    return error as ConfigError;
+  }
+  throw new Error('expected loadAccessConfig to throw');
+}
+
+describe('loadAccessConfig', () => {
+  it('parses label:hash entries, revoked entries and defaults', () => {
+    expect(
+      loadAccessConfig(
+        { INVITE_CODES: ` alice:${HASH_A} , bob:${HASH_B}`, REVOKED_INVITE_CODES: '' },
+        'replay',
+      ),
+    ).toEqual({
+      gate: 'on',
+      codes: [
+        { label: 'alice', hash: HASH_A },
+        { label: 'bob', hash: HASH_B },
+      ],
+      revoked: [],
+      limits: DEFAULT_LIMITS,
+      usageStore: 'memory',
+    });
+  });
+
+  it('AC-GATE-09: the defaults are 60/3/5 per code for life, 30 per hour, 300 a day in all', () => {
+    expect(DEFAULT_LIMITS).toEqual({
+      quota: { extract: 60, recommend: 3, present: 5 },
+      perHour: 30,
+      globalPerDay: 300,
+    });
+  });
+
+  it('AC-GATE-09: reads every limit variable', () => {
+    const { limits } = loadAccessConfig(
+      {
+        QUOTA_EXTRACT: '7',
+        QUOTA_RECOMMEND: '2',
+        QUOTA_PRESENT: '4',
+        RATE_LIMIT_PER_HOUR: '9',
+        RATE_LIMIT_GLOBAL_PER_DAY: '11',
+      },
+      'mock',
+    );
+    expect(limits).toEqual({
+      quota: { extract: 7, recommend: 2, present: 4 },
+      perHour: 9,
+      globalPerDay: 11,
+    });
+  });
+
+  it.each(['0', '-1', '1.5', 'ten', '1e3', '99999999999999999999'])(
+    'AC-GATE-09: a limit of %j is refused, naming the variable only',
+    (value) => {
+      const error = failure({ RATE_LIMIT_PER_HOUR: value });
+      expect(error.variables).toEqual(['RATE_LIMIT_PER_HOUR']);
+      expect(error.message).not.toContain(value);
+    },
+  );
+
+  it.each([
+    ['no colon', HASH_A],
+    ['an upper-case label', `Alice:${HASH_A}`],
+    ['a long label', `${'a'.repeat(33)}:${HASH_A}`],
+    ['a short hash', 'alice:abc123'],
+    ['an upper-case hash', `alice:${HASH_A.toUpperCase()}`],
+    ['an empty entry', `alice:${HASH_A},,bob:${HASH_B}`],
+  ])('AC-GATE-08: an entry with %s is refused in every mode, without its value', (_, value) => {
+    const error = failure({ INVITE_CODES: value });
+    expect(error.variables).toEqual(['INVITE_CODES']);
+    expect(error.message).not.toContain(HASH_A);
+  });
+
+  it('AC-GATE-08: a malformed revoked entry is refused', () => {
+    expect(failure({ REVOKED_INVITE_CODES: 'nope' }).variables).toEqual(['REVOKED_INVITE_CODES']);
+  });
+
+  it('AC-GATE-08: labels and hashes must be unique across both lists', () => {
+    expect(
+      failure({ INVITE_CODES: `alice:${HASH_A}`, REVOKED_INVITE_CODES: `alice:${HASH_B}` })
+        .variables,
+    ).toEqual(['INVITE_CODES']);
+    expect(failure({ INVITE_CODES: `alice:${HASH_A},bob:${HASH_A}` }).variables).toEqual([
+      'INVITE_CODES',
+    ]);
+  });
+
+  it('AC-GATE-08: replay and mock start with no codes (and refuse every trip request)', () => {
+    expect(loadAccessConfig({}, 'replay').codes).toEqual([]);
+    expect(loadAccessConfig({}, 'mock').codes).toEqual([]);
+  });
+
+  const LOCAL = { LOCAL_DEV: 'true' };
+  const COMMITTED = [
+    ['the dev code', DEV_INVITE_CODE_HASH],
+    ['the test code', TEST_INVITE_CODE_HASH],
+  ] as const;
+
+  it.each(['live', 'record'] as const)(
+    'AC-GATE-08: %s refuses to start without codes, hosted or local',
+    (mode) => {
+      expect(failure(LOCAL, mode).variables).toEqual(['INVITE_CODES']);
+      expect(failure({}, mode).variables).toContain('INVITE_CODES');
+    },
+  );
+
+  it.each(COMMITTED)(
+    'AC-GATE-08: without LOCAL_DEV, %s is refused in every mode, without quoting it',
+    (_, hash) => {
+      const env = { INVITE_CODES: `alice:${HASH_A},x:${hash}` };
+      for (const mode of ['live', 'replay', 'mock'] as const) {
+        const error = failure(env, mode);
+        expect(error.variables, mode).toContain('INVITE_CODES');
+        expect(error.message, mode).not.toContain(hash);
+      }
+    },
+  );
+
+  it('AC-GATE-08: without LOCAL_DEV, live refuses the memory store', () => {
+    const env = { INVITE_CODES: `alice:${HASH_A}` };
+    expect(failure(env, 'live').variables).toEqual(['USAGE_STORE']);
+    expect(loadAccessConfig(env, 'replay').usageStore).toBe('memory');
+  });
+
+  it('AC-GATE-08: without LOCAL_DEV, record is refused', () => {
+    const env = { INVITE_CODES: `alice:${HASH_A}` };
+    expect(failure(env, 'record').variables).toEqual(['LLM_MODE']);
+  });
+
+  it.each(['live', 'record'] as const)(
+    'AC-GATE-08: with LOCAL_DEV=true, %s accepts the committed codes and the memory store',
+    (mode) => {
+      const env = {
+        ...LOCAL,
+        INVITE_CODES: `dev:${DEV_INVITE_CODE_HASH},test:${TEST_INVITE_CODE_HASH}`,
+      };
+      expect(loadAccessConfig(env, mode)).toMatchObject({
+        codes: [{ label: 'dev' }, { label: 'test' }],
+        usageStore: 'memory',
+      });
+    },
+  );
+
+  it('AC-GATE-08: LOCAL_DEV takes only true or false, and is refused on Cloud Run', () => {
+    expect(failure({ LOCAL_DEV: 'yes' }).variables).toEqual(['LOCAL_DEV']);
+    expect(failure({ ...LOCAL, K_SERVICE: 'api' }).variables).toEqual(['LOCAL_DEV']);
+    expect(loadAccessConfig({ LOCAL_DEV: 'false', K_SERVICE: 'api' }, 'replay').gate).toBe('on');
+  });
+
+  it('AC-GATE-19: ACCESS_GATE=off needs no codes, even in live mode with the memory store', () => {
+    expect(loadAccessConfig({ ...LOCAL, ACCESS_GATE: 'off' }, 'live')).toMatchObject({
+      gate: 'off',
+      codes: [],
+      usageStore: 'memory',
+    });
+  });
+
+  it('AC-GATE-19: ACCESS_GATE=off is refused without LOCAL_DEV=true', () => {
+    expect(failure({ ACCESS_GATE: 'off' }).variables).toEqual(['ACCESS_GATE']);
+    expect(failure({ ...LOCAL, ACCESS_GATE: 'off', K_SERVICE: 'api' }).variables).toEqual([
+      'LOCAL_DEV',
+    ]);
+  });
+
+  it('AC-GATE-19: ACCESS_GATE takes only on or off, and defaults to on', () => {
+    expect(failure({ ACCESS_GATE: 'false' }).variables).toEqual(['ACCESS_GATE']);
+    expect(loadAccessConfig({}, 'replay').gate).toBe('on');
+  });
+
+  it('AC-GATE-19: ACCESS_GATE=off still refuses malformed entries', () => {
+    expect(failure({ ...LOCAL, ACCESS_GATE: 'off', INVITE_CODES: 'nope' }).variables).toEqual([
+      'INVITE_CODES',
+    ]);
+  });
+
+  it('refuses an unknown usage store', () => {
+    expect(failure({ USAGE_STORE: 'redis' }).variables).toEqual(['USAGE_STORE']);
+  });
+
+  it('the committed hashes are the real hashes of the committed codes', () => {
+    expect(hashInviteCode('local-dev-invite')).toBe(DEV_INVITE_CODE_HASH);
+    expect(hashInviteCode(TEST_INVITE_CODE)).toBe(TEST_INVITE_CODE_HASH);
+  });
+});
+
+describe('startupWarnings', () => {
+  const config = (overrides: Partial<AccessConfig> = {}): AccessConfig => ({
+    gate: 'on',
+    codes: [{ label: 'alice', hash: HASH_A }],
+    revoked: [],
+    limits: DEFAULT_LIMITS,
+    usageStore: 'memory',
+    ...overrides,
+  });
+  const dev = { label: 'dev', hash: DEV_INVITE_CODE_HASH };
+
+  it('AC-GATE-19: the gate off is one warning that nothing caps spend', () => {
+    expect(startupWarnings(config({ gate: 'off', codes: [dev] }), 'live')).toEqual([
+      expect.stringContaining('ACCESS_GATE=off'),
+    ]);
+  });
+
+  it('AC-GATE-08: no codes warns that every trip request is refused', () => {
+    expect(startupWarnings(config({ codes: [] }), 'replay')).toEqual([
+      expect.stringContaining('401'),
+    ]);
+  });
+
+  it('AC-GATE-08: locally, live warns about a committed code and the memory store, without quoting', () => {
+    const warnings = startupWarnings(config({ codes: [dev] }), 'live');
+    expect(warnings).toEqual([
+      expect.stringContaining('committed to the repository'),
+      expect.stringContaining('USAGE_STORE is memory'),
+    ]);
+    expect(warnings.join(' ')).not.toContain(DEV_INVITE_CODE_HASH);
+    expect(startupWarnings(config(), 'record')).toEqual([
+      expect.stringContaining('USAGE_STORE is memory'),
+    ]);
+  });
+
+  it('replay and mock spend nothing, so they have nothing to warn about', () => {
+    expect(startupWarnings(config({ codes: [dev] }), 'replay')).toEqual([]);
+    expect(startupWarnings(config({ codes: [dev] }), 'mock')).toEqual([]);
+  });
+});

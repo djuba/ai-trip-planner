@@ -4,11 +4,11 @@ import { checkPreflight, checkResponsesCarryCors } from './checks/cors.ts';
 import { HEALTH_PATH, POST_ENDPOINTS } from './checks/requests.ts';
 
 describe('preflight', () => {
-  it(`AC-CONTRACT-07: ${HEALTH_PATH} allows GET and content-type for the web origin`, () =>
+  it(`AC-CONTRACT-07: ${HEALTH_PATH} allows GET, content-type and authorization for the web origin`, () =>
     checkPreflight(targetUrl(), HEALTH_PATH, 'GET', webOrigin()));
 
   it.each(POST_ENDPOINTS)(
-    'AC-CONTRACT-07: $path allows POST and content-type for the web origin',
+    'AC-CONTRACT-07: $path allows POST, content-type and authorization for the web origin',
     ({ path }) => checkPreflight(targetUrl(), path, 'POST', webOrigin()),
   );
 });

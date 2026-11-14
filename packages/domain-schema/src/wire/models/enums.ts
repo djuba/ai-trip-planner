@@ -40,10 +40,13 @@ export const RuleCode = z.enum([
 export type RuleCode = z.infer<typeof RuleCode>;
 
 /**
- * Error envelope codes (§5): 413 → PAYLOAD_TOO_LARGE; 422 → VALIDATION_FAILED; 502 → LLM_*;
- * 500 → INTERNAL_ERROR.
+ * Error envelope codes (§5): 401 → UNAUTHORIZED; 429 → RATE_LIMITED or QUOTA_EXHAUSTED;
+ * 413 → PAYLOAD_TOO_LARGE; 422 → VALIDATION_FAILED; 502 → LLM_*; 500 → INTERNAL_ERROR.
  */
 export const ErrorCode = z.enum([
+  'UNAUTHORIZED',
+  'RATE_LIMITED',
+  'QUOTA_EXHAUSTED',
   'PAYLOAD_TOO_LARGE',
   'VALIDATION_FAILED',
   'LLM_REFUSAL',

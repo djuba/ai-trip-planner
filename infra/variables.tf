@@ -63,3 +63,35 @@ variable "budget_amount_usd" {
   type        = number
   default     = 5
 }
+
+# Invite codes (WU-22; ADR 0005 §5 and its WU-22 addendum). Each entry is `label:hash`, from
+# `pnpm invite:new <label>`: the service never holds a code, only its SHA-256. Labels name the
+# holders, so the values are kept out of plan output. Set them in terraform.tfvars (git-ignored).
+variable "invite_codes" {
+  description = "Active invite code entries (label:hash). Must include the CI code that the post-deploy contract check sends (infra/README.md)."
+  type        = list(string)
+  sensitive   = true
+
+  validation {
+    condition     = alltrue([for entry in var.invite_codes : can(regex("^[a-z0-9-]{1,32}:[0-9a-f]{64}$", entry))])
+    error_message = "Each entry must be label:hash (label [a-z0-9-]{1,32}, hash 64 lowercase hex); make one with pnpm invite:new <label>."
+  }
+
+  # The hashes of local-dev-invite and the tests' code (backends/api-nextjs/src/http/access-config.ts):
+  # anyone with the repository knows them. The server refuses them on Cloud Run too; this catches
+  # the mistake at plan time (WU-22 deviation 7).
+  validation {
+    condition = alltrue([for entry in var.invite_codes : !contains([
+      "ef0876a0698d41ecf40c3fab1c80b26e141b656ebb0162d1f53df242b96f3f26",
+      "9f6182f7f4e46cf3b6783072e59f271824b518a9310252430adac0c40863641f",
+    ], element(split(":", entry), 1))])
+    error_message = "An entry uses a code committed to the repository (the .env.example dev code or the tests' code)."
+  }
+}
+
+variable "revoked_invite_codes" {
+  description = "Revoked invite code entries (label:hash). Still refused, but logged as revoked, so attempts after revocation are visible."
+  type        = list(string)
+  sensitive   = true
+  default     = []
+}

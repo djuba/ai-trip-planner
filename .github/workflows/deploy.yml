@@ -1,8 +1,9 @@
 # Deploys the API to the hosted environment on every merge to main, then runs the provider contract
-# tests against it (WU-21; ADR 0005). It authenticates through GitHub OIDC and Workload Identity
-# Federation: no stored key, no secret. Only this file, run from main, passes the identity
-# provider's condition (infra/deploy-identity.tf). The deploy changes only the running image;
-# everything else about the service is Terraform's (infra/service.tf).
+# tests against it (WU-21; ADR 0005), sending the CI invite code (WU-22). It authenticates
+# through GitHub OIDC and Workload Identity Federation: no stored key, no cloud credential. Only
+# this file, run from main, passes the identity provider's condition (infra/deploy-identity.tf).
+# The deploy changes only the running image; everything else about the service is Terraform's
+# (infra/service.tf).
 #
 # The repository is public, so its Actions logs are too. The service URL and the environment's
 # identifiers aren't credentials, but they aren't advertised. So the three identifiers are Actions
@@ -101,9 +102,16 @@ jobs:
         run: gcloud run services update "$SERVICE" --region "$REGION" --image "$IMAGE_REF" --quiet
 
       # The contract suite runs with no cloud credential reachable: the credential file variables,
-      # gcloud's config and the OIDC token request variables are all withheld.
+      # gcloud's config and the OIDC token request variables are all withheld. The CI invite code
+      # (WU-22 plan D9) reaches this step only, and is checked here rather than in an earlier step.
       - name: Provider contract tests against the service
+        env:
+          CONTRACT_INVITE_CODE: ${{ secrets.CONTRACT_INVITE_CODE }}
         run: |
+          if [ -z "$CONTRACT_INVITE_CODE" ]; then
+            echo "::error::Set the CONTRACT_INVITE_CODE repository secret, and its entry in the service's invite_codes (infra/README.md)."
+            exit 1
+          fi
           env -u GOOGLE_APPLICATION_CREDENTIALS -u CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE \
             -u GOOGLE_GHA_CREDS_PATH -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN \
             CLOUDSDK_CONFIG="$(mktemp -d)" pnpm test:contract:external

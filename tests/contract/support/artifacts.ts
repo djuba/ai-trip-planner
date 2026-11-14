@@ -73,3 +73,18 @@ export const targetUrl = (): string =>
 
 /** The origin the backend under test allows (CLAUDE.md §5 default). */
 export const webOrigin = (): string => process.env.WEB_ORIGIN ?? 'http://localhost:3000';
+
+/**
+ * The invite code the backend under test accepts (WU-22). The runner sets CONTRACT_INVITE_CODE;
+ * for `test:contract:external` the caller supplies it.
+ */
+export function inviteCode(): string {
+  const code = process.env.CONTRACT_INVITE_CODE?.trim();
+  if (!code) {
+    throw new Error(
+      'CONTRACT_INVITE_CODE is not set. The backend gates every trip endpoint behind an invite ' +
+        'code, so the contract suite needs a valid one to send (see docs/features/access-gate.md).',
+    );
+  }
+  return code;
+}

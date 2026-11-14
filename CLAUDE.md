@@ -65,7 +65,8 @@ ai-trip-planner/
 | Unit tests | `pnpm test:unit` |
 | Integration tests | `pnpm test:integration` |
 | Functional tests | `pnpm test:functional` |
-| Contract tests (consumer + provider) | `pnpm test:contract` (builds and starts its own api-nextjs); `pnpm test:contract:external` tests the backend at `API_BASE_URL` instead |
+| Contract tests (consumer + provider) | `pnpm test:contract` (builds and starts its own api-nextjs); `pnpm test:contract:external` tests the backend at `API_BASE_URL` instead, sending the invite code in `CONTRACT_INVITE_CODE` (its limits must allow a full run) |
+| Make an invite code (prints the code and its `label:hash` entry) | `pnpm invite:new <label>` (see `infra/README.md`) |
 | API image: build, check, contract tests (needs Docker) | `pnpm test:image` |
 | Hosted environment: plan / apply (needs Terraform + gcloud; never from CI) | in `infra/`: `terraform plan -out=tfplan` / `terraform apply tfplan` (see `infra/README.md`) |
 | LLM evals (live, costs money, never gated; §6.8) | `pnpm eval --budget <usd>` (see `docs/features/eval.md`) |
@@ -148,9 +149,11 @@ A top-level field counts as populated when it is: a non-empty trimmed string (tr
 
 ## 5. HTTP API (v1)
 
-Base path `/v1`. JSON only. CORS allows `WEB_ORIGIN` (default `http://localhost:3000`). The frontend reads `NEXT_PUBLIC_API_BASE_URL` and nothing else to locate the backend.
+Base path `/v1`. JSON only. CORS allows `WEB_ORIGIN` (default `http://localhost:3000`) and the `Authorization` request header, and exposes `Retry-After`. The frontend reads `NEXT_PUBLIC_API_BASE_URL` and nothing else to locate the backend.
 
-**The server is stateless.** The client keeps the conversation state and sends the current profile with every turn.
+**The server is stateless.** The client keeps the conversation state and sends the current profile with every turn. The one exception is the access gate's usage counters, which hold no conversation data.
+
+**Access gate** ([ADR 0005 §5](docs/decisions/0005-hosting-and-access.md), [`access-gate.md`](docs/features/access-gate.md)): every trip endpoint requires `Authorization: Bearer <invite code>`; `GET /v1/health` and CORS preflights are open. Each code has a lifetime quota per endpoint and an hourly window, and all codes share a daily window. The server holds only each code's SHA-256 hash, under a label that names its holder.
 
 | Endpoint | Request | Response |
 |---|---|---|
@@ -165,7 +168,7 @@ ExtractResponse =
   | { status: 'ready',               profile: TripProfile }
 ```
 
-Status codes: `200` = handled (including `needs_clarification`); `413` = request body over `MAX_REQUEST_BODY_BYTES` (a shared contract constant, code `PAYLOAD_TOO_LARGE`); `422` = request body fails the contract; `502` = upstream LLM failure or refusal; `500` = bug. Error body: `{ error: { code, message } }`.
+Status codes: `200` = handled (including `needs_clarification`); `401` = invite code missing, malformed, unknown or revoked (code `UNAUTHORIZED`, with `WWW-Authenticate: Bearer`); `429` = a window is full (`RATE_LIMITED`, with `Retry-After`) or the code's quota for that endpoint is spent (`QUOTA_EXHAUSTED`, no `Retry-After`); `413` = request body over `MAX_REQUEST_BODY_BYTES` (a shared contract constant, code `PAYLOAD_TOO_LARGE`); `422` = request body fails the contract; `502` = upstream LLM failure or refusal; `500` = bug. Error body: `{ error: { code, message } }`.
 
 **Streaming wire format:** `/present` streams raw JSON text that, when complete, parses as `PresentationModel`. This is what `useObject` consumes, and any language can produce it. Do not use AI-SDK-specific data-stream framing on this endpoint; that would tie the client to a TS backend. The client must treat every streamed field as possibly `undefined` until the stream finishes, then run a final `safeParse`.
 
@@ -353,7 +356,7 @@ Every work unit runs through **`/start-wu WU-xx`** (`.claude/skills/start-wu/SKI
 4. **Build, then commit in slices.** Once the plan is approved, the main agent builds the whole unit without stopping, leaving it uncommitted, and runs `pnpm verify` itself. It then chooses the commit boundaries, using the plan's expected commits as a guide: each file lands in exactly one commit, tests go with their behaviour, and generated files, cassettes and pacts go with the change that caused them (§10). The plan commit is the first commit, and the close commit is the last. Only the branch tip is verified (`pnpm verify`, `pre-push`, CI), not each commit on its own. Problems in an already approved commit are fixed forward with a new commit, never by rewriting it.
 4a. **Independent reviews; the user decides.** A read-only `wu-reviewer` subagent (`.claude/agents/wu-reviewer.md`) reviews the draft plan before the user sees it, and the whole unit once after the build. Each review runs **once**. The main agent triages every concern (agree / partly / disagree, with a recommendation), assigns each to the commit it concerns, and acts only on what the user chooses. It never runs review → fix → review loops on its own. The plan sets a **review tier**: Sonnet by default; Opus only for units where a missed flaw would spread (WU-04, WU-05, WU-08, or any change to the contract, rule catalog or `LlmClient` interface); or skip for trivial units, which skips only the plan review. The unit review always runs (on Sonnet when the tier is skip). The user can override the tier.
 5. **Review one commit at a time.** For each commit in turn, the main agent stages only that commit's files, so the user can review it in VS Code's Source Control view. It presents a summary, the triaged review findings for that commit only, a file list and the proposed commit message (no full diff unless asked), then **stops**. The first stop also gives the verification result and a summary of the whole unit.
-6. **Commit only on explicit approval** of those changes. `.claude/settings.json` also makes every `git commit` prompt for permission. Approval for one commit does not carry over to the next, or to any other change.
+6. **Commit only on explicit approval** of those changes, given in chat. There is no separate permission prompt for `git commit`: it only asked the user twice for the same commit (WU-22). Approval for one commit does not carry over to the next, or to any other change.
 7. **Material deviation from an approved plan** means pausing and telling the user before continuing; it is the only reason to stop mid-build. Every deviation, material or not, is recorded in the plan's `Deviations during implementation` section. Findings that affect later units become proposed Notes on those units in `docs/work-breakdown.md`, approved with the close commit. Other units' scope is never rewritten.
 7a. **Usage is tracked per unit.** At close, `node .claude/scripts/wu-usage.mjs WU-xx` totals token usage from local Claude Code transcripts (it spends no tokens), and a one-line summary goes in the unit's Notes. Attribution is by branch, so concurrent sessions must use separate worktrees.
 8. **One branch and one PR per unit.** The unit starts on `wu/WU-xx-<slug>` cut from an up-to-date `main`. Once the plan commit lands, the main agent pushes the branch and opens a **draft** PR; the approved commits are pushed together after the walk-through (the `pre-push` hook runs `pnpm verify`, or only a format check for a push of only Markdown outside `spec/`), and the PR is marked ready after the close commit. **The user merges it**, as a merge commit with semi-linear history (§10). A unit counts as `done` only once its PR is merged to `main`.

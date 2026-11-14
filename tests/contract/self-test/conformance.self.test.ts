@@ -1,6 +1,11 @@
 // AC-CONTRACT-09: the conformance checks, run against a fake backend. This proves the suite itself
 // fails on a single non-conformant field and passes on valid variations (plan D5-D7).
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  checkHealthOpen,
+  checkMissingCode,
+  checkUnknownCode,
+} from '../conformance/checks/access.ts';
 import { checkPreflight, checkResponsesCarryCors } from '../conformance/checks/cors.ts';
 import {
   checkMalformedJson,
@@ -11,6 +16,7 @@ import { checkMessageCap, checkProfileCaps } from '../conformance/checks/limits.
 import { checkHealth } from '../conformance/checks/health.ts';
 import { checkPresentStream } from '../conformance/checks/present.ts';
 import {
+  confirmExtractRequest,
   EXTRACT_PATH,
   HEALTH_PATH,
   POST_ENDPOINTS,
@@ -23,7 +29,8 @@ import {
   checkExtractRouting,
   checkRecommendResponse,
 } from '../conformance/checks/responses.ts';
-import { loadConstants } from '../support/artifacts.ts';
+import { inviteCode, loadConstants } from '../support/artifacts.ts';
+import { postJson } from '../support/http.ts';
 import { ConformanceError } from '../support/schemas.ts';
 import {
   errorBody,
@@ -37,6 +44,12 @@ import {
 
 const ORIGIN = 'http://localhost:3000';
 
+// The checks send this code and the fake accepts it, so the two agree.
+beforeAll(() => {
+  vi.stubEnv('CONTRACT_INVITE_CODE', 'self-test-invite-code');
+  return () => vi.unstubAllEnvs();
+});
+
 type Check = (url: string) => Promise<void>;
 
 /** Every check the suite runs, by name. */
@@ -48,15 +61,21 @@ const ALL_CHECKS: Record<string, Check> = {
   present: checkPresentStream,
   responsesCarryCors: (url) => checkResponsesCarryCors(url, ORIGIN),
   messageCap: checkMessageCap,
+  healthOpen: checkHealthOpen,
   healthPreflight: (url) => checkPreflight(url, HEALTH_PATH, 'GET', ORIGIN),
   ...Object.fromEntries(
-    POST_ENDPOINTS.flatMap(({ path }) => [
-      [`malformed ${path}`, (url: string) => checkMalformedJson(url, path)] as const,
-      [`schema ${path}`, (url: string) => checkSchemaFailure(url, path)] as const,
-      [`413 ${path}`, (url: string) => checkPayloadTooLarge(url, path)] as const,
-      [`preflight ${path}`, (url: string) => checkPreflight(url, path, 'POST', ORIGIN)] as const,
-      [`profile caps ${path}`, (url: string) => checkProfileCaps(url, path)] as const,
-    ]),
+    POST_ENDPOINTS.flatMap((endpoint) => {
+      const { path } = endpoint;
+      return [
+        [`malformed ${path}`, (url: string) => checkMalformedJson(url, path)] as const,
+        [`schema ${path}`, (url: string) => checkSchemaFailure(url, path)] as const,
+        [`413 ${path}`, (url: string) => checkPayloadTooLarge(url, path)] as const,
+        [`preflight ${path}`, (url: string) => checkPreflight(url, path, 'POST', ORIGIN)] as const,
+        [`missing code ${path}`, (url: string) => checkMissingCode(url, endpoint, ORIGIN)] as const,
+        [`unknown code ${path}`, (url: string) => checkUnknownCode(url, endpoint, ORIGIN)] as const,
+        [`profile caps ${path}`, (url: string) => checkProfileCaps(url, path)] as const,
+      ];
+    }),
   ),
 };
 
@@ -182,6 +201,65 @@ describe('AC-CONTRACT-09: a single non-conformant response fails the matching ch
     await expect(checkPreflight(url, EXTRACT_PATH, 'POST', ORIGIN)).rejects.toThrow(
       ConformanceError,
     );
+  });
+});
+
+describe('AC-GATE-12: the access checks fail a backend that gates wrongly', () => {
+  const [extract] = POST_ENDPOINTS;
+  if (!extract) throw new Error('no endpoints');
+  const isTripPost = (r: FakeRequest) => r.method === 'POST' && r.path === EXTRACT_PATH;
+
+  it('AC-GATE-12: a backend that does not gate fails checkMissingCode and checkUnknownCode', async () => {
+    const url = await fake({ hook: replace(isTripPost, (d) => okFor(EXTRACT_PATH, d)) });
+    await expect(checkMissingCode(url, extract, ORIGIN)).rejects.toThrow(/expected 401, got 200/);
+    await expect(checkUnknownCode(url, extract, ORIGIN)).rejects.toThrow(/expected 401, got 200/);
+  });
+
+  it('AC-GATE-12: a backend that gates health fails checkHealthOpen', async () => {
+    const url = await fake({
+      hook: replace(
+        (r) => r.path === HEALTH_PATH && !r.authorization,
+        (d) => errorResponse(d, 401, 'UNAUTHORIZED'),
+      ),
+    });
+    await expect(checkHealthOpen(url)).rejects.toThrow(/expected 200, got 401/);
+  });
+
+  it('AC-GATE-12: a preflight that omits authorization fails checkPreflight', async () => {
+    const url = await fake({
+      hook: replace(
+        (r) => r.method === 'OPTIONS',
+        (d) => ({
+          ...d,
+          headers: { ...d.headers, 'access-control-allow-headers': 'content-type' },
+        }),
+      ),
+    });
+    await expect(checkPreflight(url, EXTRACT_PATH, 'POST', ORIGIN)).rejects.toThrow(
+      /should include authorization/,
+    );
+  });
+
+  it('AC-GATE-12: a 401 without WWW-Authenticate fails checkMissingCode', async () => {
+    const url = await fake({
+      hook: replace(
+        (r) => isTripPost(r) && !r.authorization,
+        (d) => {
+          const headers = { ...d.headers };
+          delete headers['www-authenticate'];
+          return { ...d, headers };
+        },
+      ),
+    });
+    await expect(checkMissingCode(url, extract, ORIGIN)).rejects.toThrow(/WWW-Authenticate/);
+  });
+
+  it('AC-GATE-12: a lower-case bearer scheme is accepted by the conformant fake', async () => {
+    const url = await fake();
+    const res = await postJson(url, EXTRACT_PATH, confirmExtractRequest(), ORIGIN, {
+      authorization: `bearer ${inviteCode()}`,
+    });
+    expect(res.status).toBe(200);
   });
 });
 
