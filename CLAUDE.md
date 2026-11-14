@@ -65,7 +65,8 @@ ai-trip-planner/
 | Unit tests | `pnpm test:unit` |
 | Integration tests | `pnpm test:integration` |
 | Functional tests | `pnpm test:functional` |
-| Contract tests (consumer + provider) | `pnpm test:contract` (builds and starts its own api-nextjs); `pnpm test:contract:external` tests the backend at `API_BASE_URL` instead |
+| Contract tests (consumer + provider) | `pnpm test:contract` (builds and starts its own api-nextjs); `pnpm test:contract:external` tests the backend at `API_BASE_URL` instead, sending the invite code in `CONTRACT_INVITE_CODE` (its limits must allow a full run) |
+| Make an invite code (prints the code and its `label:hash` entry) | `pnpm invite:new <label>` (see `infra/README.md`) |
 | API image: build, check, contract tests (needs Docker) | `pnpm test:image` |
 | Hosted environment: plan / apply (needs Terraform + gcloud; never from CI) | in `infra/`: `terraform plan -out=tfplan` / `terraform apply tfplan` (see `infra/README.md`) |
 | LLM evals (live, costs money, never gated; §6.8) | `pnpm eval --budget <usd>` (see `docs/features/eval.md`) |
@@ -148,9 +149,11 @@ A top-level field counts as populated when it is: a non-empty trimmed string (tr
 
 ## 5. HTTP API (v1)
 
-Base path `/v1`. JSON only. CORS allows `WEB_ORIGIN` (default `http://localhost:3000`). The frontend reads `NEXT_PUBLIC_API_BASE_URL` and nothing else to locate the backend.
+Base path `/v1`. JSON only. CORS allows `WEB_ORIGIN` (default `http://localhost:3000`) and the `Authorization` request header, and exposes `Retry-After`. The frontend reads `NEXT_PUBLIC_API_BASE_URL` and nothing else to locate the backend.
 
-**The server is stateless.** The client keeps the conversation state and sends the current profile with every turn.
+**The server is stateless.** The client keeps the conversation state and sends the current profile with every turn. The one exception is the access gate's usage counters, which hold no conversation data.
+
+**Access gate** ([ADR 0005 §5](docs/decisions/0005-hosting-and-access.md), [`access-gate.md`](docs/features/access-gate.md)): every trip endpoint requires `Authorization: Bearer <invite code>`; `GET /v1/health` and CORS preflights are open. Each code has a lifetime quota per endpoint and an hourly window, and all codes share a daily window. The server holds only each code's SHA-256 hash, under a label that names its holder.
 
 | Endpoint | Request | Response |
 |---|---|---|
@@ -165,7 +168,7 @@ ExtractResponse =
   | { status: 'ready',               profile: TripProfile }
 ```
 
-Status codes: `200` = handled (including `needs_clarification`); `413` = request body over `MAX_REQUEST_BODY_BYTES` (a shared contract constant, code `PAYLOAD_TOO_LARGE`); `422` = request body fails the contract; `502` = upstream LLM failure or refusal; `500` = bug. Error body: `{ error: { code, message } }`.
+Status codes: `200` = handled (including `needs_clarification`); `401` = invite code missing, malformed, unknown or revoked (code `UNAUTHORIZED`, with `WWW-Authenticate: Bearer`); `429` = a window is full (`RATE_LIMITED`, with `Retry-After`) or the code's quota for that endpoint is spent (`QUOTA_EXHAUSTED`, no `Retry-After`); `413` = request body over `MAX_REQUEST_BODY_BYTES` (a shared contract constant, code `PAYLOAD_TOO_LARGE`); `422` = request body fails the contract; `502` = upstream LLM failure or refusal; `500` = bug. Error body: `{ error: { code, message } }`.
 
 **Streaming wire format:** `/present` streams raw JSON text that, when complete, parses as `PresentationModel`. This is what `useObject` consumes, and any language can produce it. Do not use AI-SDK-specific data-stream framing on this endpoint; that would tie the client to a TS backend. The client must treat every streamed field as possibly `undefined` until the stream finishes, then run a final `safeParse`.
 

@@ -2,7 +2,7 @@
 openapi: 3.1.1
 info:
   title: AI Trip Planner API
-  version: 0.5.0
+  version: 0.6.0
   description: "Language-neutral HTTP contract. Generated from packages/domain-schema/src/wire; do not edit by hand. Business rules (rules.md) are not expressed here: a rule violation is a 200 `needs_clarification`, not a 422."
 servers:
   - url: http://localhost:4000
@@ -11,6 +11,8 @@ paths:
   /v1/trip/extract:
     post:
       operationId: extractTrip
+      security:
+        - inviteCode: []
       summary: Turn a message into an updated trip profile
       requestBody:
         required: true
@@ -26,10 +28,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ExtractResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "413":
           $ref: "#/components/responses/PayloadTooLarge"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
         "502":
@@ -37,6 +43,8 @@ paths:
   /v1/trip/recommend:
     post:
       operationId: recommendTrips
+      security:
+        - inviteCode: []
       summary: Recommend destinations for a ready profile (critic applied)
       requestBody:
         required: true
@@ -52,10 +60,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RecommendResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "413":
           $ref: "#/components/responses/PayloadTooLarge"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
         "502":
@@ -63,6 +75,8 @@ paths:
   /v1/trip/present:
     post:
       operationId: presentTrips
+      security:
+        - inviteCode: []
       summary: Stream presentation copy for recommendations
       requestBody:
         required: true
@@ -80,10 +94,14 @@ paths:
                 type: string
               x-final-schema:
                 $ref: "#/components/schemas/PresentationModel"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "413":
           $ref: "#/components/responses/PayloadTooLarge"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
         "502":
@@ -91,6 +109,7 @@ paths:
   /v1/health:
     get:
       operationId: health
+      security: []
       summary: Liveness and contract version
       responses:
         "200":
@@ -149,6 +168,9 @@ components:
     ErrorCode:
       type: string
       enum:
+        - UNAUTHORIZED
+        - RATE_LIMITED
+        - QUOTA_EXHAUSTED
         - PAYLOAD_TOO_LARGE
         - VALIDATION_FAILED
         - LLM_REFUSAL
@@ -671,7 +693,37 @@ components:
             - message
       required:
         - error
+  securitySchemes:
+    inviteCode:
+      type: http
+      scheme: bearer
+      description: "A per-recipient invite code: `Authorization: Bearer <code>`. The scheme name is case-insensitive. Required on the trip endpoints; health and CORS preflights are open."
   responses:
+    Unauthorized:
+      description: Invite code missing, malformed, unknown or revoked (UNAUTHORIZED). The response does not say which.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+      headers:
+        WWW-Authenticate:
+          description: Names the Bearer scheme (RFC 6750).
+          required: true
+          schema:
+            type: string
+    TooManyRequests:
+      description: "RATE_LIMITED: a per-code or global window is full; retry after Retry-After. QUOTA_EXHAUSTED: the code has used its lifetime allowance for this endpoint; retrying will not help, and there is no Retry-After."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+      headers:
+        Retry-After:
+          description: Whole seconds until the window resets. Sent with RATE_LIMITED only.
+          required: false
+          schema:
+            type: integer
+            minimum: 1
     PayloadTooLarge:
       description: Request body over 1048576 bytes (PAYLOAD_TOO_LARGE)
       content:

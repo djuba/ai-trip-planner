@@ -97,6 +97,41 @@ describe('OpenAPI document', () => {
     expect(JSON.stringify(paths['/v1/health'])).not.toContain('413');
   });
 
+  it('AC-GATE-11: the trip POSTs need the bearer invite code; health is open', () => {
+    type Operation = { security?: unknown; responses: Record<string, unknown> };
+    const paths = doc.paths as Record<string, { post?: Operation; get?: Operation }>;
+    const { securitySchemes, responses } = doc.components as {
+      securitySchemes: Record<string, unknown>;
+      responses: Record<string, { headers?: Record<string, { required?: boolean }> }>;
+    };
+    expect(Object.keys(securitySchemes)).toEqual(['inviteCode']);
+    expect(securitySchemes.inviteCode).toMatchObject({ type: 'http', scheme: 'bearer' });
+    expect(doc).not.toHaveProperty('security');
+    for (const path of ['/v1/trip/extract', '/v1/trip/recommend', '/v1/trip/present']) {
+      const post = paths[path]?.post;
+      expect(post?.security, path).toEqual([{ inviteCode: [] }]);
+      expect(post?.responses['401'], path).toEqual({ $ref: '#/components/responses/Unauthorized' });
+      expect(post?.responses['429'], path).toEqual({
+        $ref: '#/components/responses/TooManyRequests',
+      });
+    }
+    const health = paths['/v1/health']?.get;
+    expect(health?.security).toEqual([]);
+    expect(health?.responses).not.toHaveProperty('401');
+    expect(health?.responses).not.toHaveProperty('429');
+    expect(responses.Unauthorized?.headers?.['WWW-Authenticate']?.required).toBe(true);
+    // Sent with RATE_LIMITED, not with QUOTA_EXHAUSTED (plan D11).
+    expect(responses.TooManyRequests?.headers?.['Retry-After']?.required).toBe(false);
+  });
+
+  it('AC-GATE-11: the error codes include the gate’s three, and the contract is 0.6.0', () => {
+    const { schemas } = doc.components as { schemas: Record<string, { enum?: string[] }> };
+    expect(schemas.ErrorCode?.enum).toEqual(
+      expect.arrayContaining(['UNAUTHORIZED', 'RATE_LIMITED', 'QUOTA_EXHAUSTED']),
+    );
+    expect(CONTRACT_VERSION).toBe('0.6.0');
+  });
+
   it('leaves LLM-only schemas out of components but keeps their JSON Schema files', () => {
     const { schemas } = doc.components as { schemas: Record<string, unknown> };
     for (const id of LLM_ONLY_IDS) {

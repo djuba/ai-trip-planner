@@ -1,7 +1,7 @@
 // Shared constants (CLAUDE.md §4.7), also written to spec/generated/constants.json for any client.
 
 /** Semantic version of the HTTP contract, reported by `GET /v1/health`. */
-export const CONTRACT_VERSION = '0.5.0';
+export const CONTRACT_VERSION = '0.6.0';
 
 /** A profile with fewer populated fields than this yields INSUFFICIENT_DETAIL (§4.7). */
 export const MIN_POPULATED_FIELDS = 3;
