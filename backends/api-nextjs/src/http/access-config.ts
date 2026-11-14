@@ -25,13 +25,13 @@ export type TripEndpoint = keyof Limits['quota'];
 export interface AccessConfig {
   /**
    * `off` lets every trip request through, with no code and no limits: for a local demo only
-   * (WU-22 deviation 5). Refused on Cloud Run, which always sets K_SERVICE.
+   * (WU-22 deviation 5). Refused unless LOCAL_DEV=true (deviation 7).
    */
   gate: 'on' | 'off';
   codes: InviteEntry[];
   revoked: InviteEntry[];
   limits: Limits;
-  /** Only `memory` exists so far; a persistent store arrives with live mode (WU-23). */
+  /** Only `memory` exists so far; a persistent store arrives with hosted live mode (WU-23). */
   usageStore: 'memory';
 }
 
@@ -41,7 +41,7 @@ export const DEV_INVITE_CODE_HASH =
 /** SHA-256 of `TEST_INVITE_CODE` (tests/support/invite.ts). */
 export const TEST_INVITE_CODE_HASH =
   '9f6182f7f4e46cf3b6783072e59f271824b518a9310252430adac0c40863641f';
-/** Anyone with the repository knows these codes, so a service that spends money refuses them. */
+/** Anyone with the repository knows these codes, so only a LOCAL_DEV server accepts them. */
 const COMMITTED_HASHES: ReadonlySet<string> = new Set([
   DEV_INVITE_CODE_HASH,
   TEST_INVITE_CODE_HASH,
@@ -149,60 +149,77 @@ export function loadAccessConfig(env: Env, llmMode: Config['llmMode']): AccessCo
   } else {
     fail({ variable: 'ACCESS_GATE', reason: `must be one of ${GATE_MODES.join(', ')}` });
   }
-  // Cloud Run sets K_SERVICE in every container, so a hosted service can never run ungated.
-  if (gate === 'off' && read(env, 'K_SERVICE') !== undefined) {
-    fail({ variable: 'ACCESS_GATE', reason: 'off is for local use only; refused on Cloud Run' });
+  // Fail closed (plan D4, D11; deviation 7). Every server is treated as hosted unless it opts in
+  // with LOCAL_DEV=true, so a host nobody thought of gets the strict rules. Locally the only caller
+  // is the developer, so the committed codes, the memory store, record mode and ACCESS_GATE=off are
+  // allowed there (with startup warnings). Cloud Run always sets K_SERVICE, so the opt-in is
+  // refused there as a second guard.
+  const localRaw = read(env, 'LOCAL_DEV') ?? 'false';
+  if (localRaw !== 'true' && localRaw !== 'false') {
+    fail({ variable: 'LOCAL_DEV', reason: 'must be true or false' });
   }
-
-  // Fail closed wherever a request can spend money (plan D4, D11; deviation 1). Record mode is for
-  // a developer's machine: it needs codes and refuses the dev code everyone knows, but accepts the
-  // test code and the memory store, which the cassette recorder's harness uses; otherwise nothing
-  // could record until WU-23. It is refused on Cloud Run, where live mode's checks apply instead.
+  const local = localRaw === 'true';
+  if (local && read(env, 'K_SERVICE') !== undefined) {
+    fail({ variable: 'LOCAL_DEV', reason: 'true is for local use only; refused on Cloud Run' });
+  }
+  if (!local && gate === 'off') {
+    fail({ variable: 'ACCESS_GATE', reason: 'off needs LOCAL_DEV=true, so it is never hosted' });
+  }
+  if (!local && llmMode === 'record') {
+    fail({ variable: 'LLM_MODE', reason: 'record needs LOCAL_DEV=true, so it is never hosted' });
+  }
   if (gate === 'on' && spends(llmMode) && codes.length === 0) {
     fail({ variable: 'INVITE_CODES', reason: 'required when LLM_MODE is live or record' });
   }
-  if (gate === 'on' && llmMode === 'record' && codes.some((c) => c.hash === DEV_INVITE_CODE_HASH)) {
+  if (!local && gate === 'on' && codes.some(({ hash }) => COMMITTED_HASHES.has(hash))) {
     fail({
       variable: 'INVITE_CODES',
-      reason: 'must not include the .env.example dev code when LLM_MODE is record',
+      reason: 'must not include a code committed to the repository unless LOCAL_DEV=true',
     });
   }
-  if (llmMode === 'record' && read(env, 'K_SERVICE') !== undefined) {
-    fail({ variable: 'LLM_MODE', reason: 'record is for local use only; refused on Cloud Run' });
-  }
-  if (gate === 'on' && llmMode === 'live') {
-    if (codes.some(({ hash }) => COMMITTED_HASHES.has(hash))) {
-      fail({
-        variable: 'INVITE_CODES',
-        reason: 'must not include a code committed to the repository when LLM_MODE is live',
-      });
-    }
-    if (usageStore === 'memory') {
-      fail({
-        variable: 'USAGE_STORE',
-        reason: 'memory resets on restart, so it cannot cap spend when LLM_MODE is live',
-      });
-    }
+  if (!local && gate === 'on' && llmMode === 'live' && usageStore === 'memory') {
+    fail({
+      variable: 'USAGE_STORE',
+      reason: 'memory resets on restart, so it cannot cap hosted spend when LLM_MODE is live',
+    });
   }
 
   if (problems.length > 0) throw new ConfigError(problems);
   return { gate, codes, revoked, limits, usageStore };
 }
 
+/** What a developer should know at startup about a valid configuration; never quotes a value. */
+export function startupWarnings(config: AccessConfig, llmMode: Config['llmMode']): string[] {
+  if (config.gate === 'off') {
+    return [
+      'ACCESS_GATE=off: the trip endpoints are open to anyone who can reach this server, and ' +
+        'nothing caps spend. For a local demo only.',
+    ];
+  }
+  if (config.codes.length === 0) {
+    return ['INVITE_CODES is empty: every trip request will be refused with 401'];
+  }
+  const warnings: string[] = [];
+  if (spends(llmMode) && config.codes.some(({ hash }) => COMMITTED_HASHES.has(hash))) {
+    warnings.push(
+      `INVITE_CODES includes a code committed to the repository while LLM_MODE is ${llmMode}: ` +
+        'anyone who can reach this server can spend with it. Fine on your own machine only.',
+    );
+  }
+  if (spends(llmMode) && config.usageStore === 'memory') {
+    warnings.push('USAGE_STORE is memory: every restart resets the quotas and windows.');
+  }
+  return warnings;
+}
+
 let cached: AccessConfig | undefined;
 
-/** Memoizes `loadAccessConfig(process.env, …)`, warning once when the gate is off or shut. */
+/** Memoizes `loadAccessConfig(process.env, …)`, printing its startup warnings once. */
 export function getAccessConfig(): AccessConfig {
   if (cached === undefined) {
-    cached = loadAccessConfig(process.env, getConfig().llmMode);
-    if (cached.gate === 'off') {
-      console.warn(
-        'ACCESS_GATE=off: the trip endpoints are open to anyone who can reach this server, and ' +
-          'nothing caps spend. For a local demo only.',
-      );
-    } else if (cached.codes.length === 0) {
-      console.warn('INVITE_CODES is empty: every trip request will be refused with 401');
-    }
+    const { llmMode } = getConfig();
+    cached = loadAccessConfig(process.env, llmMode);
+    for (const warning of startupWarnings(cached, llmMode)) console.warn(warning);
   }
   return cached;
 }

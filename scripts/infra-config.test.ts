@@ -72,9 +72,11 @@ describe('the access gate in the hosted environment (WU-22)', () => {
     expect(block).toMatch(/!contains\(/);
   });
 
-  it('AC-GATE-19: never sets ACCESS_GATE, so the hosted service is always gated', () => {
+  it('AC-GATE-19: never sets ACCESS_GATE or LOCAL_DEV, so the hosted service is gated and strict', () => {
     expect(env).not.toHaveProperty('ACCESS_GATE');
+    expect(env).not.toHaveProperty('LOCAL_DEV');
     expect(read('infra/service.tf')).not.toContain('ACCESS_GATE');
+    expect(read('infra/service.tf')).not.toContain('LOCAL_DEV');
   });
 
   it('AC-GATE-14: sets every limit, as a positive integer', () => {

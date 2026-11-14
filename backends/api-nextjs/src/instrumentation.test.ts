@@ -9,6 +9,9 @@ describe('register', () => {
     vi.stubEnv('MODEL_CRITIC', 'critic-model');
     vi.stubEnv('WEB_ORIGIN', '');
     vi.stubEnv('NEXT_RUNTIME', 'nodejs');
+    vi.stubEnv('LOCAL_DEV', '');
+    vi.stubEnv('K_SERVICE', '');
+    vi.stubEnv('ACCESS_GATE', '');
   });
 
   afterEach(() => {
@@ -61,7 +64,7 @@ describe('register', () => {
     vi.stubEnv('LLM_MODE', 'live');
     vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-SENTINEL');
     vi.stubEnv('ACCESS_GATE', 'off');
-    vi.stubEnv('K_SERVICE', '');
+    vi.stubEnv('LOCAL_DEV', 'true');
     const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { register } = await import('./instrumentation.ts');
@@ -70,9 +73,8 @@ describe('register', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('ACCESS_GATE=off'));
   });
 
-  it('AC-GATE-19: ACCESS_GATE=off on Cloud Run refuses to start', async () => {
+  it('AC-GATE-19: ACCESS_GATE=off without LOCAL_DEV=true refuses to start', async () => {
     vi.stubEnv('ACCESS_GATE', 'off');
-    vi.stubEnv('K_SERVICE', 'api');
     const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
     const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const { register } = await import('./instrumentation.ts');

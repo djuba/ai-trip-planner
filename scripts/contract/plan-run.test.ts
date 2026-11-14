@@ -70,5 +70,7 @@ describe('freshInvite', () => {
     expect(a.serverEnv.INVITE_CODES).toBe(`contract:${hashInviteCode(a.code)}`);
     expect(JSON.stringify(a.serverEnv)).not.toContain(a.code);
     expect(Number(a.serverEnv.QUOTA_RECOMMEND)).toBeGreaterThanOrEqual(1000);
+    // The server under contract test runs as hosted.
+    expect(a.serverEnv.LOCAL_DEV).toBe('false');
   });
 });

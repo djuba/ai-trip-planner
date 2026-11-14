@@ -27,7 +27,7 @@ interface Slot {
 
 /**
  * Counts in memory. Correct only with one instance (ADR 0005 §4), and every restart resets it,
- * so it can't cap spend: live mode refuses it (access-config.ts). Memory is bounded by
+ * so it can't cap spend: hosted live mode refuses it (access-config.ts). Memory is bounded by
  * the configured codes, because unknown codes are refused before any counter is touched.
  */
 export class MemoryUsageStore implements UsageStore {

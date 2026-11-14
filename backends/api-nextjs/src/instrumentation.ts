@@ -7,8 +7,8 @@ export function register(): void {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     try {
       getConfig();
-      // Fails closed: live mode needs codes and a persistent store; record mode needs codes, and
-      // neither starts with a committed code it shouldn't trust (WU-22 plan D4, deviation 1).
+      // Fails closed: live and record need codes, and unless LOCAL_DEV=true the committed codes,
+      // the memory store in live mode, record mode and ACCESS_GATE=off are refused (WU-22 D4, dev. 7).
       getAccessConfig();
     } catch (error) {
       // Next logs a throw from here and keeps serving, so exit explicitly. ConfigError messages

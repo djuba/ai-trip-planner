@@ -65,12 +65,16 @@ export function planRun(
 
 /**
  * A code made for one run of a server this runner starts, so no fixed code is needed (AC-GATE-13).
- * The server gets its entry and limits no run reaches; the suite gets the code.
+ * The server gets its entry and limits no run reaches; the suite gets the code. The code isn't
+ * committed, so the server runs as hosted (no LOCAL_DEV): the contract runs check that config.
  */
 export function freshInvite(make: () => string = newInviteCode): {
   code: string;
   serverEnv: Record<string, string>;
 } {
   const code = make();
-  return { code, serverEnv: inviteEnv(`contract:${hashInviteCode(code)}`) };
+  return {
+    code,
+    serverEnv: { ...inviteEnv(`contract:${hashInviteCode(code)}`), LOCAL_DEV: 'false' },
+  };
 }
