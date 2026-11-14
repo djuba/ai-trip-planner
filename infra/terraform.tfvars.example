@@ -2,5 +2,13 @@
 project_id         = "<project-id>"
 billing_account_id = "<billing-account-id>"
 
+# Invite codes, as `label:hash` entries from `pnpm invite:new <label>` (infra/README.md). The
+# CI code's entry is required: the post-deploy contract check sends that code.
+invite_codes = [
+  "ci-contract:<hash>",
+]
+# Revoked entries move here, so attempts after revocation show up in the logs.
+revoked_invite_codes = []
+
 # Only while proving a deploy workflow change on a scratch branch (infra/README.md). Leave unset.
 # extra_deploy_ref = "refs/heads/scratch/wu-21-deploy"

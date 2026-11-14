@@ -65,6 +65,22 @@ terraform output -raw gcp_deploy_sa    | gh secret set GCP_DEPLOY_SA
 
 Then deploy once without waiting for a merge: `gh workflow run deploy.yml --ref main`, and watch it with `gh run watch`.
 
+A fourth secret, `CONTRACT_INVITE_CODE`, is the CI invite code that the post-deploy contract check sends (see "Invite codes" below). Unlike the three above it is a credential, but only a weak one: in replay mode a request spends nothing. Only the contract test step can read it.
+
+## Invite codes
+
+The trip endpoints need an invite code ([ADR 0005](../docs/decisions/0005-hosting-and-access.md), WU-22 addendum; [`access-gate.md`](../docs/features/access-gate.md)). The service holds only each code's SHA-256 hash, under a label that names its holder, as `label:hash` entries in the `invite_codes` variable (in the git-ignored `terraform.tfvars`). Labels show up in the logs, so pick ones that tell you who it is (`acme-recruiter`), and keep them out of anything public.
+
+- **Issue a code:** `pnpm invite:new <label>` prints the code and its entry. Add the entry to `invite_codes`, plan and apply (as above), and send the code to its holder. The code is shown only once and stored nowhere; if it's lost, issue a new one.
+- **Revoke a code:** move its entry from `invite_codes` to `revoked_invite_codes`, then plan and apply. The code gets a 401 from the next revision on, and every later attempt is logged as `revoked` with its label.
+- **See usage:** every gate decision is one JSON log line with `event: "gate"`, `outcome` (`allowed`, `missing`, `unknown`, `revoked`, `rate_limited`, `quota_exhausted`), `path` and `code` (the label). In Logs Explorer: `jsonPayload.event="gate"`, then filter on `jsonPayload.code` or `jsonPayload.outcome`.
+- **Limits:** set in `service.tf`. In replay mode they're high, so they stay out of the way of the post-deploy check. Live mode (WU-23) sets real values and needs a persistent usage store: the in-memory one resets whenever the service scales to zero, and the server refuses to start in live mode with it.
+- **Never use a committed code.** `terraform plan` rejects the hashes of `local-dev-invite` and the tests' code, and a malformed entry; the server refuses committed codes on Cloud Run too.
+- **Never set `ACCESS_GATE`** on the service. `ACCESS_GATE=off` is for local demos; the server refuses it on Cloud Run, and a test checks that `service.tf` doesn't set it.
+- **The CI code:** made once with `pnpm invite:new ci-contract`. Its entry goes in `invite_codes`; the code goes in the `CONTRACT_INVITE_CODE` secret (`gh secret set CONTRACT_INVITE_CODE`, then paste it at the prompt, so it stays out of shell history). Before going live, WU-23 drops it or caps it, since in live mode every deploy's contract run would cost money.
+
+**First rollout (WU-22), before its PR merges:** make the CI code, add its entry to `terraform.tfvars`, plan and apply from the branch (the running image ignores the new variables), and set the secret. The merge's deploy then runs the gated contract check. If the check fails with 401s, the entry or the secret is missing or mismatched: fix it and re-run the workflow (`gh workflow run deploy.yml --ref main`).
+
 ## Reviewing and applying infra changes
 
 Terraform is applied by hand, because applying it needs near-owner rights over the project and the billing account, and no CI identity should hold those ([ADR 0005](../docs/decisions/0005-hosting-and-access.md), addendum). So an infra change is reviewed like code, and its plan is reviewed before anyone applies it:

@@ -11,6 +11,11 @@ resource "google_service_account" "runtime" {
   depends_on = [google_project_service.apis]
 }
 
+locals {
+  invite_codes         = join(",", var.invite_codes)
+  revoked_invite_codes = join(",", var.revoked_invite_codes)
+}
+
 resource "google_cloud_run_v2_service" "api" {
   name                = local.service_name
   location            = var.region
@@ -50,6 +55,37 @@ resource "google_cloud_run_v2_service" "api" {
       env {
         name  = "WEB_ORIGIN"
         value = var.web_origin
+      }
+      # The access gate (WU-22). Replay costs nothing, so the limits only need to stay out of the
+      # way of the post-deploy contract check, which sends the CI code on every deploy. WU-23 sets
+      # the live values (and needs a persistent usage store: live mode refuses the memory one).
+      env {
+        name  = "INVITE_CODES"
+        value = local.invite_codes
+      }
+      env {
+        name  = "REVOKED_INVITE_CODES"
+        value = local.revoked_invite_codes
+      }
+      env {
+        name  = "QUOTA_EXTRACT"
+        value = "1000000"
+      }
+      env {
+        name  = "QUOTA_RECOMMEND"
+        value = "1000000"
+      }
+      env {
+        name  = "QUOTA_PRESENT"
+        value = "1000000"
+      }
+      env {
+        name  = "RATE_LIMIT_PER_HOUR"
+        value = "1000"
+      }
+      env {
+        name  = "RATE_LIMIT_GLOBAL_PER_DAY"
+        value = "10000"
       }
       # Must equal CONTRACT_TEST_ENV (backends/api-nextjs/tests/support/api-server.ts): cassette
       # keys hash the model request, model ID included, so the contract suite's cassettes replay
