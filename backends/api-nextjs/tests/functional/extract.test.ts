@@ -5,6 +5,7 @@ import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { authHeaders } from '../support/invite.ts';
 import { CASSETTE_DIR, startApi, type RunningApi } from '../support/api-server.ts';
 import { EXTRACT_REQUESTS } from '../support/extract-requests.ts';
 
@@ -13,7 +14,7 @@ const WEB_ORIGIN = 'http://localhost:3000';
 const send = (baseUrl: string, body: unknown) =>
   fetch(`${baseUrl}/v1/trip/extract`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', origin: WEB_ORIGIN },
+    headers: { 'content-type': 'application/json', origin: WEB_ORIGIN, ...authHeaders() },
     body: JSON.stringify(body),
   });
 
@@ -41,6 +42,17 @@ describe('POST /v1/trip/extract over real HTTP', () => {
     const response = await send(api.baseUrl, EXTRACT_REQUESTS.complete);
     expect(response.status).toBe(200);
     expect(ExtractResponse.parse(await response.json())).toMatchObject({ status: 'ready' });
+  });
+
+  it('AC-GATE-01: no Authorization is a 401 UNAUTHORIZED over real HTTP', async () => {
+    const response = await fetch(`${api.baseUrl}/v1/trip/extract`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: WEB_ORIGIN },
+      body: JSON.stringify(EXTRACT_REQUESTS.vague),
+    });
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toBe('Bearer');
+    expect(await response.json()).toMatchObject({ error: { code: 'UNAUTHORIZED' } });
   });
 
   it('AC-EXTRACT-15: OPTIONS answers the preflight with CORS headers', async () => {

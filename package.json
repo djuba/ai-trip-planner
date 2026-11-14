@@ -25,6 +25,7 @@
     "test:contract:external": "node scripts/run-contract.ts --external",
     "test:image": "node scripts/test-image.ts",
     "record:cassettes": "node scripts/record-cassettes.ts",
+    "invite:new": "node scripts/invite-code.ts",
     "eval": "node backends/api-nextjs/eval/run.ts",
     "test:journeys": "pnpm --filter @vp/journeys test",
     "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm gen:check && pnpm audit:prod && pnpm test:coverage && pnpm test:functional && pnpm test:contract",

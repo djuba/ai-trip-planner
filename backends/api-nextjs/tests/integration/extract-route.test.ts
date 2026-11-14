@@ -16,6 +16,8 @@ import {
   type LlmRuntime,
   type MockResponder,
 } from '../../src/llm/index.ts';
+import { authHeaders } from '../support/invite.ts';
+import { stubInviteEnv } from '../support/stub-invite-env.ts';
 import type { LlmStage } from '../../src/usecases/llm-client.ts';
 
 const WEB_ORIGIN = 'https://web.example.test';
@@ -33,7 +35,7 @@ const VAGUE: ExtractionSchema = {
 const post = (body: unknown) =>
   new Request('http://api.test/v1/trip/extract', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', origin: WEB_ORIGIN },
+    headers: { 'content-type': 'application/json', origin: WEB_ORIGIN, ...authHeaders() },
     body: JSON.stringify(body),
   });
 
@@ -56,6 +58,7 @@ function handler(responders: Partial<Record<LlmStage, MockResponder>>) {
 
 describe('POST /v1/trip/extract handler', () => {
   beforeAll(() => {
+    stubInviteEnv();
     vi.stubEnv('WEB_ORIGIN', WEB_ORIGIN);
     vi.stubEnv('LLM_MODE', 'mock');
     vi.stubEnv('MODEL_FAST', 'fast');
