@@ -27,6 +27,7 @@ import {
 import {
   checkExtractResponse,
   checkExtractRouting,
+  checkRecommendNotReady,
   checkRecommendResponse,
 } from '../conformance/checks/responses.ts';
 import { inviteCode, loadConstants } from '../support/artifacts.ts';
@@ -58,6 +59,7 @@ const ALL_CHECKS: Record<string, Check> = {
   extractResponse: checkExtractResponse,
   extractRouting: checkExtractRouting,
   recommendResponse: checkRecommendResponse,
+  recommendNotReady: checkRecommendNotReady,
   present: checkPresentStream,
   responsesCarryCors: (url) => checkResponsesCarryCors(url, ORIGIN),
   messageCap: checkMessageCap,
@@ -295,6 +297,40 @@ describe('AC-CONTRACT-12: the routing check fails a backend that routes wrongly'
   it('AC-CONTRACT-12: a backend that always needs clarification fails checkExtractRouting', async () => {
     const url = await fake({ hook: replace((r) => r.path === EXTRACT_PATH, answer('clarify')) });
     await expect(checkExtractRouting(url)).rejects.toThrow(/expected status ready/);
+  });
+});
+
+describe('AC-CONTRACT-13: the not-ready check fails a backend that recommends anyway', () => {
+  it('AC-CONTRACT-13: the conformant fake passes checkRecommendNotReady', async () => {
+    await expect(checkRecommendNotReady(await fake())).resolves.toBeUndefined();
+  });
+
+  it('AC-CONTRACT-13: a fake that answers 200 for a not-ready profile fails', async () => {
+    const url = await fake({
+      hook: replace(
+        (r) => r.path === RECOMMEND_PATH,
+        (d) => ({
+          ...d,
+          status: 200,
+          chunks: [
+            JSON.stringify({ recommendations: [], critique: { pass: true, unresolved: [] } }),
+          ],
+        }),
+      ),
+    });
+    await expect(checkRecommendNotReady(url)).rejects.toThrow(/expected 422, got 200/);
+  });
+
+  it('AC-CONTRACT-13: a fake that answers 422 with the wrong code fails', async () => {
+    const url = await fake({
+      hook: replace(
+        (r) => r.path === RECOMMEND_PATH,
+        (d) => errorResponse(d, 422, 'INTERNAL_ERROR'),
+      ),
+    });
+    await expect(checkRecommendNotReady(url)).rejects.toThrow(
+      /expected error code VALIDATION_FAILED/,
+    );
   });
 });
 

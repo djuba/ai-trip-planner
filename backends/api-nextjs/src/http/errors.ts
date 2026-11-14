@@ -1,6 +1,6 @@
 // Maps anything a handler throws to the error envelope (CLAUDE.md §5).
 import { ErrorResponse, type ErrorCode } from '@vp/domain-schema/wire';
-import { LlmError } from '../usecases/errors.ts';
+import { LlmError, ProfileNotReadyError } from '../usecases/errors.ts';
 import { QuotaExhaustedError, RateLimitedError, UnauthorizedError } from './gate.ts';
 
 /** The request body broke the contract, so the client gets a 422 explaining why. */
@@ -44,7 +44,8 @@ export function toErrorResponse(error: unknown): Response {
   if (error instanceof PayloadTooLargeError) {
     return envelope(413, 'PAYLOAD_TOO_LARGE', error.message);
   }
-  if (error instanceof RequestValidationError) {
+  // §5: /recommend takes only a ready profile, so a rule violation is a contract failure there.
+  if (error instanceof RequestValidationError || error instanceof ProfileNotReadyError) {
     return envelope(422, 'VALIDATION_FAILED', error.message);
   }
   if (error instanceof LlmError) {

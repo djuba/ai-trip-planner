@@ -14,8 +14,8 @@ The server is stateless, so each stage is its own HTTP request, and the client d
 | 2. Normalize | `ExtractionSchema` | Code | `TripProfile`, the domain model | Built |
 | 3. Validate | `TripProfile` | Code | `ready`, or violations | Built |
 | 4. Clarify | Violations | LLM writes the question | `needs_clarification`, then back to step 1 | Built |
-| 5. Recommend | A `ready` profile | LLM | `RecommendationSet` | Planned (WU-10) |
-| 6. Critique | Recommendations | Code checks first, then LLM, with at most 2 revisions | `RecommendResponse` | Planned (WU-10) |
+| 5. Recommend | A `ready` profile (otherwise a 422) | LLM drafts; code sets ids and `verification` labels from sample route data | `RecommendationSet` | Built |
+| 6. Critique | Recommendations | Code checks first, then LLM, with at most 2 revisions | `RecommendResponse` | Built |
 | 7. Present | Profile and recommendations | Code for data, LLM for prose | Streamed `PresentationModel` | Planned (WU-11) |
 
 For example, "Somewhere warm" populates only one field, so the rules ask for more detail. "A beach trip in March for two adults and a child" populates three, so it can move on to recommendations.
@@ -51,7 +51,7 @@ See [ADR 0003](docs/decisions/0003-spec-first-one-implementation.md) for the dec
 | Schema parity | Zod and the generated JSON Schema accept and reject the same payloads | `packages/domain-schema/src/wire/parity.test.ts` | Built |
 | Rule examples | The rules return exactly the cataloged violations for every example | `spec/fixtures/rules/`, run by the rules' unit tests and through `/extract` | Built |
 | Normalize examples | Model output becomes exactly the expected profile, with over-cap values discarded | `spec/fixtures/normalize/`, run by `normalize`'s unit tests and through `/extract` | Built |
-| Conformance suite | The running backend's responses match the contract | `tests/contract/conformance/`, run by `pnpm test:contract` (or `test:contract:external` for any running backend) | Built; `/extract` is real (replayed cassettes), `/recommend` and `/present` are stubs until WU-10–11 |
+| Conformance suite | The running backend's responses match the contract | `tests/contract/conformance/`, run by `pnpm test:contract` (or `test:contract:external` for any running backend) | Built; `/extract` and `/recommend` are real (replayed cassettes), `/present` is a stub until WU-11 |
 | Pact | The backend does what the web client expects | `contracts/pacts/`, `tests/contract/pact-verify.test.ts` | Verifier built; consumer pacts planned (WU-12) |
 | Container image | The API image builds from a clean checkout, runs as a non-root user with no secrets, and passes the provider contract tests in replay mode | `backends/api-nextjs/Dockerfile`, run by `pnpm test:image` in the CI `image` job | Built |
 | Deployment check | After every merge to `main`, the image is deployed to the hosted environment (replay mode, unadvertised) and passes the provider contract tests there, through the platform's front end | `.github/workflows/deploy.yml`, `infra/` | Built |

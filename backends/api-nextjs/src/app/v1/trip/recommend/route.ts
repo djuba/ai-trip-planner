@@ -1,12 +1,10 @@
-// STUB — replaced in WU-10
-import { RecommendRequest, RecommendResponse } from '@vp/domain-schema/wire';
-import { jsonResponse, postRoute, preflight } from '../../../../http/route.ts';
-import { CANNED_RECOMMEND } from '../../../../stubs/canned.ts';
+import { createRecommendPost } from '../../../../http/recommend.ts';
+import { getRouteData } from '../../../../http/route-data.ts';
+import { preflight } from '../../../../http/route.ts';
+import { getLlmRuntime } from '../../../../llm/runtime.ts';
 
 export const dynamic = 'force-dynamic';
 
-export const POST = postRoute(RecommendRequest, () =>
-  jsonResponse(RecommendResponse, CANNED_RECOMMEND),
-);
+export const POST = createRecommendPost({ llm: getLlmRuntime, routes: getRouteData });
 
 export const OPTIONS = preflight;
