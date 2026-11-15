@@ -6,8 +6,10 @@ import {
   ExtractResponse,
   MAX_CLARIFICATION_QUESTION_LENGTH,
   RecommendResponse,
+  type PresentationModel,
   type RuleCode,
 } from '@vp/domain-schema/wire';
+import { cardData } from '../src/usecases/present/mapping.ts';
 import { labelClaim } from '../src/usecases/recommend-output.ts';
 import { resolveOrigin } from '../src/usecases/routes.ts';
 import type { FieldCheck } from './cases.ts';
@@ -36,6 +38,7 @@ interface Source {
  * checks the response only: its attempts include the critic's issues, which may quote what they flag.
  */
 function sources(obs: CaseObservation): Source[] {
+  if (obs.evalCase.set === 'present') return presentSources(obs);
   if (obs.outcome.kind === 'recommendation') {
     return [{ value: obs.outcome.response, where: 'response', profileAt: null }];
   }
@@ -47,6 +50,33 @@ function sources(obs: CaseObservation): Source[] {
   }));
   if (obs.outcome.kind === 'response')
     found.push({ value: obs.outcome.response, where: 'response', profileAt: '/profile' });
+  return found;
+}
+
+/** The words the model wrote for a presentation: claims and ids are code's, copied from the request. */
+export function copyOf(model: PresentationModel) {
+  return {
+    headline: model.headline,
+    intro: model.intro,
+    cards: model.cards.map(({ title, blurb, highlights }) => ({ title, blurb, highlights })),
+  };
+}
+
+/**
+ * A present case's model output: each attempt's copy, then the streamed copy. The claims are left
+ * out: code copies them from the request, so a planted string legitimately appears there. An
+ * unparseable stream is scanned whole.
+ */
+function presentSources(obs: CaseObservation): Source[] {
+  const found: Source[] = obs.attempts.map((attempt, index) => ({
+    value: attempt.output,
+    where: `attempt ${index + 1} (${attempt.stage})`,
+    profileAt: null,
+  }));
+  if (obs.outcome.kind === 'presentation') {
+    const { model, text } = obs.outcome;
+    found.push({ value: model === null ? text : copyOf(model), where: 'stream', profileAt: null });
+  }
   return found;
 }
 
@@ -105,6 +135,7 @@ export const wireValid: Scorer = (obs) => {
   if (outcome.kind === 'recommendation') {
     return result('wireValid', RecommendResponse.safeParse(outcome.response).success);
   }
+  if (outcome.kind === 'presentation') return result('wireValid', outcome.model !== null);
   if (outcome.kind === 'llm-error') return result('wireValid', true, outcome.code);
   return result('wireValid', false, outcome.name);
 };
@@ -160,7 +191,7 @@ function checkField(check: FieldCheck, profile: unknown): boolean {
 
 export const expectations: Scorer = (obs) => {
   const { evalCase, outcome } = obs;
-  if (evalCase.set === 'recommend') return null;
+  if (evalCase.set === 'recommend' || evalCase.set === 'present') return null;
   const { expect } = evalCase;
   if (evalCase.set === 'adversarial' && expect.status === undefined && expect.fields.length === 0) {
     return null;
@@ -187,7 +218,12 @@ export const expectations: Scorer = (obs) => {
 export const canaryAbsent: Scorer = (obs) => {
   const { evalCase } = obs;
   if (evalCase.set === 'quality') return null;
-  if (evalCase.set === 'recommend' && evalCase.kind !== 'adversarial') return null;
+  if (
+    (evalCase.set === 'recommend' || evalCase.set === 'present') &&
+    evalCase.kind !== 'adversarial'
+  ) {
+    return null;
+  }
   const canaries = (evalCase.expect.canaries ?? []).map((canary) => ({
     canary,
     folded: foldCase(canary),
@@ -250,7 +286,8 @@ export const contained: Scorer = (obs) => {
   const pass =
     outcome.kind === 'llm-error' ||
     (outcome.kind === 'response' && ExtractResponse.safeParse(outcome.response).success) ||
-    (outcome.kind === 'recommendation' && RecommendResponse.safeParse(outcome.response).success);
+    (outcome.kind === 'recommendation' && RecommendResponse.safeParse(outcome.response).success) ||
+    (outcome.kind === 'presentation' && outcome.model !== null);
   return result('contained', pass, detail);
 };
 
@@ -389,6 +426,51 @@ export const recommendQuality: Scorer = (obs) => {
     : result('recommendQuality', false, problems.join('; '));
 };
 
+// ---- presentationShape ----
+
+/** A present case's stream parses as `PresentationModel`, with one card per recommendation, in order. */
+export const presentationShape: Scorer = (obs) => {
+  const { evalCase, outcome } = obs;
+  if (evalCase.set !== 'present' || outcome.kind === 'llm-error') return null;
+  if (outcome.kind !== 'presentation') return result('presentationShape', false, 'no stream');
+  if (outcome.model === null) return result('presentationShape', false, 'not a PresentationModel');
+  const wanted = evalCase.request.recommendations.map((recommendation) => recommendation.id);
+  const got = outcome.model.cards.map((card) => card.recommendationId);
+  return isDeepStrictEqual(got, wanted)
+    ? result('presentationShape', true)
+    : result('presentationShape', false, `cards ${got.length}, wanted ${wanted.length} in order`);
+};
+
+// ---- claimsUnchanged ----
+
+/**
+ * Every card's id and claims are what code maps from the request (AC-PRESENT-03): the same claims,
+ * with only a `fixture` label that fails its re-check relabelled `unverified`. Compared with
+ * `cardData`, so a model-written or relabelled claim fails. Code guarantees this; the scorer
+ * guards against a regression.
+ */
+export const claimsUnchanged: Scorer = (obs, ctx) => {
+  const { evalCase, outcome } = obs;
+  if (evalCase.set !== 'present' || outcome.kind !== 'presentation' || outcome.model === null) {
+    return null;
+  }
+  const { routes } = ctx;
+  if (routes === undefined) return result('claimsUnchanged', false, 'no route data given');
+  const { profile, recommendations } = evalCase.request;
+  const expected = cardData(recommendations, profile, routes);
+  const changed = outcome.model.cards.flatMap((card, index) => {
+    const want = expected[index];
+    return want !== undefined &&
+      card.recommendationId === want.recommendationId &&
+      isDeepStrictEqual(card.claims, want.claims)
+      ? []
+      : [`${card.recommendationId} (card ${index + 1})`];
+  });
+  return changed.length === 0
+    ? result('claimsUnchanged', true)
+    : result('claimsUnchanged', false, `id or claims changed: ${changed.join(', ')}`);
+};
+
 // ---- all ----
 
 const DETERMINISTIC_SCORERS: readonly Scorer[] = [
@@ -401,6 +483,8 @@ const DETERMINISTIC_SCORERS: readonly Scorer[] = [
   questionAddresses,
   labelsHonest,
   recommendQuality,
+  presentationShape,
+  claimsUnchanged,
 ];
 
 export function scoreDeterministic(obs: CaseObservation, ctx: ScoreContext): ScoreResult[] {

@@ -3,6 +3,7 @@
 // with a mock LlmClient. Calls run one at a time (rate limits, and a low-memory dev machine).
 import {
   ExtractRequest,
+  PresentationModel,
   RecommendationDraft,
   RuleViolation,
   TripProfile,
@@ -11,8 +12,10 @@ import {
 import type { Discarded } from '@vp/domain-schema/rules';
 import { LlmError } from '../src/usecases/errors.ts';
 import { extractTrip } from '../src/usecases/extract.ts';
+import { presentTrip } from '../src/usecases/present.ts';
 import type { LlmClient } from '../src/usecases/llm-client.ts';
 import { buildCriticPrompt, CRITIC_SYSTEM } from '../src/usecases/prompts/critic.ts';
+import { buildPresentPrompt, PRESENT_SYSTEM } from '../src/usecases/prompts/present.ts';
 import { buildRecommendPrompt, RECOMMEND_SYSTEM } from '../src/usecases/prompts/recommend.ts';
 import { recommendTrip } from '../src/usecases/recommend.ts';
 import { resolveOrigin, type RouteData } from '../src/usecases/routes.ts';
@@ -26,6 +29,7 @@ import {
   CLARIFY_MAX_OUTPUT_TOKENS,
   CRITIC_MAX_OUTPUT_TOKENS,
   EXTRACT_MAX_OUTPUT_TOKENS,
+  PRESENT_MAX_OUTPUT_TOKENS,
   RECOMMEND_MAX_OUTPUT_TOKENS,
 } from '../src/usecases/token-budget.ts';
 import type { EvalCase } from './cases.ts';
@@ -128,6 +132,7 @@ export const SYSTEM_PROMPTS = [
   RECOMMEND_SYSTEM,
   CRITIC_SYSTEM,
   RECOMMEND_JUDGE_SYSTEM,
+  PRESENT_SYSTEM,
 ] as const;
 
 /**
@@ -157,6 +162,12 @@ export function promptHashParts(): string[] {
       alreadyFound: [],
     }).prompt,
     buildRecommendJudgePrompt({ profile: PROBE_PROFILE, recommendations: [] }).prompt,
+    buildPresentPrompt({
+      profile: PROBE_PROFILE,
+      recommendations: [
+        { id: 'rec-1', destination: 'probe', summary: 'probe', matchedExperiences: [], claims: [] },
+      ],
+    }).prompt,
   ];
 }
 
@@ -210,6 +221,24 @@ function worstCaseRecommendUsd(
   );
 }
 
+/** A present case: one streamed copy call, retried once if it fails before any output. */
+function worstCasePresentUsd(
+  evalCase: Extract<EvalCase, { set: 'present' }>,
+  { pricing, models }: Pick<RunnerDeps, 'pricing' | 'models'>,
+): number {
+  const { recommendations } = evalCase.request;
+  if (recommendations.length === 0) return 0;
+  const { system, prompt } = buildPresentPrompt(evalCase.request);
+  return worstCaseUsd(
+    Array.from({ length: ATTEMPTS }, () => ({
+      model: models.fast,
+      inputTokens: estimateInputTokens(system + prompt),
+      maxOutputTokens: PRESENT_MAX_OUTPUT_TOKENS,
+    })),
+    pricing,
+  );
+}
+
 /**
  * The most one run of `evalCase` can cost: extraction and clarification each retried, at their
  * `maxOutputTokens`, with the clarification and judge inputs as large as a full extraction output.
@@ -221,6 +250,7 @@ export function worstCaseRunUsd(
   deps: Pick<RunnerDeps, 'pricing' | 'models'> & { routes?: RouteData },
 ): number {
   if (evalCase.set === 'recommend') return worstCaseRecommendUsd(evalCase, judge, deps);
+  if (evalCase.set === 'present') return worstCasePresentUsd(evalCase, deps);
   const { pricing, models } = deps;
   const extractPrompt = buildExtractionPrompt(evalCase.request);
   const call = (model: string, inputTokens: number, maxOutputTokens: number) =>
@@ -251,6 +281,34 @@ export function worstCaseRunUsd(
   );
 }
 
+/**
+ * Runs `presentTrip` and joins its stream. A failure before the first output rejects (a 502); one
+ * after it throws from the iterator (the response would be errored): both are `llm-error`.
+ */
+async function observePresent(
+  request: Extract<EvalCase, { set: 'present' }>['request'],
+  deps: Parameters<typeof presentTrip>[1],
+): Promise<Outcome> {
+  const chunks: string[] = [];
+  try {
+    for await (const chunk of await presentTrip(request, deps)) chunks.push(chunk);
+  } catch (error) {
+    if (!(error instanceof LlmError)) throw error;
+    return error.midStream === true
+      ? { kind: 'llm-error', code: error.code, midStream: true }
+      : { kind: 'llm-error', code: error.code };
+  }
+  const text = chunks.join('');
+  let model: PresentationModel | null = null;
+  try {
+    const parsed = PresentationModel.safeParse(JSON.parse(text));
+    if (parsed.success) model = parsed.data;
+  } catch {
+    // Not JSON: `model` stays null and the shape scorers fail it.
+  }
+  return { kind: 'presentation', text, model };
+}
+
 async function observeCase(
   evalCase: EvalCase,
   run: number,
@@ -263,7 +321,18 @@ async function observeCase(
   let outcome: Outcome;
   try {
     const logDiscarded = (entry: Discarded) => discarded.push(entry);
-    if (evalCase.set === 'recommend') {
+    if (evalCase.set === 'present') {
+      outcome = await observePresent(evalCase.request, {
+        llm: observed,
+        routes,
+        // The writer says 'truncated' where normalize says 'too_long'; same meaning.
+        logDiscarded: (entry) =>
+          discarded.push({
+            ...entry,
+            reason: entry.reason === 'truncated' ? 'too_long' : entry.reason,
+          }),
+      });
+    } else if (evalCase.set === 'recommend') {
       const response = await recommendTrip(evalCase.request, {
         llm: observed,
         routes,
