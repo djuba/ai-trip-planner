@@ -26,7 +26,7 @@ Model output is treated as untrusted input: every response is checked against it
 
 See [ADR 0003](docs/decisions/0003-spec-first-one-implementation.md) for the decision record.
 
-**Why the spec is language-neutral.** The contract is published as plain files: JSON Schema, OpenAPI and a constants file in `spec/generated/`, plus a Markdown rule catalog (`spec/rules.md`) and a normalization spec (`spec/normalize.md`: how model output becomes a profile, including which over-cap values are discarded), each with JSON examples in `spec/fixtures/`. These files are the API docs any client can read. The contract tests read only them, so the tests check the contract rather than how the TypeScript code happens to meet it, and they can check a deployed backend too.
+**Why the spec is language-neutral.** The contract is published as plain files: JSON Schema, OpenAPI and a constants file in `spec/generated/`, plus a Markdown rule catalog (`spec/rules.md`), a message catalog (`spec/messages.md` and `spec/messages/`: how any client words each rule and enum value, as ICU MessageFormat templates) and a normalization spec (`spec/normalize.md`: how model output becomes a profile, including which over-cap values are discarded), each with JSON examples in `spec/fixtures/`. These files are the API docs any client can read. The contract tests read only them, so the tests check the contract rather than how the TypeScript code happens to meet it, and they can check a deployed backend too.
 
 **What it costs.** Shapes are written once in Zod and generated into `spec/generated/`, so the generated files need a drift check, and a parity test keeps Zod and JSON Schema in agreement. Wire schemas are limited to what JSON Schema can express, so cross-field checks live in the rules instead. A test keeps the rule catalog and its examples in step, and the TypeScript tests need a loader (`packages/domain-schema/tests/support/rule-fixtures.ts`) that reads and validates the JSON examples.
 
@@ -50,6 +50,7 @@ See [ADR 0003](docs/decisions/0003-spec-first-one-implementation.md) for the dec
 | Drift check | The generated files match the Zod schemas | `pnpm --filter @vp/domain-schema gen:check` | Built |
 | Schema parity | Zod and the generated JSON Schema accept and reject the same payloads | `packages/domain-schema/src/wire/parity.test.ts` | Built |
 | Rule examples | The rules return exactly the cataloged violations for every example | `spec/fixtures/rules/`, run by the rules' unit tests and through `/extract` | Built |
+| Message catalog | Every rule code and enum value has text in every locale, each template uses only real arguments, and every rule example formats | `packages/domain-schema/src/messages/catalog.test.ts` | Built |
 | Normalize examples | Model output becomes exactly the expected profile, with over-cap values discarded | `spec/fixtures/normalize/`, run by `normalize`'s unit tests and through `/extract` | Built |
 | Conformance suite | The running backend's responses match the contract | `tests/contract/conformance/`, run by `pnpm test:contract` (or `test:contract:external` for any running backend) | Built; `/extract`, `/recommend` and `/present` are real (replayed cassettes) |
 | Pact | The backend does what the web client expects | The web client's consumer tests (`apps/web-nextjs/tests/contract/`) write `contracts/pacts/`; `tests/contract/pact-verify.test.ts` verifies it | Built |
@@ -70,6 +71,8 @@ See [ADR 0003](docs/decisions/0003-spec-first-one-implementation.md) for the dec
 ```sh
 pnpm install              # also installs the git hooks (lefthook)
 pnpm dev                  # web on http://localhost:3000, API on :4000 (copy .env.example to .env.local)
+                          # the web app asks for an invite code: enter local-dev-invite,
+                          # or open http://localhost:3000/?invite=local-dev-invite
 pnpm verify               # project gate: typecheck, lint, format, audit, tests + coverage
 pnpm test:unit            # or test:integration, test:functional, test:contract
 pnpm verify:integrated    # integrated gate (stub until WU-15)
@@ -101,6 +104,7 @@ pnpm test:contract:external   # API_BASE_URL defaults to http://localhost:4000 i
 | Generated JSON Schema and OpenAPI | `spec/generated/` |
 | Business rules | `spec/rules.md` (the spec) and `packages/domain-schema/src/rules/` (the TS implementation) |
 | How model output becomes a profile, and input limits | `spec/normalize.md` and [ADR 0004](docs/decisions/0004-input-and-output-limits.md) |
+| How clients word rules and enum values | `spec/messages.md`, `spec/messages/<locale>.json`, and `packages/domain-schema/src/messages/` (the TS reader) |
 | Language-neutral test cases | `spec/fixtures/rules/` and `spec/fixtures/normalize/` |
 | API endpoints | `backends/api-nextjs/app/v1/**/route.ts` |
 | Business logic for each AI stage | `backends/api-nextjs/src/usecases/` |
