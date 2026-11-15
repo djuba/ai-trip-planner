@@ -35,7 +35,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-11 | Present stream + `/v1/trip/present` | WU-10 | done |
 | WU-22 | Invite-code access gate + rate limit | WU-07, WU-20 | done |
 | WU-12 | Web shell, API client, Pact consumer | WU-04, WU-07, WU-22 | done |
-| WU-13 | Conversation & clarification UI | WU-09, WU-12 | in-progress |
+| WU-13 | Conversation & clarification UI | WU-09, WU-12 | done |
 | WU-14 | Streamed presentation cards + a11y | WU-11, WU-13 | todo |
 | WU-15 | Journeys + integrated gate | WU-14 | todo |
 | WU-16 | Portfolio README & architecture docs | WU-15 | todo |
@@ -819,7 +819,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-13 — Conversation & clarification UI
-**Status:** in-progress · **Depends on:** WU-09, WU-12 · **Commits:**
+**Status:** done · **Depends on:** WU-09, WU-12 · **Commits:** [djuba/ai-trip-planner#33](https://github.com/djuba/ai-trip-planner/pull/33)
 
 **Goal:** a user can converse until their profile is `ready`.
 
@@ -836,12 +836,21 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 **Definition of done:** all `conversation-ui.md` ACs pass; no axe violations.
 
 **Notes:**
-- From security planning: set the message input's `maxlength` from WU-17's shared cap constant, and show the remaining length, so an honest user never gets a 422.
+- From security planning: set the message input's `maxlength` from WU-17's shared cap constant, and show the remaining length, so an honest user never gets a 422. *(Replaced by the WU-17 note below: there is no `maxlength`, because it counts UTF-16 units; the composer counts code points instead, [plan](plans/WU-13.md) D4.)*
 - From WU-17: the cap is `MAX_MESSAGE_LENGTH`, counted in Unicode code points. HTML `maxlength` counts UTF-16 units, so on its own it would stop a message of emoji at half the real limit. Count and show the remaining length with `codePointLength` from `@vp/domain-schema/wire`, and test a message of emoji at the cap. See [ADR 0004](decisions/0004-input-and-output-limits.md) §3.
 - From deployment planning: an invite-code entry state before the conversation, kept for the browser session. An invite link (`?invite=<code>`) fills it in and then removes the code from the address bar. The UI shows 401 ("this code isn't valid") and 429 ("try again in …" from `Retry-After`) as recoverable states, with axe checks.
 - From WU-22: show the code entry only after a 401 (see WU-12's note), and for `QUOTA_EXHAUSTED` say the invite is used up rather than "try again". Never put the owner's own code in an invite link: type it in. Decide whether `pnpm dev` asks for the code, so the recruiter experience can be rehearsed locally (`local-dev-invite`).
 - From WU-09: `clarificationQuestion` is plain text of at most `MAX_CLARIFICATION_QUESTION_LENGTH` (300 code points), and it is model-written. Render it as text, never as HTML or markdown. Show `violations` from `code` + `params`, not from the question. The response's `profile` is the full updated profile, so replace the client's copy with it on every turn ([`extraction.md`](features/extraction.md)).
 - From WU-12: call the API through `createApiClient` from `@/lib/api`; every call returns an `ApiResult`, so render states from `error.kind` (`unauthorized`, `rate_limited` with `retryAfterSeconds`, `quota_exhausted`, `message_too_long`, …) and never catch. `getInviteCode` is read on each call, so the code entered after a 401 applies to the next request with no new client. Pass an `AbortSignal` when a turn is superseded. Fake the API in Playwright with `tests/support/mock-api.ts`, which answers CORS preflights and fails on any unmocked request ([`web-client.md`](features/web-client.md)).
+
+- Done (see the [plan](plans/WU-13.md) and its deviations):
+  - **The conversation:** a pure reducer plus one hook that sends turns. Each turn sends the current profile, and each response replaces it. Retry re-sends the identical request.
+  - **Invite codes:** the entry appears only after a 401, and the code is kept in session storage. Invite links work, and `pnpm dev` asks for `local-dev-invite` like the hosted app.
+  - **The composer:** counts code points, with no `maxlength`.
+  - **Violations:** worded from a new language-neutral **message catalog in `spec/`** ([`spec/messages.md`](../spec/messages.md), ICU MessageFormat, chosen at plan approval so a future mobile client says the same things). A consistency test ties it to the rule codes, the enums and the fixtures. CLAUDE.md §2, §4.1, §4.2 and §4.5 are updated.
+  - **The main fix:** the flaky axe scan that failed `verify` on `main` after WU-12 is fixed. Every scan now waits for transitions to finish.
+  - **An accessibility fix:** axe found a real contrast defect in shadcn's destructive `Alert` (4.49:1), fixed in `alert.tsx`.
+- Usage: main/Opus 152 req, 153k out; wu-implementer/Sonnet 38 req, 58k out; wu-reviewer/Opus 28 req, 36k out; wu-reviewer/Sonnet 3 req, 4k out.
 
 ---
 
@@ -866,6 +875,11 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - Partial objects contain missing keys **and truncated strings** (e.g. `"Calm tur"`); cards must render both. Use `useObject`'s `onFinish({ object, error })` for the final validation. See [ADR 0001](decisions/0001-structured-output.md), Q7.
 - From WU-11: the server sends each card's `recommendationId` and `claims` first, before its title and blurb, and holds back only the word still being written. When the user tried the streaming demo in WU-11's planning, they preferred the badges held back until the card's text is complete: render a card's verification badges once its `blurb` is done (a later key, `highlights`, has arrived, or the stream has finished), not as soon as the claims arrive. A stream that errors mid-way ends with a transport error, never a clean end ([`presentation.md`](features/presentation.md), AC-PRESENT-08); show the recoverable error state, and keep or discard the partial cards as WU-14 decides.
 - From WU-12: add `@ai-sdk/react` 4.0.158 then (it is in the catalog; WU-12 didn't need it). `client.present()` returns the raw response stream once the status is 2xx (an error status maps to an `ApiError`; the content type is not checked); WU-14 decides how `useObject` consumes it (its own `fetch` with the same URL and header, or a custom `fetch` over the client). The pact only checks that `/present` answers 200 with `text/plain`; the stream's content stays with the conformance suite.
+- From WU-13:
+  - **Where the next step goes:** the conversation ends at `ready`, with the composer still open for corrections; add the step to recommendations there. `ConversationState` is in `src/lib/conversation/reducer.ts`; extend the reducer rather than adding a second state store.
+  - **Text and labels:** word enum values with `enumLabel` from the spec's message catalog (`@vp/domain-schema/messages`). Verification-badge text is UI copy, unless another client needs the same words.
+  - **Tests:** `mockApi` answers can be arrays, used in order, and it returns the recorded requests. Scan with `expectNoAxeViolations` from `tests/support/axe.ts`, which waits for transitions.
+  - **Accessibility:** any new live region (stream progress, errors) must always be in the DOM, with only its text changing ([plan](plans/WU-13.md), unit review fix 1). A looping animation, such as a spinner, would make the axe helper's wait time out, so the helper must then skip infinite animations.
 
 ---
 
@@ -891,6 +905,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From WU-19: this replaces the WU-07 `BACKEND=` note above. The stack script starts `api-nextjs` only, and `verify:full` runs journeys `@full` plus the provider contract tests against `api-nextjs`. The "How interchangeability is checked" table from the wire-reorganization note is replaced by WU-19's README section, so update that section instead. The Scope's `BACKEND=nextjs` is dropped too: the stack script has no `BACKEND` variable (ADR 0003, "If a second backend is added").
 - From deployment planning: the stack script supplies an invite code (WU-22), and journeys enter it the way a user would. Decide in the plan whether the stack can also run from the WU-20 images ("test what you ship"). The default path must still need no Docker.
 - From WU-08: add `record:cassettes --prune` to delete cassettes no test replays any more ([plan](plans/WU-08.md), R5). A dead-proxy "network off" check can't cover `test:contract`: Pact's native verifier routes even loopback requests through the proxy and ignores `NO_PROXY`, so use a real network-off run ([plan](plans/WU-08.md), deviation 7).
+- From WU-13: wait for animations and transitions to finish before every axe scan (`document.getAnimations()`, as in `apps/web-nextjs/tests/support/axe.ts`); scanning during a colour fade made `verify` flaky on CI ([plan](plans/WU-13.md), D12). Journeys can't import that helper (§6.6), so copy the one wait. The UI asks for the invite code only after a 401: a journey sends its first message, then enters the code in the "Invite code" field, or opens `/?invite=<code>`.
 
 ---
 
@@ -954,6 +969,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## Backlog (not scheduled)
+- From WU-13: have the clarification prompt (WU-09) work from the spec's message catalog, and control which language it writes `clarificationQuestion` in. Today no prompt sets the language. This is a prompt change, so cassettes must be re-recorded. Pair it with a second catalog locale (`spec/messages/<locale>.json`) and a way for the client to send its locale.
 - `mobile-react-native` client, with its own consumer pact verified against the backend
 - Local Docker Pact Broker + `can-i-deploy`
 - Remaining abuse controls from ADR 0004's Future hardening section (written in WU-17). Invite codes and per-code rate limits are now WU-22, and the spend limit is WU-23. Left: an on-topic guard step (it may move into WU-18 if the evals show it's needed). User accounts belong here only if this becomes a product (ADR 0005).
