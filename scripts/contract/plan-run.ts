@@ -67,14 +67,22 @@ export function planRun(
  * A code made for one run of a server this runner starts, so no fixed code is needed (AC-GATE-13).
  * The server gets its entry and limits no run reaches; the suite gets the code. The code isn't
  * committed, so the server runs as hosted (no LOCAL_DEV): the contract runs check that config.
+ * The one exception is `pnpm record:cassettes --contract`: LLM_MODE=record needs LOCAL_DEV=true,
+ * so that record mode is never hosted (WU-11 deviation; recording broke when WU-22 merged).
  */
-export function freshInvite(make: () => string = newInviteCode): {
+export function freshInvite(
+  make: () => string = newInviteCode,
+  { recording = false }: { recording?: boolean } = {},
+): {
   code: string;
   serverEnv: Record<string, string>;
 } {
   const code = make();
   return {
     code,
-    serverEnv: { ...inviteEnv(`contract:${hashInviteCode(code)}`), LOCAL_DEV: 'false' },
+    serverEnv: {
+      ...inviteEnv(`contract:${hashInviteCode(code)}`),
+      LOCAL_DEV: recording ? 'true' : 'false',
+    },
   };
 }
