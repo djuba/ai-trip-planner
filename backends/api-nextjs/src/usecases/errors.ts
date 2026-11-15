@@ -6,11 +6,21 @@ export type LlmErrorCode = 'LLM_REFUSAL' | 'LLM_UPSTREAM_ERROR';
 /** The model refused, or the provider failed after the single retry. Maps to a 502 (§5, §7). */
 export class LlmError extends Error {
   readonly code: LlmErrorCode;
+  /**
+   * The failure came after a stream's first output (WU-11 plan D1, D5). Part of the response may
+   * already be sent, so it can't become a 502: the response stream is errored instead.
+   */
+  readonly midStream: boolean;
 
-  constructor(code: LlmErrorCode, message: string, options?: ErrorOptions) {
+  constructor(
+    code: LlmErrorCode,
+    message: string,
+    options?: ErrorOptions & { midStream?: boolean },
+  ) {
     super(message, options);
     this.name = 'LlmError';
     this.code = code;
+    this.midStream = options?.midStream ?? false;
   }
 }
 

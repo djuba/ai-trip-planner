@@ -1,6 +1,7 @@
-// LLM_MODE=mock (CLAUDE.md §6.1, §8.3; WU-08 plan D6). Each call builds an AI SDK mock model bound
-// to the stage's responder and runs it through the real adapter, so the refusal check, the one
-// retry and the `safeParse` all run for real. Only the model is fake.
+// LLM_MODE=mock (CLAUDE.md §6.1, §8.3; WU-08 plan D6; WU-11 plan D1). Each call builds an AI SDK
+// mock model bound to the stage's responder and runs it through the real adapter, so the refusal
+// check, the one retry and the `safeParse` all run for real. Only the model is fake. A streamed
+// call gets the same reply in small text chunks.
 import { MockLanguageModelV4 } from 'ai/test';
 import type { z } from 'zod';
 import type { LlmClient, LlmObjectRequest, LlmStage } from '../usecases/llm-client.ts';
@@ -9,6 +10,8 @@ import { createAiSdkLlmClient, type LlmCallLog } from './ai-sdk-client.ts';
 interface ReplyData {
   readonly text: string | undefined;
   readonly refusal: boolean;
+  /** Streamed calls only: send this many characters of `text`, then an `error` part. */
+  readonly failAfter?: number;
 }
 
 /** What a mock model answers with. Build one with `mockObject`, `mockRefusal` or `mockRaw`. */
@@ -40,6 +43,20 @@ export function mockRefusal(): MockReply {
   return { __mockReply: { text: undefined, refusal: true } };
 }
 
+/**
+ * A streamed reply that fails partway: the first `afterChars` characters of `value`'s JSON, then
+ * an `error` part, as an overloaded provider sends mid-stream (WU-11 plan D1). A non-streamed call
+ * gets the error before any output.
+ */
+export function mockStreamFailure<T>(
+  schema: z.ZodType<T>,
+  value: unknown,
+  afterChars: number,
+): MockReply {
+  const { __mockReply: reply } = mockObject(schema, value);
+  return { __mockReply: { ...reply, failAfter: afterChars } };
+}
+
 /** Arbitrary text, for malformed or schema-invalid model output. */
 export function mockRaw(text: string): MockReply {
   return { __mockReply: { text, refusal: false } };
@@ -66,6 +83,43 @@ function resultOf({ __mockReply: reply }: MockReply) {
   };
 }
 
+/** Characters per streamed text delta: small, so tests see many partials. */
+export const MOCK_CHUNK_SIZE = 12;
+
+class MockStreamError extends Error {
+  constructor() {
+    super('Mock stream failure');
+    this.name = 'MockStreamError';
+  }
+}
+
+function streamOf({ __mockReply: reply }: MockReply) {
+  const text = reply.text ?? '';
+  const sent = reply.failAfter === undefined ? text : text.slice(0, reply.failAfter);
+  const parts: unknown[] = [{ type: 'stream-start', warnings: [] }];
+  if (sent.length > 0) {
+    parts.push({ type: 'text-start', id: 't0' });
+    for (let i = 0; i < sent.length; i += MOCK_CHUNK_SIZE) {
+      parts.push({ type: 'text-delta', id: 't0', delta: sent.slice(i, i + MOCK_CHUNK_SIZE) });
+    }
+  }
+  if (reply.failAfter !== undefined) {
+    parts.push({ type: 'error', error: new MockStreamError() });
+  } else {
+    if (sent.length > 0) parts.push({ type: 'text-end', id: 't0' });
+    const { finishReason, usage } = resultOf({ __mockReply: reply });
+    parts.push({ type: 'finish', finishReason, usage });
+  }
+  return {
+    stream: new ReadableStream({
+      start(controller) {
+        for (const part of parts) controller.enqueue(part);
+        controller.close();
+      },
+    }),
+  };
+}
+
 export function createMockLlmClient(
   responders: Partial<Record<LlmStage, MockResponder>>,
   deps: { log: (entry: LlmCallLog) => void; now: () => number },
@@ -86,6 +140,23 @@ export function createMockLlmClient(
         },
       });
       return createAiSdkLlmClient({ modelFor: () => model, ...deps }).generateObject(request);
+    },
+
+    streamObject<T>(request: LlmObjectRequest<T>) {
+      const responder = responders[request.stage];
+      if (responder === undefined) {
+        return Promise.reject(new MockNotConfiguredError(request.stage));
+      }
+      let attempt = 0;
+      const model = new MockLanguageModelV4({
+        modelId: `mock-${request.role}`,
+        doStream: () => {
+          attempt += 1;
+          const reply = typeof responder === 'function' ? responder(request, attempt) : responder;
+          return Promise.resolve(streamOf(reply) as never);
+        },
+      });
+      return createAiSdkLlmClient({ modelFor: () => model, ...deps }).streamObject(request);
     },
   };
 }

@@ -13,8 +13,10 @@ import type { LlmObjectRequest, ModelRole } from '../../src/usecases/llm-client.
 import {
   anthropicError,
   anthropicMessage,
+  anthropicSseEvents,
   jsonResponse,
   scriptedFetch,
+  sseResponse,
 } from '../support/anthropic-responses.ts';
 
 const MODELS: Record<ModelRole, string> = {
@@ -189,5 +191,82 @@ describe('AI SDK LlmClient over the Anthropic provider', () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('AI SDK LlmClient.streamObject over the Anthropic provider (WU-11 plan D1)', () => {
+  const model = 'claude-haiku-5-5';
+  const text = JSON.stringify({ city: 'Lisbon', nights: 4 });
+  const stream =
+    (opts: Partial<Parameters<typeof anthropicSseEvents>[0]> = {}) =>
+    () =>
+      sseResponse(anthropicSseEvents({ model, text, chunkSize: 6, ...opts }));
+
+  async function drain(parts: AsyncIterable<unknown>): Promise<unknown[]> {
+    const out: unknown[] = [];
+    for await (const part of parts) out.push(part);
+    return out;
+  }
+
+  it('AC-PRESENT-02: sends native structured output and streams partials, then the final object', async () => {
+    const scripted = scriptedFetch(stream());
+    const { llm, logs } = client(scripted.fetch);
+
+    const parts = await drain(await llm.streamObject(request()));
+
+    expect(scripted.bodies[0]).toMatchObject({
+      model,
+      stream: true,
+      max_tokens: 256,
+      output_config: { effort: 'low', format: { type: 'json_schema' } },
+    });
+    expect(scripted.bodies[0]).not.toHaveProperty('temperature');
+    expect(scripted.bodies[0]).not.toHaveProperty('tool_choice');
+    expect(parts.length).toBeGreaterThan(2);
+    expect(parts.at(-1)).toEqual({ type: 'final', object: { city: 'Lisbon', nights: 4 } });
+    expect(logs).toEqual([expect.objectContaining({ outcome: 'ok', warnings: [] })]);
+  });
+
+  it('AC-PRESENT-07: HTTP 529 before the stream is retried once, then LLM_UPSTREAM_ERROR', async () => {
+    const scripted = scriptedFetch(
+      () => anthropicError(529, 'overloaded_error'),
+      () => anthropicError(529, 'overloaded_error'),
+    );
+    const { llm } = client(scripted.fetch);
+    const error = await rejection(llm.streamObject(request()));
+    expect(error).toBeInstanceOf(LlmError);
+    expect(error).toMatchObject({ code: 'LLM_UPSTREAM_ERROR', midStream: false });
+    expect(scripted.bodies).toHaveLength(2);
+  });
+
+  it('AC-PRESENT-07: a refusal with no output is LLM_REFUSAL after one request', async () => {
+    const scripted = scriptedFetch(stream({ text: '', stopReason: 'refusal' }));
+    const { llm } = client(scripted.fetch);
+    await expect(llm.streamObject(request())).rejects.toMatchObject({ code: 'LLM_REFUSAL' });
+    expect(scripted.bodies).toHaveLength(1);
+  });
+
+  it('AC-PRESENT-08: an error event after output is a mid-stream LlmError with no retry', async () => {
+    const scripted = scriptedFetch(stream({ errorAfter: 14 }));
+    const { llm, logs } = client(scripted.fetch);
+
+    const parts = await llm.streamObject(request());
+    const error = await rejection(drain(parts));
+
+    expect(error).toBeInstanceOf(LlmError);
+    expect(error).toMatchObject({ code: 'LLM_UPSTREAM_ERROR', midStream: true });
+    expect(scripted.bodies).toHaveLength(1);
+    expect(logs).toEqual([expect.objectContaining({ outcome: 'error' })]);
+  });
+
+  it('AC-PRESENT-08: output cut off at maxOutputTokens after output is a mid-stream failure', async () => {
+    const scripted = scriptedFetch(stream({ text: text.slice(0, 20), stopReason: 'max_tokens' }));
+    const { llm, logs } = client(scripted.fetch);
+    await expect(drain(await llm.streamObject(request()))).rejects.toMatchObject({
+      midStream: true,
+    });
+    expect(logs).toEqual([
+      expect.objectContaining({ outcome: 'error', error: 'OutputTruncatedError' }),
+    ]);
   });
 });

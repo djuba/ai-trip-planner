@@ -55,6 +55,7 @@ function startingFrom(client: LlmClient): LlmClient {
       }
       return client.generateObject(request);
     },
+    streamObject: (request) => client.streamObject(request),
   };
 }
 

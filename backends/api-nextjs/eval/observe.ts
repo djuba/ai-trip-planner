@@ -17,5 +17,16 @@ export function observeLlm(inner: LlmClient, record: (attempt: Attempt) => void)
       });
       return inner.generateObject({ ...request, accept });
     },
+
+    streamObject<T>(request: LlmObjectRequest<T>) {
+      // `accept` runs once, on the finished object of each streamed attempt.
+      const original = request.accept;
+      const accept = z.custom((output: unknown) => {
+        const accepted = original === undefined || original.safeParse(output).success;
+        record({ stage: request.stage, output, accepted });
+        return accepted;
+      });
+      return inner.streamObject({ ...request, accept });
+    },
   };
 }

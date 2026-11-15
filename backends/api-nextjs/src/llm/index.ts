@@ -12,6 +12,7 @@ export {
   mockObject,
   mockRaw,
   mockRefusal,
+  mockStreamFailure,
   MockNotConfiguredError,
   type MockReply,
   type MockResponder,
