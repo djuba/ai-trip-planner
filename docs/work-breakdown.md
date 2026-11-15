@@ -34,7 +34,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | done |
 | WU-11 | Present stream + `/v1/trip/present` | WU-10 | done |
 | WU-22 | Invite-code access gate + rate limit | WU-07, WU-20 | done |
-| WU-12 | Web shell, API client, Pact consumer | WU-04, WU-07, WU-22 | in-progress |
+| WU-12 | Web shell, API client, Pact consumer | WU-04, WU-07, WU-22 | done |
 | WU-13 | Conversation & clarification UI | WU-09, WU-12 | todo |
 | WU-14 | Streamed presentation cards + a11y | WU-11, WU-13 | todo |
 | WU-15 | Journeys + integrated gate | WU-14 | todo |
@@ -785,7 +785,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-12 — Web shell, API client, Pact consumer
-**Status:** in-progress · **Depends on:** WU-04, WU-07, WU-22 · **Commits:**
+**Status:** done · **Depends on:** WU-04, WU-07, WU-22 · **Commits:** [#32](https://github.com/djuba/ai-trip-planner/pull/32)
 
 **Goal:** the web app exists, talks only to `NEXT_PUBLIC_API_BASE_URL`, and publishes its expectations as a pact.
 
@@ -813,6 +813,8 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From deployment planning: the API client sends `Authorization: Bearer <invite code>` (WU-22) and maps 401 and 429 to typed errors. Include the header in the pact interactions.
 - From WU-22: the pact verifier sets `Authorization` through `requestFilter`, which replaces any header a pact records. The first gated interaction must check that. Ask for an invite code only after a 401, never up front: with `ACCESS_GATE=off` locally no 401 comes. Map 429 `RATE_LIMITED` (with `Retry-After`) and 429 `QUOTA_EXHAUSTED` (none) to different errors. See [`access-gate.md`](features/access-gate.md).
 - From deployment planning: add `apps/web-nextjs/Dockerfile` on the WU-20 pattern. `NEXT_PUBLIC_API_BASE_URL` is a build argument, because Next inlines it at build time. If WU-21 is done, add the web service to `infra/`, point the API's `WEB_ORIGIN` at it, and extend the deploy workflow.
+- Done (see the [plan](plans/WU-12.md) and its deviations): the shell on :3000 with a health badge; the typed client in `apps/web-nextjs/src/lib/api/` returning `ApiResult` values, never throwing ([`web-client.md`](features/web-client.md)); seven pact interactions whose requests copy the conformance suite's, so verification replays existing cassettes. `pnpm test:contract` rewrites the pact first, and CI fails if it drifts from the committed file. 401 and 429 can't be pact interactions, because the verifier replaces `Authorization`; the unit and msw tests cover them. The web Dockerfile and hosting moved to WU-23.
+- Usage: main/Opus 134 req, 107k out; wu-implementer/Sonnet 47 req, 40k out; wu-reviewer/Sonnet 10 req, 12k out.
 
 ---
 
@@ -839,6 +841,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From deployment planning: an invite-code entry state before the conversation, kept for the browser session. An invite link (`?invite=<code>`) fills it in and then removes the code from the address bar. The UI shows 401 ("this code isn't valid") and 429 ("try again in …" from `Retry-After`) as recoverable states, with axe checks.
 - From WU-22: show the code entry only after a 401 (see WU-12's note), and for `QUOTA_EXHAUSTED` say the invite is used up rather than "try again". Never put the owner's own code in an invite link: type it in. Decide whether `pnpm dev` asks for the code, so the recruiter experience can be rehearsed locally (`local-dev-invite`).
 - From WU-09: `clarificationQuestion` is plain text of at most `MAX_CLARIFICATION_QUESTION_LENGTH` (300 code points), and it is model-written. Render it as text, never as HTML or markdown. Show `violations` from `code` + `params`, not from the question. The response's `profile` is the full updated profile, so replace the client's copy with it on every turn ([`extraction.md`](features/extraction.md)).
+- From WU-12: call the API through `createApiClient` from `@/lib/api`; every call returns an `ApiResult`, so render states from `error.kind` (`unauthorized`, `rate_limited` with `retryAfterSeconds`, `quota_exhausted`, `message_too_long`, …) and never catch. `getInviteCode` is read on each call, so the code entered after a 401 applies to the next request with no new client. Pass an `AbortSignal` when a turn is superseded. Fake the API in Playwright with `tests/support/mock-api.ts`, which answers CORS preflights and fails on any unmocked request ([`web-client.md`](features/web-client.md)).
 
 ---
 
@@ -862,6 +865,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 **Notes:**
 - Partial objects contain missing keys **and truncated strings** (e.g. `"Calm tur"`); cards must render both. Use `useObject`'s `onFinish({ object, error })` for the final validation. See [ADR 0001](decisions/0001-structured-output.md), Q7.
 - From WU-11: the server sends each card's `recommendationId` and `claims` first, before its title and blurb, and holds back only the word still being written. When the user tried the streaming demo in WU-11's planning, they preferred the badges held back until the card's text is complete: render a card's verification badges once its `blurb` is done (a later key, `highlights`, has arrived, or the stream has finished), not as soon as the claims arrive. A stream that errors mid-way ends with a transport error, never a clean end ([`presentation.md`](features/presentation.md), AC-PRESENT-08); show the recoverable error state, and keep or discard the partial cards as WU-14 decides.
+- From WU-12: add `@ai-sdk/react` 4.0.158 then (it is in the catalog; WU-12 didn't need it). `client.present()` returns the raw response stream once the status is 2xx (an error status maps to an `ApiError`; the content type is not checked); WU-14 decides how `useObject` consumes it (its own `fetch` with the same URL and header, or a custom `fetch` over the client). The pact only checks that `/present` answers 200 with `text/plain`; the stream's content stays with the conformance suite.
 
 ---
 
@@ -945,6 +949,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
   - **Spend and alerts:** the dedicated Anthropic workspace bounds a leaked code. Add a log-based alert on `revoked` and `quota_exhausted` gate events and on unusual volume for any one label.
 - From WU-21: the model IDs need no change for live mode: the hosted service already runs the CLAUDE.md §8.1 IDs, because the cassettes are keyed on them. Revisit `request_timeout_seconds` with WU-10's latency figure.
 - From WU-10: measured `/recommend` cost and size. A first-try pass is 2 Sonnet calls (recommend about 460–780 output tokens, critic 16); the worst recorded case was 6 calls and about 1,600 output tokens in about 17 s. The theoretical bound is 12 calls with retries, each up to its `maxOutputTokens` (recommend 17,408, critic 13,824). The live eval (12 runs, judge on) cost US$0.37, about 1% of its US$33.62 worst-case estimate, so size the spend limit from measured spend and keep the worst case as the bound. A passing critic call is about 16 output tokens, so `MODEL_CRITIC` on Haiku is worth trying. The 300 s `request_timeout_seconds` is far above the measured 17 s ([WU-10 plan](plans/WU-10.md)).
+- From WU-12 (deferred at its plan approval): add `apps/web-nextjs/Dockerfile` on the WU-20 pattern, with `NEXT_PUBLIC_API_BASE_URL` as a build argument because Next inlines it at build time; add the web service to `infra/`, point the API's `WEB_ORIGIN` at it, and extend the deploy workflow. The web functional tests already build the app with a non-default base URL, so the build-argument path is proven.
 
 ---
 
