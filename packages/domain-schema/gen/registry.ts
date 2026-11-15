@@ -1,6 +1,7 @@
 // Every named contract schema, by id. `gen` emits one `generated/<id>.schema.json` per entry, plus
 // the OpenAPI `components.schemas`. A private registry keeps anything else out of `generated/`.
 import { z } from 'zod';
+import { MessageCatalog } from '../src/messages/catalog-schema.ts';
 import * as envelopes from '../src/wire/http/envelopes.ts';
 import { ClarificationOutput } from '../src/wire/llm/clarification.ts';
 import { CritiqueResult } from '../src/wire/llm/critique.ts';
@@ -45,6 +46,7 @@ export const CONTRACT_SCHEMAS = {
   PresentRequest: envelopes.PresentRequest,
   HealthResponse: envelopes.HealthResponse,
   ErrorResponse: envelopes.ErrorResponse,
+  MessageCatalog,
 } as const satisfies Record<string, z.ZodType>;
 
 export type ContractSchemaId = keyof typeof CONTRACT_SCHEMAS;
@@ -73,4 +75,13 @@ export const LLM_ONLY_IDS = [
   'RecommendationSet',
   'CritiqueResult',
   'PresentationCopy',
+] as const satisfies readonly ContractSchemaId[];
+
+/**
+ * Schemas that never cross HTTP, so `openapi.yaml` leaves them out: the LLM-only ones, and the
+ * shape of the spec's message catalog (spec/messages.md), which clients read as files.
+ */
+export const OPENAPI_EXCLUDED_IDS = [
+  ...LLM_ONLY_IDS,
+  'MessageCatalog',
 ] as const satisfies readonly ContractSchemaId[];

@@ -30,7 +30,7 @@ import {
 } from '../src/wire/index.ts';
 import {
   CONTRACT_SCHEMAS,
-  LLM_ONLY_IDS,
+  OPENAPI_EXCLUDED_IDS,
   contractRegistry,
   type ContractSchemaId,
 } from './registry.ts';
@@ -83,10 +83,10 @@ const gatedResponses = {
 };
 
 export function buildOpenApi(): JsonSchema {
-  // LLM-only schemas never cross HTTP, so the API spec leaves them out.
-  const llmOnly = new Set<string>(LLM_ONLY_IDS);
+  // Schemas that never cross HTTP (LLM-only ones, the message catalog) stay out of the API spec.
+  const excluded = new Set<string>(OPENAPI_EXCLUDED_IDS);
   const components = Object.fromEntries(
-    Object.entries(emit((id) => `#/components/schemas/${id}`)).filter(([id]) => !llmOnly.has(id)),
+    Object.entries(emit((id) => `#/components/schemas/${id}`)).filter(([id]) => !excluded.has(id)),
   );
   for (const schema of Object.values(components)) {
     delete schema.$schema;

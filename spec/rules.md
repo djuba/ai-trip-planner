@@ -6,7 +6,7 @@ The language-neutral source of truth for the business rules. The backend impleme
 
 **Input:** a `TripProfile` that has already passed the wire schema, and the request's `referenceDate` (the client's local date, `YYYY-MM-DD`). Rules never read the system clock.
 
-**Output:** a list of violations, each `{ code, path, params }`. `path` is a JSON Pointer into the profile, and `""` means the whole profile. Rules never throw. Messages are not part of the contract: clients render text from `code` and `params`.
+**Output:** a list of violations, each `{ code, path, params }`. `path` is a JSON Pointer into the profile, and `""` means the whole profile. Rules never throw. Messages are not part of the HTTP contract or the wire: clients render text from `code` and `params` with the message catalog ([`messages.md`](messages.md)).
 
 **Routing:** an empty list means `ready`; anything else means `needs_clarification`, a normal 200 response. A rule failure is never an HTTP error.
 

@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "MessageCatalog.schema.json",
+  "type": "object",
+  "properties": {
+    "locale": {
+      "type": "string",
+      "minLength": 1
+    },
+    "violations": {
+      "type": "object",
+      "properties": {
+        "CHILD_AGE_RANGE": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ADULT_AGE_RANGE": {
+          "type": "string",
+          "minLength": 1
+        },
+        "DATE_ORDER": {
+          "type": "string",
+          "minLength": 1
+        },
+        "DATE_NOT_PAST": {
+          "type": "string",
+          "minLength": 1
+        },
+        "DATE_VALID": {
+          "type": "string",
+          "minLength": 1
+        },
+        "PARTY_HAS_ADULT": {
+          "type": "string",
+          "minLength": 1
+        },
+        "INSUFFICIENT_DETAIL": {
+          "type": "string",
+          "minLength": 1
+        },
+        "MAX_STOPS_RANGE": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "CHILD_AGE_RANGE",
+        "ADULT_AGE_RANGE",
+        "DATE_ORDER",
+        "DATE_NOT_PAST",
+        "DATE_VALID",
+        "PARTY_HAS_ADULT",
+        "INSUFFICIENT_DETAIL",
+        "MAX_STOPS_RANGE"
+      ]
+    },
+    "labels": {
+      "type": "object",
+      "properties": {
+        "experience": {
+          "type": "object",
+          "properties": {
+            "beach": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pool": {
+              "type": "string",
+              "minLength": 1
+            },
+            "golf": {
+              "type": "string",
+              "minLength": 1
+            },
+            "go-karts": {
+              "type": "string",
+              "minLength": 1
+            },
+            "hiking": {
+              "type": "string",
+              "minLength": 1
+            },
+            "snorkeling": {
+              "type": "string",
+              "minLength": 1
+            },
+            "theme-parks": {
+              "type": "string",
+              "minLength": 1
+            },
+            "museums": {
+              "type": "string",
+              "minLength": 1
+            },
+            "nightlife": {
+              "type": "string",
+              "minLength": 1
+            },
+            "skiing": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "beach",
+            "pool",
+            "golf",
+            "go-karts",
+            "hiking",
+            "snorkeling",
+            "theme-parks",
+            "museums",
+            "nightlife",
+            "skiing"
+          ]
+        },
+        "climate": {
+          "type": "object",
+          "properties": {
+            "tropical": {
+              "type": "string",
+              "minLength": 1
+            },
+            "warm": {
+              "type": "string",
+              "minLength": 1
+            },
+            "temperate": {
+              "type": "string",
+              "minLength": 1
+            },
+            "cool": {
+              "type": "string",
+              "minLength": 1
+            },
+            "cold": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "tropical",
+            "warm",
+            "temperate",
+            "cool",
+            "cold"
+          ]
+        },
+        "travelMode": {
+          "type": "object",
+          "properties": {
+            "plane": {
+              "type": "string",
+              "minLength": 1
+            },
+            "car": {
+              "type": "string",
+              "minLength": 1
+            },
+            "train": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "plane",
+            "car",
+            "train"
+          ]
+        },
+        "userType": {
+          "type": "object",
+          "properties": {
+            "adult": {
+              "type": "string",
+              "minLength": 1
+            },
+            "child": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "adult",
+            "child"
+          ]
+        }
+      },
+      "required": [
+        "experience",
+        "climate",
+        "travelMode",
+        "userType"
+      ]
+    }
+  },
+  "required": [
+    "locale",
+    "violations",
+    "labels"
+  ]
+}

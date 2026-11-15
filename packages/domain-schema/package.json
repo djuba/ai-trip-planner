@@ -6,7 +6,8 @@
   "exports": {
     "./wire": "./src/wire/index.ts",
     "./rules": "./src/rules/index.ts",
-    "./testing": "./tests/support/build-fixture.ts"
+    "./testing": "./tests/support/build-fixture.ts",
+    "./messages": "./src/messages/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -14,9 +15,11 @@
     "gen:check": "node gen/cli.ts --check"
   },
   "devDependencies": {
+    "@formatjs/icu-messageformat-parser": "catalog:",
     "@types/node": "catalog:",
     "ajv": "catalog:",
     "ajv-formats": "catalog:",
+    "intl-messageformat": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "yaml": "catalog:"

@@ -98,3 +98,36 @@ export const recommendResponse = () =>
 
 export const errorBody = (code: string, message: string) =>
   buildFixture(ErrorResponse, { error: { code, message } });
+
+/** A child aged 19 (CHILD_AGE_RANGE); the question carries markup to check it shows as text. */
+export const childAgeClarificationResponse = () =>
+  buildFixture(ExtractResponse, {
+    status: 'needs_clarification',
+    profile: {
+      region: 'Hawaii',
+      climate: 'tropical',
+      people: [
+        { userType: 'adult', age: 40 },
+        { userType: 'child', age: 19 },
+      ],
+    },
+    violations: [
+      { code: 'CHILD_AGE_RANGE', path: '/people/1/age', params: { age: 19, min: 0, max: 17 } },
+    ],
+    clarificationQuestion: 'Is the 19-year-old traveling as an adult? <b>Tell me</b>',
+  });
+
+/** The answer to `childAgeClarificationResponse`: the traveler is an adult, so nothing is left. */
+export const readyAfterCorrectionResponse = () =>
+  buildFixture(ExtractResponse, {
+    status: 'ready',
+    profile: {
+      region: 'Hawaii',
+      climate: 'tropical',
+      dateRange: { kind: 'flexible', month: 2, year: 2030, durationNights: 7 },
+      people: [
+        { userType: 'adult', age: 40 },
+        { userType: 'adult', age: 19 },
+      ],
+    },
+  });

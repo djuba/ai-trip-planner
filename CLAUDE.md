@@ -25,11 +25,14 @@ ai-trip-planner/
 │   └── domain-schema/           # TS source of the contract; generates spec/ (see §4)
 │       ├── src/wire/            # Zod schemas: http/ (bodies), models/ (shared), llm/ (model-only)
 │       ├── src/rules/           # TS implementation of invariant rules (backend-only)
+│       ├── src/messages/        # TS reader of the message catalog in spec/messages/
 │       └── tests/support/       # TS test helpers (buildFixture, fixture loader, samples)
 ├── spec/                        # LANGUAGE-NEUTRAL SPEC: what the backend must satisfy (see §4)
 │   ├── generated/               # JSON Schema + openapi.yaml + constants.json — generated, COMMITTED
 │   ├── rules.md                 # Invariant catalog (source of truth for rules)
 │   ├── normalize.md             # ExtractionSchema → TripProfile, incl. cap discards (source of truth)
+│   ├── messages.md              # Message catalog: how clients word rule codes and enum labels (source of truth)
+│   ├── messages/                # One ICU MessageFormat catalog per locale (en.json)
 │   └── fixtures/                # rules/ and normalize/ cases: input JSON → expected output JSON
 ├── contracts/
 │   └── pacts/                   # Consumer pact files written by web tests — COMMITTED
@@ -82,6 +85,7 @@ The contract has two homes. `packages/domain-schema` is the TS package where sha
 ### 4.1 Source of truth
 - **Shapes:** Zod in `packages/domain-schema/src/wire/` is where shapes are written. `z.toJSONSchema()` emits `spec/generated/*.schema.json` and `spec/generated/openapi.yaml`. Code in another language generates its models from `spec/generated/`, never from TS. Schemas only a model fills in (`src/wire/llm/`) never cross HTTP, so they get a `.schema.json` but stay out of `openapi.yaml`.
 - **Invariants:** `spec/rules.md` is the source of truth. Each rule has a stable code, a plain-English definition, and fixture cases in `spec/fixtures/rules/`. `packages/domain-schema/src/rules/` is just the TS implementation of it.
+- **Messages:** `spec/messages.md` is the source of truth for how a client words each rule code and labels each closed-enum value: ICU MessageFormat templates in `spec/messages/<locale>.json`, one file per locale, formatted with the code's `params` plus a derived `field`. Presentation only, never on the wire (§4.5). `src/messages/` is the TS reader, and `MessageCatalog` gives the file's shape (`spec/generated/MessageCatalog.schema.json`, not in `openapi.yaml`). A test fails when a code or enum value has no text.
 - **Normalization:** `spec/normalize.md` is the source of truth for `ExtractionSchema` → `TripProfile`, including what is discarded over a cap and how string length is counted (Unicode code points), with fixture cases in `spec/fixtures/normalize/` ([ADR 0004](docs/decisions/0004-input-and-output-limits.md)). `normalize.ts` is the TS implementation of it.
 - **Use only JSON-Schema-expressible constructs in wire schemas:** no `.transform()`, `.refine()`, `.superRefine()`, `z.date()`, `z.bigint()`, or `.default()` that changes meaning. Cross-field rules go in `src/rules/`, never in the wire schema.
 
@@ -90,10 +94,11 @@ The contract has two homes. `packages/domain-schema` is the TS package where sha
 "exports": {
   "./wire":    "./src/wire/index.ts",              // web + backends may import
   "./rules":   "./src/rules/index.ts",             // backends ONLY — web must not import
-  "./testing": "./tests/support/build-fixture.ts"  // test code ONLY
+  "./testing": "./tests/support/build-fixture.ts", // test code ONLY
+  "./messages": "./src/messages/index.ts"          // the message catalog as data: web + backends may import
 }
 ```
-`apps/web-nextjs` may import `@vp/domain-schema/wire`: its schemas (for the final `safeParse` of streamed data) and its types (prefer `import type`). Its tests may import `buildFixture` from `@vp/domain-schema/testing`. It never imports `rules`. ESLint `no-restricted-imports` rules block `@vp/domain-schema/rules` in `apps/`, and `@vp/domain-schema/testing` in non-test code under `apps/` and `backends/`. `web-nextjs/next.config` lists the package in `transpilePackages`.
+`apps/web-nextjs` may import `@vp/domain-schema/wire`: its schemas (for the final `safeParse` of streamed data) and its types (prefer `import type`). It may import `@vp/domain-schema/messages` to word violations and enum values. Its tests may import `buildFixture` from `@vp/domain-schema/testing`. It never imports `rules`. ESLint `no-restricted-imports` rules block `@vp/domain-schema/rules` in `apps/`, and `@vp/domain-schema/testing` in non-test code under `apps/` and `backends/`. `web-nextjs/next.config` lists the package in `transpilePackages`.
 
 ### 4.3 Domain model (wire shape)
 All dates are ISO-8601 `YYYY-MM-DD` strings. No `Date` objects cross the wire.
@@ -128,7 +133,7 @@ The enum is closed and versioned. Adding a value is a `feat(domain-schema)`; rem
 
 **The one exception is resource caps** ([ADR 0004](docs/decisions/0004-input-and-output-limits.md)). Every string and array reachable from `TripProfile`, and `ExtractRequest.message`, has a `maxLength` / `maxItems`, counted in Unicode code points (`spec/normalize.md`). A request over a cap is a 422, not a rule violation. The caps are exported constants (`MAX_MESSAGE_LENGTH`, `MAX_SHORT_TEXT_LENGTH`, `MAX_NOTE_LENGTH`, `MAX_DATE_TEXT_LENGTH`, `MAX_EXPERIENCES`, `MAX_UNMAPPED_EXPERIENCES`, `MAX_PEOPLE`), copied into `spec/generated/constants.json`. Wire schemas use them; never hardcode a cap. Output caps on server-written fields (`MAX_CLARIFICATION_QUESTION_LENGTH`, and for recommendations `MAX_RECOMMENDATIONS`, `MAX_CLAIMS`, `MAX_SUMMARY_LENGTH`, `MAX_CLAIM_LENGTH`, `MAX_CRITIQUE_ISSUE_LENGTH`, `MAX_UNRESOLVED_ISSUES`; ADR 0004) are exported constants too, used the same way. Model-only schemas (`RecommendationSet`, `CritiqueResult`, `ClarificationOutput`) stay uncapped, and code discards over-cap output. `ExtractionSchema` stays uncapped (§4.4).
 
-Rules never throw. Each violation is `{ code, path, params }`: `path` is a JSON Pointer into the profile, and `params` is typed per code (see `src/wire/models/rule-violation.ts`). **Messages are not part of the contract**; clients and the LLM clarification prompt render text from `code` + `params`.
+Rules never throw. Each violation is `{ code, path, params }`: `path` is a JSON Pointer into the profile, and `params` is typed per code (see `src/wire/models/rule-violation.ts`). **Messages are not part of the HTTP contract or the wire**: nothing sends or branches on them. Clients render text from `code` + `params` with the message catalog in `spec/messages/` (§4.1), and the LLM clarification prompt works from `code` + `params` too.
 
 ### 4.6 Invariant catalog (mirror of `spec/rules.md`)
 | Code | Rule |
