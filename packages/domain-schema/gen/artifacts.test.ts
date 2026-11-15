@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
 import { CONTRACT_VERSION } from '../src/wire/index.ts';
 import { buildArtifacts, buildJsonSchemas, buildOpenApi } from './artifacts.ts';
-import { CONTRACT_SCHEMAS, LLM_ONLY_IDS } from './registry.ts';
+import { CONTRACT_SCHEMAS, LLM_ONLY_IDS, OPENAPI_EXCLUDED_IDS } from './registry.ts';
 
 const collectRefs = (node: unknown, out: string[] = []): string[] => {
   if (Array.isArray(node)) node.forEach((n) => collectRefs(n, out));
@@ -145,9 +145,10 @@ describe('OpenAPI document', () => {
     expect(Number(CONTRACT_VERSION.split('.')[1])).toBeGreaterThanOrEqual(6);
   });
 
-  it('leaves LLM-only schemas out of components but keeps their JSON Schema files', () => {
+  it('AC-MSG-05: leaves non-HTTP schemas out of components but keeps their JSON Schema files', () => {
     const { schemas } = doc.components as { schemas: Record<string, unknown> };
-    for (const id of LLM_ONLY_IDS) {
+    expect(OPENAPI_EXCLUDED_IDS).toEqual([...LLM_ONLY_IDS, 'MessageCatalog']);
+    for (const id of OPENAPI_EXCLUDED_IDS) {
       expect(schemas[id], id).toBeUndefined();
       expect(buildArtifacts().has(`${id}.schema.json`), id).toBe(true);
     }

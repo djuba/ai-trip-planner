@@ -23,6 +23,11 @@ import {
   MAX_PEOPLE,
   MAX_SHORT_TEXT_LENGTH,
   MAX_UNMAPPED_EXPERIENCES,
+  Climate,
+  Experience,
+  RuleCode,
+  TravelMode,
+  UserType,
 } from '../../src/wire/index.ts';
 
 export interface SampleSet {
@@ -534,7 +539,39 @@ export const SAMPLES: Record<ContractSchemaId, SampleSet> = {
       null,
     ],
   },
+  // The shape only: what each template may say is checked by src/messages/catalog.test.ts.
+  MessageCatalog: {
+    valid: [messageCatalog(), { ...messageCatalog(), note: 'extra keys tolerated' }],
+    invalid: [
+      { ...messageCatalog(), locale: '' },
+      { ...messageCatalog(), violations: { ...messageCatalog().violations, DATE_VALID: '' } },
+      { ...messageCatalog(), violations: without(messageCatalog().violations, 'MAX_STOPS_RANGE') },
+      { ...messageCatalog(), labels: without(messageCatalog().labels, 'userType') },
+      { ...messageCatalog(), labels: { ...messageCatalog().labels, climate: { tropical: 'T' } } },
+      null,
+    ],
+  },
 };
+
+/** A copy of `record` without `key`. */
+function without(record: Record<string, unknown>, key: string): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(record).filter(([k]) => k !== key));
+}
+
+/** A complete, made-up catalog: every key present, with placeholder text. */
+function messageCatalog() {
+  const text = (keys: readonly string[]) => Object.fromEntries(keys.map((k) => [k, `text ${k}`]));
+  return {
+    locale: 'en',
+    violations: text(RuleCode.options),
+    labels: {
+      experience: text(Experience.options),
+      climate: text(Climate.options),
+      travelMode: text(TravelMode.options),
+      userType: text(UserType.options),
+    },
+  };
+}
 
 // ---------- Cap boundaries (ADR 0004, docs/features/input-limits.md) ----------
 // Each case is checked against Zod and the generated JSON Schema (parity.test.ts), and its title

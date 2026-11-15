@@ -1,0 +1,43 @@
+{
+  "locale": "en",
+  "violations": {
+    "CHILD_AGE_RANGE": "A child's age must be from {min} to {max}, but this traveler's age is {age}.",
+    "ADULT_AGE_RANGE": "An adult's age must be from {min} to {max}, but this traveler's age is {age}.",
+    "DATE_ORDER": "The trip ends on {end}, before it starts on {start}.",
+    "DATE_NOT_PAST": "The trip date {value} is before today, {referenceDate}.",
+    "DATE_VALID": "{field, select, start {The start date {value} isn't a real date.} end {The end date {value} isn't a real date.} month {{value} isn't a month.} year {The year {value} is outside the years I can plan for.} durationNights {A trip needs at least one night, not {value}.} other {{value} isn't a valid date.}}",
+    "PARTY_HAS_ADULT": "At least one adult needs to be on the trip.",
+    "INSUFFICIENT_DETAIL": "I need at least {required} details to plan a trip, such as where, when, or who is going. So far I have {populated}.",
+    "MAX_STOPS_RANGE": "The number of stops can't be negative, but it is {value}."
+  },
+  "labels": {
+    "experience": {
+      "beach": "Beach",
+      "pool": "Pool",
+      "golf": "Golf",
+      "go-karts": "Go-karts",
+      "hiking": "Hiking",
+      "snorkeling": "Snorkeling",
+      "theme-parks": "Theme parks",
+      "museums": "Museums",
+      "nightlife": "Nightlife",
+      "skiing": "Skiing"
+    },
+    "climate": {
+      "tropical": "Tropical",
+      "warm": "Warm",
+      "temperate": "Temperate",
+      "cool": "Cool",
+      "cold": "Cold"
+    },
+    "travelMode": {
+      "plane": "Plane",
+      "car": "Car",
+      "train": "Train"
+    },
+    "userType": {
+      "adult": "Adult",
+      "child": "Child"
+    }
+  }
+}

@@ -26,6 +26,9 @@ catalog:
   '@types/react-dom': 19.3.0
   jsdom: 30.1.3
   msw: 3.0.3
+  intl-messageformat: 12.1.5
+  # Exactly the parser intl-messageformat 12.1.5 depends on, so one version resolves (WU-13 plan).
+  '@formatjs/icu-messageformat-parser': 3.5.23
 
 saveExact: true
 engineStrict: true
