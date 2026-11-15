@@ -99,6 +99,16 @@ function allowlisted(headers: Headers): Record<string, string> {
   return out;
 }
 
+/**
+ * Why a recorded SSE stream must not become a cassette, or undefined if it may (WU-08 Note; WU-11
+ * plan D10): a provider `error` event, or no `message_stop`, means the attempt failed mid-stream.
+ */
+export function incompleteSse(events: readonly string[]): string | undefined {
+  if (events.some((event) => /^event: ?error\s*$/m.test(event))) return 'an error event';
+  if (!events.some((event) => /^event: ?message_stop\s*$/m.test(event))) return 'no message_stop';
+  return undefined;
+}
+
 /** Splits an SSE body into events (without their blank-line terminators). */
 export function splitSseEvents(text: string): string[] {
   return text
@@ -180,11 +190,18 @@ export function createCassetteFetch(options: CassetteFetchOptions): CassetteFetc
       .clone()
       .text()
       .then(async (text) => {
+        const sse = stream ? splitSseEvents(text) : undefined;
+        const incomplete = sse === undefined ? undefined : incompleteSse(sse);
+        if (incomplete !== undefined) {
+          console.warn(`[llm-cassette] not recording ${key}: the stream had ${incomplete}`);
+          return;
+        }
         const cassette: Cassette = {
           request,
-          response: stream
-            ? { status, headers, sse: splitSseEvents(text) }
-            : { status, headers, body: parseJson(text) },
+          response:
+            sse !== undefined
+              ? { status, headers, sse }
+              : { status, headers, body: parseJson(text) },
         };
         await mkdir(dir, { recursive: true });
         await writeFile(cassetteFile(dir, key), `${JSON.stringify(cassette, null, 2)}\n`);

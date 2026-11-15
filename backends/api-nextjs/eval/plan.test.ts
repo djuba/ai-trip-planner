@@ -43,11 +43,17 @@ describe('planEval', () => {
       'quality',
       'adversarial',
       'recommend',
+      'present',
     ]);
   });
 
   it('AC-EVAL-01: --set recommend selects the recommend set', () => {
     expect(planEval(['--budget', '1', '--set', 'recommend'], env).sets).toEqual(['recommend']);
+  });
+
+  it('AC-EVAL-14: --set present selects the present set, which is not a default', () => {
+    expect(planEval(['--budget', '1', '--set', 'present'], env).sets).toEqual(['present']);
+    expect(planEval(['--budget', '1'], env).sets).not.toContain('present');
   });
 
   it('AC-EVAL-01: --set repeats and keeps the EVAL_SETS order', () => {

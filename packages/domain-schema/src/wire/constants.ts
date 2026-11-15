@@ -1,7 +1,7 @@
 // Shared constants (CLAUDE.md §4.7), also written to spec/generated/constants.json for any client.
 
 /** Semantic version of the HTTP contract, reported by `GET /v1/health`. */
-export const CONTRACT_VERSION = '0.7.0';
+export const CONTRACT_VERSION = '0.8.0';
 
 /** A profile with fewer populated fields than this yields INSUFFICIENT_DETAIL (§4.7). */
 export const MIN_POPULATED_FIELDS = 3;
@@ -56,6 +56,28 @@ export const MAX_CRITIQUE_ISSUE_LENGTH = 300;
 
 /** Most issues in `RecommendResponse.critique.unresolved`. */
 export const MAX_UNRESOLVED_ISSUES = 24;
+
+// Output caps on the presentation (ADR 0004 addendum; WU-11 plan D2, D4). The model's
+// PresentationCopy stays unconstrained (ADR 0001 Q3). Streamed text can't be discarded once sent,
+// so the stream writer ends an over-cap string at a word boundary with "…", within the cap.
+
+/** Most code points in `PresentationModel.headline`. */
+export const MAX_HEADLINE_LENGTH = 120;
+
+/** Most code points in `PresentationModel.intro`. */
+export const MAX_INTRO_LENGTH = 600;
+
+/** Most code points in `PresentationCard.title`. */
+export const MAX_CARD_TITLE_LENGTH = 100;
+
+/** Most code points in `PresentationCard.blurb`. */
+export const MAX_BLURB_LENGTH = 600;
+
+/** Most items in `PresentationCard.highlights`. */
+export const MAX_HIGHLIGHTS = 5;
+
+/** Most code points in each of `PresentationCard.highlights`. */
+export const MAX_HIGHLIGHT_LENGTH = 120;
 
 /**
  * A string's length as the caps count it: Unicode code points, with a lone surrogate counting as

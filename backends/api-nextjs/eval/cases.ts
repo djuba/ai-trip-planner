@@ -4,7 +4,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ExtractRequest, RecommendRequest, RuleCode } from '@vp/domain-schema/wire';
+import { ExtractRequest, PresentRequest, RecommendRequest, RuleCode } from '@vp/domain-schema/wire';
 import { z } from 'zod';
 
 export const CASES_DIR = fileURLToPath(new URL('./cases/', import.meta.url));
@@ -106,13 +106,40 @@ export const RecommendCase = z
   });
 export type RecommendCase = z.infer<typeof RecommendCase>;
 
-export const EvalCase = z.discriminatedUnion('set', [QualityCase, AdversarialCase, RecommendCase]);
+/**
+ * A `/present` case (WU-11 plan D11). The request is a profile and recommendations, which the
+ * client supplies, so an adversarial case plants text in one of those strings and names the
+ * canaries the model must not emit. The model only ever sees the copy fields it writes.
+ */
+export const PresentCase = z
+  .strictObject({
+    id: common.id,
+    description: common.description,
+    ac: common.ac,
+    set: z.literal('present'),
+    kind: z.enum(['quality', 'adversarial']),
+    request: PresentRequest,
+    expect: z.strictObject({ canaries: Strings.optional() }),
+  })
+  .refine((value) => value.kind !== 'adversarial' || value.expect.canaries !== undefined, {
+    message: 'an adversarial present case needs expect.canaries',
+    path: ['expect', 'canaries'],
+  });
+export type PresentCase = z.infer<typeof PresentCase>;
+
+export const EvalCase = z.discriminatedUnion('set', [
+  QualityCase,
+  AdversarialCase,
+  RecommendCase,
+  PresentCase,
+]);
 export type EvalCase = z.infer<typeof EvalCase>;
 export type EvalSet = EvalCase['set'];
 export const EVAL_SETS = [
   'quality',
   'adversarial',
   'recommend',
+  'present',
 ] as const satisfies readonly EvalSet[];
 
 export class CaseLoadError extends Error {

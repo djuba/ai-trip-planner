@@ -1,5 +1,5 @@
 // The real route modules, called directly with real Request objects (CLAUDE.md §6.3).
-import { CONTRACT_VERSION, HealthResponse, PresentationModel } from '@vp/domain-schema/wire';
+import { CONTRACT_VERSION, HealthResponse } from '@vp/domain-schema/wire';
 import { readdirSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -53,25 +53,6 @@ describe('routes', () => {
     const response = await GET(new Request('http://api.test/v1/health'));
     expect(response.status).toBe(200);
     expect(response.headers.get('access-control-expose-headers')).toContain('retry-after');
-  });
-
-  it('POST /v1/trip/present stub streams text/plain in several chunks that parse as PresentationModel', async () => {
-    const response = await present(post('/v1/trip/present', { profile: {}, recommendations: [] }));
-    expect(response.status).toBe(200);
-    expect(response.headers.get('content-type')).toBe('text/plain; charset=utf-8');
-    expect(response.headers.get('access-control-allow-origin')).toBe(WEB_ORIGIN);
-    const reader = (response.body as ReadableStream<Uint8Array>).getReader();
-    const decoder = new TextDecoder();
-    let chunks = 0;
-    let text = '';
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks += 1;
-      text += decoder.decode(value, { stream: true });
-    }
-    expect(chunks).toBeGreaterThan(1);
-    expect(PresentationModel.safeParse(JSON.parse(text)).success).toBe(true);
   });
 
   it.each([

@@ -23,7 +23,8 @@ function isSet(value: string): value is EvalSet {
 
 /**
  * The sets a plain `pnpm eval` runs. A recommend run's worst case is about US$2.80 (12 Sonnet calls
- * at their `maxOutputTokens`), so that set runs only when named with `--set`, or by `--case` id.
+ * at their `maxOutputTokens`), so that set runs only when named with `--set`, or by `--case` id. The present set is cheap (one Haiku call a case)
+ * but also opt-in, so a plain run stays comparable with the earlier records.
  */
 export const DEFAULT_EVAL_SETS: readonly EvalSet[] = ['quality', 'adversarial'];
 

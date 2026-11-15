@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "PresentationCopy.schema.json",
+  "type": "object",
+  "properties": {
+    "headline": {
+      "type": "string"
+    },
+    "intro": {
+      "type": "string"
+    },
+    "cards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "blurb": {
+            "type": "string"
+          },
+          "highlights": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "title",
+          "blurb",
+          "highlights"
+        ]
+      }
+    }
+  },
+  "required": [
+    "headline",
+    "intro",
+    "cards"
+  ]
+}

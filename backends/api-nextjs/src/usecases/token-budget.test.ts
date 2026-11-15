@@ -4,6 +4,7 @@ import {
   CRITIC_MAX_OUTPUT_TOKENS,
   DRAFT_TEXT_CODE_POINTS,
   EXTRACT_MAX_OUTPUT_TOKENS,
+  PRESENT_MAX_OUTPUT_TOKENS,
   RECOMMEND_MAX_OUTPUT_TOKENS,
   THINKING_MARGIN,
   PROFILE_TEXT_CODE_POINTS,
@@ -45,5 +46,12 @@ describe('output token budgets', () => {
     expect(CRITIC_MAX_OUTPUT_TOKENS).toBeGreaterThan(
       10 * 300 * TOKENS_PER_CODE_POINT + THINKING_MARGIN,
     );
+  });
+
+  it('the present budget fits the copy at its caps, with no thinking margin', () => {
+    // headline 120 + intro 600 + 3 cards × (title 100 + blurb 600 + 5 highlights × 120) = 4620.
+    expect(PRESENT_MAX_OUTPUT_TOKENS).toBe(11_008);
+    expect(PRESENT_MAX_OUTPUT_TOKENS).toBeGreaterThan(4620 * TOKENS_PER_CODE_POINT);
+    expect(PRESENT_MAX_OUTPUT_TOKENS).toBeLessThan(RECOMMEND_MAX_OUTPUT_TOKENS);
   });
 });

@@ -23,12 +23,18 @@ import {
   normalizeAirportCode,
   resolveOrigin,
   type RouteData,
+  type RouteDestination,
   type RouteOrigin,
 } from './routes.ts';
 
 /** `rec-<n>`, from the draft's original index, so ids never shift after a discard. */
 export function recommendationId(index: number): string {
   return `rec-${index + 1}`;
+}
+
+/** The statement code writes for a `fixture` claim (also re-derived by /present, WU-11 D6). */
+export function fixtureStatement(originAirport: string, destination: RouteDestination): string {
+  return `Non-stop service ${originAirport}–${destination.airport} (${destination.city}) is listed in our sample route data; check current schedules.`;
 }
 
 /**
@@ -48,7 +54,7 @@ export function labelClaim(
       if (destination !== null) {
         return {
           kind: 'flight',
-          statement: `Non-stop service ${origin.airport}–${destination.airport} (${destination.city}) is listed in our sample route data; check current schedules.`,
+          statement: fixtureStatement(origin.airport, destination),
           verification: 'fixture',
         };
       }

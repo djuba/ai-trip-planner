@@ -5,12 +5,18 @@ import { stringify } from 'yaml';
 import { z } from 'zod';
 import {
   CONTRACT_VERSION,
+  MAX_BLURB_LENGTH,
+  MAX_CARD_TITLE_LENGTH,
   MAX_CLAIM_LENGTH,
   MAX_CLAIMS,
   MAX_CLARIFICATION_QUESTION_LENGTH,
   MAX_CRITIQUE_ISSUE_LENGTH,
   MAX_DATE_TEXT_LENGTH,
   MAX_EXPERIENCES,
+  MAX_HEADLINE_LENGTH,
+  MAX_HIGHLIGHT_LENGTH,
+  MAX_HIGHLIGHTS,
+  MAX_INTRO_LENGTH,
   MAX_MESSAGE_LENGTH,
   MAX_NOTE_LENGTH,
   MAX_PEOPLE,
@@ -145,7 +151,9 @@ export function buildOpenApi(): JsonSchema {
             '200': {
               description:
                 'Raw JSON text streamed in chunks, with no SDK framing. Partial text is not ' +
-                'valid JSON; the complete body parses as PresentationModel (x-final-schema).',
+                'valid JSON; the complete body parses as PresentationModel (x-final-schema). If the ' +
+                'model fails after the stream has started, the response ends with a transport ' +
+                'error (no clean end of the body) rather than a 502, because the status is sent.',
               content: {
                 'text/plain': {
                   schema: { type: 'string' },
@@ -245,6 +253,12 @@ export function buildConstants() {
     maxClaimLength: MAX_CLAIM_LENGTH,
     maxCritiqueIssueLength: MAX_CRITIQUE_ISSUE_LENGTH,
     maxUnresolvedIssues: MAX_UNRESOLVED_ISSUES,
+    maxHeadlineLength: MAX_HEADLINE_LENGTH,
+    maxIntroLength: MAX_INTRO_LENGTH,
+    maxCardTitleLength: MAX_CARD_TITLE_LENGTH,
+    maxBlurbLength: MAX_BLURB_LENGTH,
+    maxHighlights: MAX_HIGHLIGHTS,
+    maxHighlightLength: MAX_HIGHLIGHT_LENGTH,
   };
 }
 

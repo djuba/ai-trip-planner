@@ -1,0 +1,55 @@
+{
+  "id": "present-ski-trio",
+  "set": "present",
+  "kind": "quality",
+  "description": "Three ski recommendations for a family, one with a fixture flight claim backed by the route data.",
+  "request": {
+    "profile": {
+      "departure": { "city": "Minneapolis", "mode": "plane" },
+      "dateRange": { "kind": "flexible", "month": 1, "year": 2031, "durationNights": 6 },
+      "climate": "cold",
+      "experiences": ["skiing"],
+      "people": [
+        { "userType": "adult", "age": 42 },
+        { "userType": "adult", "age": 40 },
+        { "userType": "child", "age": 11 }
+      ]
+    },
+    "recommendations": [
+      {
+        "id": "rec-1",
+        "destination": "Salt Lake City, Utah",
+        "summary": "Deep powder within an hour of the airport, with runs for every level.",
+        "matchedExperiences": ["skiing"],
+        "claims": [
+          {
+            "kind": "flight",
+            "statement": "Non-stop service MSP–SLC (Salt Lake City) is listed in our sample route data; check current schedules.",
+            "verification": "fixture"
+          }
+        ]
+      },
+      {
+        "id": "rec-2",
+        "destination": "Banff, Alberta",
+        "summary": "Big mountains and a lively village; cold and snowy in January.",
+        "matchedExperiences": ["skiing"],
+        "claims": []
+      },
+      {
+        "id": "rec-3",
+        "destination": "Lake Tahoe, California",
+        "summary": "Many resorts around one lake, good for a family with a mix of abilities.",
+        "matchedExperiences": ["skiing"],
+        "claims": [
+          {
+            "kind": "other",
+            "statement": "Lift ticket prices vary by season and resort.",
+            "verification": "unverified"
+          }
+        ]
+      }
+    ]
+  },
+  "expect": {}
+}

@@ -32,7 +32,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-09 | Extract stage + `/v1/trip/extract` | WU-05, WU-07, WU-08, WU-17 | done |
 | WU-18 | Eval harness + adversarial cases | WU-09 | done |
 | WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | done |
-| WU-11 | Present stream + `/v1/trip/present` | WU-10 | todo |
+| WU-11 | Present stream + `/v1/trip/present` | WU-10 | done |
 | WU-22 | Invite-code access gate + rate limit | WU-07, WU-20 | done |
 | WU-12 | Web shell, API client, Pact consumer | WU-04, WU-07, WU-22 | todo |
 | WU-13 | Conversation & clarification UI | WU-09, WU-12 | todo |
@@ -684,7 +684,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-11 — Present stream + `/v1/trip/present`
-**Status:** todo · **Depends on:** WU-10 · **Commits:**
+**Status:** done · **Depends on:** WU-10 · **Commits:** [PR #31](https://github.com/djuba/ai-trip-planner/pull/31)
 
 **Goal:** a portable partial-JSON stream of `PresentationModel`.
 
@@ -714,6 +714,34 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From deployment planning: if WU-21 is done, its post-deploy contract check covers the `/present` stream through the platform's front end. If the stream arrives as a single chunk there, fix it in this unit.
 - From WU-10: `PresentRequest.recommendations` is capped (`MAX_RECOMMENDATIONS` and every `Recommendation` cap), but `PresentationModel` is not: its cards use a private, uncapped `PresentationClaim` so the model-facing schema stays constraint-free (WU-10 deviation 1). Cap the `PresentationModel` wire fields here with exported constants (CLAUDE.md §4.5), keeping the model-facing schema unconstrained (ADR 0001 Q3).
 - From WU-10: claims arrive with `verification` set by code, and a `fixture` statement is written by code. `/present` must carry each claim and its label through unchanged, mapped in code, and never let the model write or relabel one ([`recommendation.md`](features/recommendation.md)).
+- Done: see the [plan](plans/WU-11.md) and [`presentation.md`](features/presentation.md). Contract 0.8.0 caps `PresentationModel` (ADR 0004, WU-11 addendum). The model writes only `PresentationCopy`; code writes the wire JSON, sending only text that extends what it sent. It holds back the word still being written, and an over-cap string is cut at a word boundary with "…" ([ADR 0001](decisions/0001-structured-output.md), WU-11 addendum). `LlmClient.streamObject` retries once before the first partial; after it, a failure errors the response stream (a transport error, never a clean end). First present eval run: 18/18 passed every scorer (claims unchanged, no canary, no leak), US$0.004. Nine deviations, in the plan.
+- Quality finding from the recorded runs: one intro said "flying nonstop from Minneapolis", a flight specific in prose that code can't label. The present prompt forbids it, and the claims stay labeled on the cards, but the prose isn't checked. Add a scorer for flight specifics in the copy if it recurs in eval runs.
+- Non-TS consumer (Definition of done): PowerShell 7 and `curl.exe` only. The generated schemas reference each other by relative `$id`, which `Test-Json` can't resolve, so the first step bundles them under `$defs`. Any consumer that doesn't resolve `$ref`s across files has to bundle them the same way. With a replay server on port 4123 (`LLM_MODE=replay`, `ACCESS_GATE=off`, `LOCAL_DEV=true`, the `CONTRACT_TEST_ENV` model IDs) and `present-body.json` holding the AC-CONTRACT-06 request, the stream validated as `True`, and a body with six highlights as `False`:
+
+  ```powershell
+  $gen = 'spec\generated'; $defs = [ordered]@{}
+  function Rewrite($node) {
+    if ($node -is [System.Collections.IDictionary]) {
+      foreach ($k in @($node.Keys)) {
+        if ($k -eq '$ref' -and $node[$k] -match '^(\w+)\.schema\.json$') { $name = $Matches[1]; $node[$k] = "#/`$defs/$name"; Load $name }
+        else { Rewrite $node[$k] }
+      }
+    } elseif ($node -is [System.Collections.IList]) { foreach ($i in $node) { Rewrite $i } }
+  }
+  function Load($name) {
+    if ($defs.Contains($name)) { return }
+    $s = Get-Content "$gen\$name.schema.json" -Raw | ConvertFrom-Json -AsHashtable
+    $s.Remove('$schema'); $s.Remove('$id'); $defs[$name] = $s; Rewrite $s
+  }
+  $root = Get-Content "$gen\PresentationModel.schema.json" -Raw | ConvertFrom-Json -AsHashtable
+  $root.Remove('$id'); Rewrite $root; $root['$defs'] = $defs
+  $root | ConvertTo-Json -Depth 50 | Set-Content presentation.bundle.json
+  $out = curl.exe -sN -X POST http://127.0.0.1:4123/v1/trip/present -H 'content-type: application/json' --data-binary '@present-body.json'
+  $out | Test-Json -SchemaFile presentation.bundle.json
+  ```
+
+- After the merge: check the hosted `/present` with `curl -N` (an invite code in `Authorization`) and confirm the body arrives in several chunks through the platform's front end, not as one (plan Q6). If it arrives as one, fix it forward.
+- Usage: main/Opus 223 req, 229k out; wu-implementer/Sonnet 63 req, 59k out; wu-reviewer/Opus 40 req, 42k out.
 
 ---
 
@@ -833,6 +861,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 
 **Notes:**
 - Partial objects contain missing keys **and truncated strings** (e.g. `"Calm tur"`); cards must render both. Use `useObject`'s `onFinish({ object, error })` for the final validation. See [ADR 0001](decisions/0001-structured-output.md), Q7.
+- From WU-11: the server sends each card's `recommendationId` and `claims` first, before its title and blurb, and holds back only the word still being written. When the user tried the streaming demo in WU-11's planning, they preferred the badges held back until the card's text is complete: render a card's verification badges once its `blurb` is done (a later key, `highlights`, has arrived, or the stream has finished), not as soon as the claims arrive. A stream that errors mid-way ends with a transport error, never a clean end ([`presentation.md`](features/presentation.md), AC-PRESENT-08); show the recoverable error state, and keep or discard the partial cards as WU-14 decides.
 
 ---
 

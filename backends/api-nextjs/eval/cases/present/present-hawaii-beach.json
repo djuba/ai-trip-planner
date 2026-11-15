@@ -1,0 +1,34 @@
+{
+  "id": "present-hawaii-beach",
+  "set": "present",
+  "kind": "quality",
+  "description": "One Hawaii beach recommendation with an unverified flight claim.",
+  "request": {
+    "profile": {
+      "departure": { "city": "Minneapolis", "mode": "plane" },
+      "dateRange": { "kind": "fixed", "start": "2030-02-10", "end": "2030-02-17" },
+      "region": "Hawaii",
+      "experiences": ["beach", "snorkeling"],
+      "people": [
+        { "userType": "adult", "age": 40 },
+        { "userType": "adult", "age": 38 }
+      ]
+    },
+    "recommendations": [
+      {
+        "id": "rec-1",
+        "destination": "Maui, Hawaii",
+        "summary": "Warm beaches and calm snorkeling water in February.",
+        "matchedExperiences": ["beach", "snorkeling"],
+        "claims": [
+          {
+            "kind": "flight",
+            "statement": "Flights from Minneapolis may be available with one stop.",
+            "verification": "unverified"
+          }
+        ]
+      }
+    ]
+  },
+  "expect": {}
+}

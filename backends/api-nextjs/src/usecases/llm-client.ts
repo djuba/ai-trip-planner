@@ -39,4 +39,25 @@ export interface LlmClient {
    * is a bug or a test-setup error, such as a cassette miss, and maps to a 500.
    */
   generateObject<T>(request: LlmObjectRequest<T>): Promise<T>;
+
+  /**
+   * Streams the output as it is written (§7 stage 3; WU-11 plan D1). The promise settles once the
+   * first partial is in: before that, failures are handled exactly as in `generateObject` (one
+   * retry, then `LlmError`), because nothing has reached a client yet. After it there is no retry:
+   * a failure (an upstream error, a refusal, a cut-off or output that fails `schema` or `accept`)
+   * makes the iterator throw `LlmError` with `midStream: true`. The last part is always `final`,
+   * with output that passed `schema` and `accept`. Every failure surfaces in the iterator, so none
+   * can become an unhandled rejection. Ending the iteration early cancels the model call.
+   */
+  streamObject<T>(request: LlmObjectRequest<T>): Promise<AsyncIterable<LlmStreamPart<T>>>;
 }
+
+/** The output so far: any key may be missing, and the last string or array may be cut short. */
+export type PartialObject<T> = T extends readonly (infer E)[]
+  ? PartialObject<E>[]
+  : T extends object
+    ? { [K in keyof T]?: PartialObject<T[K]> }
+    : T;
+
+export type LlmStreamPart<T> =
+  { type: 'partial'; partial: PartialObject<T> } | { type: 'final'; object: T };

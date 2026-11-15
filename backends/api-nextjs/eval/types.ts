@@ -1,7 +1,7 @@
 // Shared shapes of the eval harness (WU-18 plan D2, D5). The runner fills a CaseObservation per run
 // of a case; each scorer reads one and returns a ScoreResult, or null when it doesn't apply.
 import type { Discarded } from '@vp/domain-schema/rules';
-import type { ExtractResponse, RecommendResponse } from '@vp/domain-schema/wire';
+import type { ExtractResponse, PresentationModel, RecommendResponse } from '@vp/domain-schema/wire';
 import type { LlmErrorCode } from '../src/usecases/errors.ts';
 import type { LlmStage } from '../src/usecases/llm-client.ts';
 import type { RouteData } from '../src/usecases/routes.ts';
@@ -20,8 +20,16 @@ export type Outcome =
   | { kind: 'response'; response: ExtractResponse }
   /** A `/recommend` case's response (the recommend set). */
   | { kind: 'recommendation'; response: RecommendResponse }
-  /** A handled failure: the server would answer 502 with this code. */
-  | { kind: 'llm-error'; code: LlmErrorCode }
+  /**
+   * A `/present` case's stream, joined. `model` is the text parsed as `PresentationModel`, or null
+   * when it isn't JSON or breaks the contract.
+   */
+  | { kind: 'presentation'; text: string; model: PresentationModel | null }
+  /**
+   * A handled failure: the server would answer 502 with this code, or, when `midStream`, would
+   * error a `/present` response after it began.
+   */
+  | { kind: 'llm-error'; code: LlmErrorCode; midStream?: boolean }
   /** Anything else would be a 500: a bug. */
   | { kind: 'error'; name: string; message: string };
 
@@ -39,7 +47,7 @@ export interface CaseObservation {
 export interface ScoreContext {
   /** Every system prompt the model saw, for the leak check. */
   systemPrompts: readonly string[];
-  /** The route data a recommend case ran with, for `labelsHonest`. */
+  /** The route data a recommend or present case ran with, for `labelsHonest` and `claimsUnchanged`. */
   routes?: RouteData;
 }
 
@@ -63,5 +71,7 @@ export const SCORER_NAMES = [
   'labelsHonest',
   'recommendQuality',
   'judgeRecommendations',
+  'presentationShape',
+  'claimsUnchanged',
 ] as const;
 export type ScorerName = (typeof SCORER_NAMES)[number];

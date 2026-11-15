@@ -153,3 +153,11 @@ LLM-facing schemas use only the constructs marked **use** in Q3. `/present` stre
 - **WU-12:** pin `@ai-sdk/react` (and `react`/`react-dom`) at the versions above; use `useObject`, not `experimental_useObject`.
 - **WU-14:** cards must render truncated strings as well as missing fields. Use `useObject`'s `onFinish` for the final validation.
 - Revisit this ADR on any `ai` major upgrade (v8 is expected to remove the deprecated helpers).
+
+## Addendum (WU-11): the server writes the `/present` stream
+
+The Decision's last line said `/present` streams the model's text with `toTextStream`. WU-11 changes that ([plan](../plans/WU-11.md) D3, approved as Q1). Passing the model's text through would make the model write every `recommendationId` and copy every claim, label included, and no cap could be held on text that is already sent.
+
+- The model fills `PresentationCopy` (headline, intro, and per card a title, a blurb and highlights), with `streamText` + `Output.object` and the same options as every other call. `LlmClient.streamObject` reads `fullStream`, so `error` and `finish` parts are seen as well as text, and yields partial objects, then the final object after `schema` and `accept`.
+- Code turns each partial into the wire `PresentationModel` text, with the ids and claims mapped from the request, and sends only what extends the text already sent. The route serves that string stream with `createTextStreamResponse({ stream })`: still `text/plain` raw JSON with no SDK framing, so Q7's finding holds.
+- Failures before the first partial get the usual one retry, then a JSON 502. After it there is no retry, and the response stream is errored rather than closed, so a client sees a transport error, never a clean end (CLAUDE.md §5).

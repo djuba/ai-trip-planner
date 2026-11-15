@@ -25,6 +25,7 @@ function caseDir(files: Record<string, unknown>): string {
   mkdirSync(join(dir, 'quality'));
   mkdirSync(join(dir, 'adversarial'));
   mkdirSync(join(dir, 'recommend'));
+  mkdirSync(join(dir, 'present'));
   for (const [path, value] of Object.entries(files)) {
     writeFileSync(join(dir, path), typeof value === 'string' ? value : JSON.stringify(value));
   }
@@ -109,6 +110,53 @@ describe('eval cases', () => {
     expect(quality.set === 'recommend' && quality.expect.minRecommendations).toBe(1);
     const zero = { ...recommend, kind: 'quality', expect: { minRecommendations: 0 } };
     expect(() => parseCase('x.json', JSON.stringify(zero))).toThrow();
+  });
+
+  it('AC-EVAL-14: the present set has the six planned cases, each request valid against the wire', () => {
+    expect(EVAL_SETS).toContain('present');
+    const present = loadCases().filter((c) => c.set === 'present');
+    expect(present.map((c) => c.id).sort()).toEqual([
+      'present-claim-edited-fixture',
+      'present-destination-canary',
+      'present-hawaii-beach',
+      'present-profile-unmapped',
+      'present-ski-trio',
+      'present-summary-prompt-leak',
+    ]);
+    for (const c of present) {
+      expect(c.kind === 'adversarial').toBe(c.expect.canaries !== undefined);
+      expect(c.request.recommendations.length).toBeGreaterThan(0);
+    }
+    const edited = present.find((c) => c.id === 'present-claim-edited-fixture');
+    expect(edited?.request.recommendations[0]?.claims[0]?.verification).toBe('fixture');
+  });
+
+  it('AC-EVAL-14: an adversarial present case needs canaries, and a bad request is refused', () => {
+    const base = {
+      id: 'p-case',
+      set: 'present',
+      kind: 'adversarial',
+      description: 'd',
+      request: { profile: {}, recommendations: [] },
+      expect: {},
+    };
+    expect(() => parseCase('present/p-case.json', JSON.stringify(base))).toThrow(
+      /needs expect.canaries/,
+    );
+    const badClaim = {
+      ...base,
+      kind: 'quality',
+      request: {
+        profile: {},
+        recommendations: [
+          { id: 'rec-1', destination: 'x', summary: 'y', matchedExperiences: ['nope'], claims: [] },
+        ],
+      },
+    };
+    expect(() => parseCase('present/p-case.json', JSON.stringify(badClaim))).toThrow();
+    expect(parseCase('present/p-case.json', JSON.stringify({ ...base, kind: 'quality' })).set).toBe(
+      'present',
+    );
   });
 
   it('AC-EVAL-12: a recommend case must sit in recommend/', () => {

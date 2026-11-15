@@ -73,4 +73,8 @@ describe('freshInvite', () => {
     // The server under contract test runs as hosted.
     expect(a.serverEnv.LOCAL_DEV).toBe('false');
   });
+
+  it('a recording run is local, because record mode needs LOCAL_DEV=true', () => {
+    expect(freshInvite(undefined, { recording: true }).serverEnv.LOCAL_DEV).toBe('true');
+  });
 });

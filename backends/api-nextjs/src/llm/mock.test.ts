@@ -8,6 +8,7 @@ import {
   mockObject,
   mockRaw,
   mockRefusal,
+  mockStreamFailure,
   MockNotConfiguredError,
   type MockResponder,
 } from './mock.ts';
@@ -95,5 +96,51 @@ describe('mock LlmClient', () => {
     expect(error).toBeInstanceOf(MockNotConfiguredError);
     expect(error).not.toBeInstanceOf(LlmError);
     expect((error as Error).message).toContain('present');
+  });
+});
+
+describe('mock LlmClient streaming (WU-11 plan D1)', () => {
+  const long = { answer: 'A long enough answer to need several chunks of mock text.' };
+
+  async function drain(parts: AsyncIterable<unknown>) {
+    const out: unknown[] = [];
+    for await (const part of parts) out.push(part);
+    return out;
+  }
+
+  it('AC-PRESENT-02: streams the reply in chunks, ending in the final object', async () => {
+    const { client, logs } = clientWith({ present: mockObject(Answer, long) });
+    const parts = await drain(await client.streamObject(requestFor('present')));
+    expect(parts.length).toBeGreaterThan(3);
+    expect(parts.at(-1)).toEqual({ type: 'final', object: long });
+    expect(logs).toEqual([expect.objectContaining({ model: 'mock-fast', outcome: 'ok' })]);
+  });
+
+  it('AC-PRESENT-08: mockStreamFailure fails mid-stream after some output', async () => {
+    const { client } = clientWith({ present: mockStreamFailure(Answer, long, 30) });
+    const stream = await client.streamObject(requestFor('present'));
+    await expect(drain(stream)).rejects.toMatchObject({ midStream: true });
+  });
+
+  it('AC-PRESENT-07: a refusal rejects before any output, and the retry sees attempt 2', async () => {
+    const { client } = clientWith({ present: mockRefusal() });
+    await expect(client.streamObject(requestFor('present'))).rejects.toBeInstanceOf(LlmError);
+
+    const attempts: number[] = [];
+    const retried = clientWith({
+      present: (_request, attempt) => {
+        attempts.push(attempt);
+        return attempt === 1 ? mockRaw('') : mockObject(Answer, long);
+      },
+    });
+    await drain(await retried.client.streamObject(requestFor('present')));
+    expect(attempts).toEqual([1, 2]);
+  });
+
+  it('a stage with no responder rejects with MockNotConfiguredError', async () => {
+    const { client } = clientWith({});
+    await expect(client.streamObject(requestFor('present'))).rejects.toBeInstanceOf(
+      MockNotConfiguredError,
+    );
   });
 });

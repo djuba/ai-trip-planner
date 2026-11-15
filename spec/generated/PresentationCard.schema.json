@@ -4,48 +4,38 @@
   "type": "object",
   "properties": {
     "recommendationId": {
-      "type": "string"
-    },
-    "title": {
-      "type": "string"
-    },
-    "blurb": {
-      "type": "string"
-    },
-    "highlights": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "type": "string",
+      "maxLength": 100
     },
     "claims": {
+      "maxItems": 5,
       "type": "array",
       "items": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "$ref": "ClaimKind.schema.json"
-          },
-          "statement": {
-            "type": "string"
-          },
-          "verification": {
-            "$ref": "Verification.schema.json"
-          }
-        },
-        "required": [
-          "kind",
-          "statement",
-          "verification"
-        ]
+        "$ref": "FactualClaim.schema.json"
+      }
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "blurb": {
+      "type": "string",
+      "maxLength": 600
+    },
+    "highlights": {
+      "maxItems": 5,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 120
       }
     }
   },
   "required": [
     "recommendationId",
+    "claims",
     "title",
     "blurb",
-    "highlights",
-    "claims"
+    "highlights"
   ]
 }

@@ -74,6 +74,12 @@ describe('buildArtifacts', () => {
       maxClaimLength: 200,
       maxCritiqueIssueLength: 300,
       maxUnresolvedIssues: 24,
+      maxHeadlineLength: 120,
+      maxIntroLength: 600,
+      maxCardTitleLength: 100,
+      maxBlurbLength: 600,
+      maxHighlights: 5,
+      maxHighlightLength: 120,
     });
   });
 });
