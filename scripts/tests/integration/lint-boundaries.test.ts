@@ -24,6 +24,17 @@ const cases: { file: string; code: string; blocked: boolean; rule?: string }[] =
     code: "export * from '@vp/domain-schema/rules';",
     blocked: true,
   },
+  // React components are .tsx (WU-12): the same boundaries apply to them.
+  {
+    file: 'apps/web-nextjs/src/components/probe.tsx',
+    code: "import '@vp/domain-schema/rules';",
+    blocked: true,
+  },
+  {
+    file: 'apps/web-nextjs/src/components/probe.tsx',
+    code: "import '../../../../backends/api-nextjs/src/index.ts';",
+    blocked: true,
+  },
   { file: 'apps/web-nextjs/src/probe.ts', code: "import '@vp/api-nextjs';", blocked: true },
   {
     file: 'apps/web-nextjs/src/probe.ts',
