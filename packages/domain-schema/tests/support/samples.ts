@@ -3,6 +3,12 @@
 // does not exist) are VALID on the wire: they are rule violations, not contract violations (D1).
 import type { ContractSchemaId } from '../../gen/registry.ts';
 import {
+  MAX_BLURB_LENGTH,
+  MAX_CARD_TITLE_LENGTH,
+  MAX_HEADLINE_LENGTH,
+  MAX_HIGHLIGHT_LENGTH,
+  MAX_HIGHLIGHTS,
+  MAX_INTRO_LENGTH,
   MAX_CLAIM_LENGTH,
   MAX_CLAIMS,
   MAX_CLARIFICATION_QUESTION_LENGTH,
@@ -347,6 +353,28 @@ export const SAMPLES: Record<ContractSchemaId, SampleSet> = {
       { headline: 'Your trip', intro: 'Here are ideas.' },
       { headline: 'Your trip', intro: 'x', cards: [{ title: 'only a title' }] },
       { headline: 5, intro: 'x', cards: [] },
+      {
+        headline: 'x',
+        intro: 'x',
+        cards: [{ ...card, claims: [{ ...claim, verification: 'x' }] }],
+      },
+      null,
+    ],
+  },
+  PresentationCopy: {
+    valid: [
+      {
+        headline: 'Your trip',
+        intro: 'Ideas.',
+        cards: [{ title: 'Maui', blurb: 'Sun.', highlights: [] }],
+      },
+      { headline: 'x'.repeat(5000), intro: '', cards: [] },
+    ],
+    invalid: [
+      {},
+      { headline: 'x', intro: 'x' },
+      { headline: 'x', intro: 'x', cards: [{ title: 'only a title' }] },
+      { headline: 'x', intro: 'x', cards: [{ title: 'x', blurb: 'x', highlights: 'one' }] },
       null,
     ],
   },
@@ -765,11 +793,80 @@ const presentRecommendations: BoundaryCase[] = [MAX_RECOMMENDATIONS, MAX_RECOMME
   }),
 );
 
+/** AC-LIMITS-14: presentation output caps (WU-11 plan D2). */
+const withCard = (patch: Record<string, unknown>) => ({
+  headline: 'x',
+  intro: 'x',
+  cards: [{ ...card, ...patch }],
+});
+const presentationCaps: { name: string; cap: number; value: (n: number) => unknown }[] = [
+  {
+    name: 'headline',
+    cap: MAX_HEADLINE_LENGTH,
+    value: (n) => ({ headline: astral(n), intro: 'x', cards: [] }),
+  },
+  {
+    name: 'intro',
+    cap: MAX_INTRO_LENGTH,
+    value: (n) => ({ headline: 'x', intro: astral(n), cards: [] }),
+  },
+  {
+    name: 'cards count',
+    cap: MAX_RECOMMENDATIONS,
+    value: (n) => ({ headline: 'x', intro: 'x', cards: Array.from({ length: n }, () => card) }),
+  },
+  {
+    name: 'PresentationCard.recommendationId',
+    cap: MAX_SHORT_TEXT_LENGTH,
+    value: (n) => withCard({ recommendationId: astral(n) }),
+  },
+  {
+    name: 'PresentationCard.title',
+    cap: MAX_CARD_TITLE_LENGTH,
+    value: (n) => withCard({ title: astral(n) }),
+  },
+  {
+    name: 'PresentationCard.blurb',
+    cap: MAX_BLURB_LENGTH,
+    value: (n) => withCard({ blurb: astral(n) }),
+  },
+  {
+    name: 'PresentationCard.highlights count',
+    cap: MAX_HIGHLIGHTS,
+    value: (n) => withCard({ highlights: Array.from({ length: n }, () => 'x') }),
+  },
+  {
+    name: 'PresentationCard.highlights item',
+    cap: MAX_HIGHLIGHT_LENGTH,
+    value: (n) => withCard({ highlights: [astral(n)] }),
+  },
+  {
+    name: 'PresentationCard.claims count',
+    cap: MAX_CLAIMS,
+    value: (n) => withCard({ claims: Array.from({ length: n }, () => claim) }),
+  },
+  {
+    name: 'PresentationCard claim statement',
+    cap: MAX_CLAIM_LENGTH,
+    value: (n) => withCard({ claims: [{ ...claim, statement: astral(n) }] }),
+  },
+];
+const presentationOutput: BoundaryCase[] = presentationCaps.flatMap((field) =>
+  [field.cap, field.cap + 1].map((n) => ({
+    ac: 'AC-LIMITS-14',
+    label: `PresentationModel: ${field.name} at ${n === field.cap ? 'the cap' : 'the cap + 1'} (${n})`,
+    schema: 'PresentationModel' as const,
+    value: field.value(n),
+    valid: n === field.cap,
+  })),
+);
+
 export const BOUNDARY_CASES: BoundaryCase[] = [
   ...counting,
   ...message,
   ...clarificationQuestion,
   ...recommendationOutput,
   ...presentRecommendations,
+  ...presentationOutput,
   ...profileFields,
 ];

@@ -10,3 +10,4 @@ export * from './llm/extraction.ts';
 export * from './llm/recommendation-set.ts';
 export * from './llm/clarification.ts';
 export * from './llm/critique.ts';
+export * from './llm/presentation-copy.ts';

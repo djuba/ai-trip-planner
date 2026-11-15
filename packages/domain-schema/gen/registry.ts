@@ -5,6 +5,7 @@ import * as envelopes from '../src/wire/http/envelopes.ts';
 import { ClarificationOutput } from '../src/wire/llm/clarification.ts';
 import { CritiqueResult } from '../src/wire/llm/critique.ts';
 import { ExtractionSchema } from '../src/wire/llm/extraction.ts';
+import { PresentationCopy } from '../src/wire/llm/presentation-copy.ts';
 import { RecommendationSet } from '../src/wire/llm/recommendation-set.ts';
 import * as enums from '../src/wire/models/enums.ts';
 import { PresentationCard, PresentationModel } from '../src/wire/models/presentation.ts';
@@ -36,6 +37,7 @@ export const CONTRACT_SCHEMAS = {
   CritiqueIssue,
   PresentationCard,
   PresentationModel,
+  PresentationCopy,
   ExtractRequest: envelopes.ExtractRequest,
   ExtractResponse: envelopes.ExtractResponse,
   RecommendRequest: envelopes.RecommendRequest,
@@ -58,7 +60,7 @@ export const LLM_FACING_IDS = [
   'ClarificationOutput',
   'RecommendationSet',
   'CritiqueResult',
-  'PresentationModel',
+  'PresentationCopy',
 ] as const satisfies readonly ContractSchemaId[];
 
 /**
@@ -70,4 +72,5 @@ export const LLM_ONLY_IDS = [
   'ClarificationOutput',
   'RecommendationSet',
   'CritiqueResult',
+  'PresentationCopy',
 ] as const satisfies readonly ContractSchemaId[];

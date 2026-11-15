@@ -4,12 +4,15 @@
   "type": "object",
   "properties": {
     "headline": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 120
     },
     "intro": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 600
     },
     "cards": {
+      "maxItems": 3,
       "type": "array",
       "items": {
         "$ref": "PresentationCard.schema.json"

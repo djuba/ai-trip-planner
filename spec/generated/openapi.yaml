@@ -2,7 +2,7 @@
 openapi: 3.1.1
 info:
   title: AI Trip Planner API
-  version: 0.7.0
+  version: 0.8.0
   description: Language-neutral HTTP contract. Generated from packages/domain-schema/src/wire; do not edit by hand. Business rules (rules.md) are not expressed here. On /v1/trip/extract a rule violation is a 200 `needs_clarification`; /v1/trip/recommend only takes a ready profile, so a rule violation there is a 422.
 servers:
   - url: http://localhost:4000
@@ -87,7 +87,7 @@ paths:
               $ref: "#/components/schemas/PresentRequest"
       responses:
         "200":
-          description: Raw JSON text streamed in chunks, with no SDK framing. Partial text is not valid JSON; the complete body parses as PresentationModel (x-final-schema).
+          description: Raw JSON text streamed in chunks, with no SDK framing. Partial text is not valid JSON; the complete body parses as PresentationModel (x-final-schema). If the model fails after the stream has started, the response ends with a transport error (no clean end of the body) rather than a 502, because the status is sent.
           content:
             text/plain:
               schema:
@@ -546,43 +546,41 @@ components:
       properties:
         recommendationId:
           type: string
+          maxLength: 100
+        claims:
+          maxItems: 5
+          type: array
+          items:
+            $ref: "#/components/schemas/FactualClaim"
         title:
           type: string
+          maxLength: 100
         blurb:
           type: string
+          maxLength: 600
         highlights:
+          maxItems: 5
           type: array
           items:
             type: string
-        claims:
-          type: array
-          items:
-            type: object
-            properties:
-              kind:
-                $ref: "#/components/schemas/ClaimKind"
-              statement:
-                type: string
-              verification:
-                $ref: "#/components/schemas/Verification"
-            required:
-              - kind
-              - statement
-              - verification
+            maxLength: 120
       required:
         - recommendationId
+        - claims
         - title
         - blurb
         - highlights
-        - claims
     PresentationModel:
       type: object
       properties:
         headline:
           type: string
+          maxLength: 120
         intro:
           type: string
+          maxLength: 600
         cards:
+          maxItems: 3
           type: array
           items:
             $ref: "#/components/schemas/PresentationCard"

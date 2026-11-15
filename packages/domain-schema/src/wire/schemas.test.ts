@@ -12,6 +12,12 @@ import {
   ExtractResponse,
   CritiqueIssue,
   FactualClaim,
+  MAX_BLURB_LENGTH,
+  MAX_CARD_TITLE_LENGTH,
+  MAX_HEADLINE_LENGTH,
+  MAX_HIGHLIGHT_LENGTH,
+  MAX_HIGHLIGHTS,
+  MAX_INTRO_LENGTH,
   MAX_CLAIM_LENGTH,
   MAX_CLAIMS,
   MAX_CLARIFICATION_QUESTION_LENGTH,
@@ -26,6 +32,8 @@ import {
   MAX_SUMMARY_LENGTH,
   MAX_UNMAPPED_EXPERIENCES,
   MAX_UNRESOLVED_ISSUES,
+  PresentationCard,
+  PresentationModel,
   PresentRequest,
   Recommendation,
   RecommendResponse,
@@ -179,6 +187,31 @@ describe('AC-LIMITS-04: each cap constant is the maximum on its fields', () => {
       'maxItems',
       MAX_RECOMMENDATIONS,
     ],
+    // AC-LIMITS-14 (WU-11): presentation output caps.
+    [
+      'PresentationModel.headline',
+      PresentationModel.shape.headline,
+      'maxLength',
+      MAX_HEADLINE_LENGTH,
+    ],
+    ['PresentationModel.intro', PresentationModel.shape.intro, 'maxLength', MAX_INTRO_LENGTH],
+    ['PresentationModel.cards', PresentationModel.shape.cards, 'maxItems', MAX_RECOMMENDATIONS],
+    [
+      'PresentationCard.recommendationId',
+      PresentationCard.shape.recommendationId,
+      'maxLength',
+      MAX_SHORT_TEXT_LENGTH,
+    ],
+    ['PresentationCard.title', PresentationCard.shape.title, 'maxLength', MAX_CARD_TITLE_LENGTH],
+    ['PresentationCard.blurb', PresentationCard.shape.blurb, 'maxLength', MAX_BLURB_LENGTH],
+    ['PresentationCard.highlights', PresentationCard.shape.highlights, 'maxItems', MAX_HIGHLIGHTS],
+    [
+      'PresentationCard.highlights[]',
+      PresentationCard.shape.highlights.element,
+      'maxLength',
+      MAX_HIGHLIGHT_LENGTH,
+    ],
+    ['PresentationCard.claims', PresentationCard.shape.claims, 'maxItems', MAX_CLAIMS],
   ] as const)('AC-LIMITS-04: %s has %s %i', (_name, schema, keyword, cap) => {
     expect(capsOf(schema, keyword)).toEqual([cap]);
   });
@@ -188,6 +221,11 @@ describe('AC-LIMITS-04: each cap constant is the maximum on its fields', () => {
     expect(TripProfile.shape.departure.unwrap().unwrap()).toBe(Departure);
     expect(TripProfile.shape.dateRange.unwrap().unwrap()).toBe(DateRange);
     expect(TripProfile.shape.people.unwrap().element).toBe(Traveler);
+  });
+
+  it('AC-LIMITS-14: presentation cards carry the capped wire FactualClaim', () => {
+    expect(PresentationCard.shape.claims.element).toBe(FactualClaim);
+    expect(PresentationModel.shape.cards.element).toBe(PresentationCard);
   });
 });
 

@@ -1,5 +1,5 @@
 {
-  "contractVersion": "0.7.0",
+  "contractVersion": "0.8.0",
   "minPopulatedFields": 3,
   "maxRequestBodyBytes": 1048576,
   "maxMessageLength": 2000,
@@ -15,5 +15,11 @@
   "maxSummaryLength": 500,
   "maxClaimLength": 200,
   "maxCritiqueIssueLength": 300,
-  "maxUnresolvedIssues": 24
+  "maxUnresolvedIssues": 24,
+  "maxHeadlineLength": 120,
+  "maxIntroLength": 600,
+  "maxCardTitleLength": 100,
+  "maxBlurbLength": 600,
+  "maxHighlights": 5,
+  "maxHighlightLength": 120
 }

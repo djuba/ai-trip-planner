@@ -81,6 +81,19 @@ Requests that used to be valid (a 3k-character message, a 200-character region) 
 - An honest value over a cap is lost silently, without a clarification. At these values that should be rare. WU-09 logs discards, and `INSUFFICIENT_DETAIL` asks again if too little is left.
 - `RecommendationSet` and `PresentationModel` are not covered here; WU-10 and WU-11 cap them. WU-09 caps `clarificationQuestion` at `MAX_CLARIFICATION_QUESTION_LENGTH` (300 code points), a server guarantee on the wire, in `contractVersion` 0.5.0. That change only narrows a response, so it isn't breaking. The model's `ClarificationOutput` stays unconstrained (ADR 0001 Q3). An empty or over-cap question is invalid output: retried once, then a 502.
 - WU-10 caps recommendations in `contractVersion` 0.7.0, a breaking change because `PresentRequest.recommendations` is a request field. The caps: `MAX_RECOMMENDATIONS` (3) per response or `/present` request, `MAX_CLAIMS` (5) per recommendation, `MAX_SUMMARY_LENGTH` (500), `MAX_CLAIM_LENGTH` (200), `MAX_CRITIQUE_ISSUE_LENGTH` (300) and `MAX_UNRESOLVED_ISSUES` (24); ids and destinations use `MAX_SHORT_TEXT_LENGTH`. The model fills the unconstrained `RecommendationSet` and `CritiqueResult`, and the deterministic critic flags over-cap drafts so a revision can fix them. Whatever is still over a cap is discarded with the same policy as `normalize`: a recommendation whose destination or summary is over its cap is dropped, as is an over-cap claim or critic issue; items past a count cap are dropped. Ids are never renumbered, and an issue about a dropped recommendation gets a null `recommendationId`. If no recommendation survives, the request is a 502. `PresentationModel` stays model-facing and uncapped until WU-11.
+- WU-11 caps the presentation in `contractVersion` 0.8.0, not breaking because only a response narrows: `MAX_HEADLINE_LENGTH` (120), `MAX_INTRO_LENGTH` (600), `MAX_CARD_TITLE_LENGTH` (100), `MAX_BLURB_LENGTH` (600), `MAX_HIGHLIGHTS` (5) and `MAX_HIGHLIGHT_LENGTH` (120); cards use `MAX_RECOMMENDATIONS`, ids `MAX_SHORT_TEXT_LENGTH`, and claims the capped `FactualClaim` and `MAX_CLAIMS`. The model fills the unconstrained `PresentationCopy`, and code writes the `PresentationModel` stream. See the addendum below for the one exception to "discard, never truncate".
+
+## Addendum (WU-11): streamed prose is cut, not discarded
+
+"Discard, never truncate" (§4) is for values the server stores or forwards whole: a profile, a recommendation, a claim. `/v1/trip/present` streams its prose as the model writes it, so by the time a string turns out to be over its cap, most of it has already been sent and can't be taken back. Holding every string until it is complete would keep the rule but lose the streaming, which is the point of the endpoint (WU-11 plan D4, user decision Q3).
+
+So the stream writer cuts an over-cap string, visibly:
+- In an open string it sends text only up to the last whitespace, holding back the word still being written (a held run over 32 code points goes out anyway).
+- When a string would pass its cap, it ends at the last word boundary that leaves room for "…" (U+2026) and appends "…", so the value sent, "…" included, is within the cap. With no boundary in reach it cuts at the cap minus one.
+- The rest is received and never sent, and the cut is logged like a discard (`reason: 'truncated'`, the path and the received length, never the value).
+- Count caps are unchanged: highlights past `MAX_HIGHLIGHTS` and cards past the request's recommendations are dropped whole.
+
+This applies only to model prose in the `/present` stream. The ids and claims in that stream are code-mapped from the request and never cut, and every other endpoint keeps discarding. The prompt asks for about half of each cap, so a cut means the model ignored its instructions, for example because of text planted in the request.
 
 ## Future hardening
 
