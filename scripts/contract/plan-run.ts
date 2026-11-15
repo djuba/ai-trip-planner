@@ -86,3 +86,23 @@ export function freshInvite(
     },
   };
 }
+
+/** The pact the web consumer tests write (WU-12 plan D6); the runner regenerates it every run. */
+export const CONSUMER_PACTS_DIR = 'contracts/pacts';
+
+/**
+ * In CI the consumer run must leave the committed pacts exactly as they were (WU-12 plan Q2):
+ * `statusOutput` is `git status --porcelain -- contracts/pacts`, which also lists an untracked pact.
+ * Returns the error to report, or undefined when nothing changed.
+ */
+export function pactDriftError(statusOutput: string): string | undefined {
+  const changed = statusOutput
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter((line) => line.length > 0);
+  if (changed.length === 0) return undefined;
+  return (
+    `the consumer tests changed ${CONSUMER_PACTS_DIR}/ (${changed.join('; ')}). ` +
+    'Run pnpm test:contract locally and commit the pact with the change that caused it (CLAUDE.md §10).'
+  );
+}

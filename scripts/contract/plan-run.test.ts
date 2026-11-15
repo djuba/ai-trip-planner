@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { hashInviteCode } from '../../backends/api-nextjs/src/http/invite-code.ts';
-import { RunPlanError, freshInvite, planRun } from './plan-run.ts';
+import { RunPlanError, freshInvite, pactDriftError, planRun } from './plan-run.ts';
 
 const CODE = { CONTRACT_INVITE_CODE: 'external-code' };
 
@@ -76,5 +76,21 @@ describe('freshInvite', () => {
 
   it('a recording run is local, because record mode needs LOCAL_DEV=true', () => {
     expect(freshInvite(undefined, { recording: true }).serverEnv.LOCAL_DEV).toBe('true');
+  });
+});
+
+describe('pactDriftError', () => {
+  it('AC-WEB-11: is undefined when the consumer run left the pacts unchanged', () => {
+    expect(pactDriftError('')).toBeUndefined();
+    expect(pactDriftError('\n')).toBeUndefined();
+  });
+
+  it('AC-WEB-11: names a modified or untracked pact', () => {
+    const error = pactDriftError(
+      ' M contracts/pacts/web-nextjs-vacation-api.json\n?? contracts/pacts/new.json\n',
+    );
+    expect(error).toContain('M contracts/pacts/web-nextjs-vacation-api.json');
+    expect(error).toContain('?? contracts/pacts/new.json');
+    expect(error).toContain('commit the pact');
   });
 });

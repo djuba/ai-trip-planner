@@ -52,7 +52,7 @@ See [ADR 0003](docs/decisions/0003-spec-first-one-implementation.md) for the dec
 | Rule examples | The rules return exactly the cataloged violations for every example | `spec/fixtures/rules/`, run by the rules' unit tests and through `/extract` | Built |
 | Normalize examples | Model output becomes exactly the expected profile, with over-cap values discarded | `spec/fixtures/normalize/`, run by `normalize`'s unit tests and through `/extract` | Built |
 | Conformance suite | The running backend's responses match the contract | `tests/contract/conformance/`, run by `pnpm test:contract` (or `test:contract:external` for any running backend) | Built; `/extract`, `/recommend` and `/present` are real (replayed cassettes) |
-| Pact | The backend does what the web client expects | `contracts/pacts/`, `tests/contract/pact-verify.test.ts` | Verifier built; consumer pacts planned (WU-12) |
+| Pact | The backend does what the web client expects | The web client's consumer tests (`apps/web-nextjs/tests/contract/`) write `contracts/pacts/`; `tests/contract/pact-verify.test.ts` verifies it | Built |
 | Container image | The API image builds from a clean checkout, runs as a non-root user with no secrets, and passes the provider contract tests in replay mode | `backends/api-nextjs/Dockerfile`, run by `pnpm test:image` in the CI `image` job | Built |
 | Deployment check | After every merge to `main`, the image is deployed to the hosted environment (replay mode, unadvertised) and passes the provider contract tests there, through the platform's front end | `.github/workflows/deploy.yml`, `infra/` | Built |
 | Journeys | The whole system works from the user's side | `tests/journeys/` | Planned (WU-15) |
@@ -69,6 +69,7 @@ See [ADR 0003](docs/decisions/0003-spec-first-one-implementation.md) for the dec
 
 ```sh
 pnpm install              # also installs the git hooks (lefthook)
+pnpm dev                  # web on http://localhost:3000, API on :4000 (copy .env.example to .env.local)
 pnpm verify               # project gate: typecheck, lint, format, audit, tests + coverage
 pnpm test:unit            # or test:integration, test:functional, test:contract
 pnpm verify:integrated    # integrated gate (stub until WU-15)

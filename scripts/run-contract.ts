@@ -1,14 +1,24 @@
-// `pnpm test:contract`: runs the provider contract suite (CLAUDE.md §6.5) against a backend.
-// By default it builds and starts api-nextjs on a free port and stops it afterwards; with
-// --external it tests API_BASE_URL and starts nothing (plan D8). The suite itself only ever sees
-// CONTRACT_TARGET_URL, so it stays black-box; this runner is the only part that knows a backend.
-import { spawn } from 'node:child_process';
+// `pnpm test:contract`: runs the consumer Pact tests, which rewrite contracts/pacts/ (WU-12),
+// then the provider contract suite (CLAUDE.md §6.5) against a backend. By default it builds and
+// starts api-nextjs on a free port and stops it afterwards; with --external it tests API_BASE_URL,
+// starts nothing and verifies the committed pact as it is (plan D8). The suite itself only ever
+// sees CONTRACT_TARGET_URL, so it stays black-box; this runner is the only part that knows a
+// backend.
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import buildOnce from '../backends/api-nextjs/tests/support/build-once.ts';
 import { startApi, type RunningApi } from '../backends/api-nextjs/tests/support/api-server.ts';
-import { RunPlanError, freshInvite, planRun, type RunPlan } from './contract/plan-run.ts';
+import {
+  CONSUMER_PACTS_DIR,
+  RunPlanError,
+  freshInvite,
+  pactDriftError,
+  planRun,
+  type RunPlan,
+} from './contract/plan-run.ts';
 import { recordingAllowed } from './test-support/llm-guard.ts';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
@@ -19,8 +29,15 @@ const VITEST_BIN = join(
 );
 const DEFAULT_WEB_ORIGIN = 'http://localhost:3000';
 
-function runVitest(args: string[], env: NodeJS.ProcessEnv): Promise<number> {
-  const child = spawn(process.execPath, [VITEST_BIN, 'run', '--project', 'contract', ...args], {
+// Written fresh each run, so an interaction removed from the tests can't linger (WU-12 plan D6).
+const CONSUMER_PACT = join(ROOT, CONSUMER_PACTS_DIR, 'web-nextjs-vacation-api.json');
+
+function runVitest(
+  project: 'contract' | 'contract-consumer',
+  args: string[],
+  env: NodeJS.ProcessEnv,
+): Promise<number> {
+  const child = spawn(process.execPath, [VITEST_BIN, 'run', '--project', project, ...args], {
     cwd: ROOT,
     env,
     stdio: 'inherit',
@@ -28,6 +45,30 @@ function runVitest(args: string[], env: NodeJS.ProcessEnv): Promise<number> {
   return new Promise((resolve) => {
     child.once('exit', (code, signal) => resolve(code ?? (signal ? 1 : 0)));
   });
+}
+
+/** Rewrites the pact, restoring the previous file if the run fails; in CI, fails on pact drift. */
+async function runConsumer(): Promise<number> {
+  const previous = existsSync(CONSUMER_PACT) ? readFileSync(CONSUMER_PACT) : undefined;
+  rmSync(CONSUMER_PACT, { force: true });
+  // It runs unfiltered: vitest arguments select provider tests only.
+  const exit = await runVitest('contract-consumer', [], {
+    ...process.env,
+    PACT_DO_NOT_TRACK: 'true',
+  });
+  if (exit !== 0) {
+    if (previous !== undefined) writeFileSync(CONSUMER_PACT, previous);
+    return exit;
+  }
+  if (!process.env.CI) return 0;
+  const status = spawnSync('git', ['status', '--porcelain', '--', CONSUMER_PACTS_DIR], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  const drift = status.status === 0 ? pactDriftError(status.stdout) : 'git status failed';
+  if (drift === undefined) return 0;
+  console.error(`test:contract: ${drift}`);
+  return 1;
 }
 
 async function main(): Promise<number> {
@@ -42,6 +83,13 @@ async function main(): Promise<number> {
     throw error;
   }
   for (const notice of plan.notices) console.log(`test:contract: ${notice}`);
+
+  // Consumer first: the provider verification below replays the pact it writes (WU-12 plan D6).
+  // Only the project gate rewrites the pact; --external and recording runs verify it as committed.
+  if (plan.startServer && !recordingAllowed(process.env)) {
+    const consumerExit = await runConsumer();
+    if (consumerExit !== 0) return consumerExit;
+  }
 
   let api: RunningApi | undefined;
   const stop = async () => {
@@ -73,7 +121,7 @@ async function main(): Promise<number> {
       webOrigin = process.env.WEB_ORIGIN?.trim() || DEFAULT_WEB_ORIGIN;
     }
     console.log(`test:contract: target ${baseUrl}, WEB_ORIGIN ${webOrigin}`);
-    return await runVitest(plan.vitestArgs, {
+    return await runVitest('contract', plan.vitestArgs, {
       ...process.env,
       CONTRACT_TARGET_URL: baseUrl,
       CONTRACT_INVITE_CODE: inviteCode,
