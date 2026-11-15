@@ -34,7 +34,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-10 | Recommend + critic + `/v1/trip/recommend` | WU-09, WU-18 | done |
 | WU-11 | Present stream + `/v1/trip/present` | WU-10 | done |
 | WU-22 | Invite-code access gate + rate limit | WU-07, WU-20 | done |
-| WU-12 | Web shell, API client, Pact consumer | WU-04, WU-07, WU-22 | todo |
+| WU-12 | Web shell, API client, Pact consumer | WU-04, WU-07, WU-22 | in-progress |
 | WU-13 | Conversation & clarification UI | WU-09, WU-12 | todo |
 | WU-14 | Streamed presentation cards + a11y | WU-11, WU-13 | todo |
 | WU-15 | Journeys + integrated gate | WU-14 | todo |
@@ -785,7 +785,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-12 — Web shell, API client, Pact consumer
-**Status:** todo · **Depends on:** WU-04, WU-07, WU-22 · **Commits:**
+**Status:** in-progress · **Depends on:** WU-04, WU-07, WU-22 · **Commits:**
 
 **Goal:** the web app exists, talks only to `NEXT_PUBLIC_API_BASE_URL`, and publishes its expectations as a pact.
 
