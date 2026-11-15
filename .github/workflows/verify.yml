@@ -46,6 +46,8 @@ jobs:
           tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP/gitleaks" gitleaks
           echo "$RUNNER_TEMP/gitleaks" >> "$GITHUB_PATH"
       - run: pnpm install --frozen-lockfile
+      # The web functional tests drive Chromium (WU-12; the version comes from @playwright/test).
+      - run: pnpm --filter @vp/web-nextjs exec playwright install --with-deps chromium
       - run: pnpm verify
 
   image:

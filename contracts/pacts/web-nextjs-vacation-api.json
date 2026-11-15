@@ -1,0 +1,854 @@
+{
+  "consumer": {
+    "name": "web-nextjs"
+  },
+  "interactions": [
+    {
+      "description": "a confirmation of a complete trip profile",
+      "pending": false,
+      "request": {
+        "body": {
+          "content": {
+            "currentProfile": {
+              "climate": "tropical",
+              "dateRange": {
+                "end": "2030-02-17",
+                "kind": "fixed",
+                "start": "2030-02-10"
+              },
+              "departure": {
+                "city": "Minneapolis",
+                "maxStops": 0,
+                "mode": "plane"
+              },
+              "experiences": [
+                "beach",
+                "snorkeling"
+              ],
+              "people": [
+                {
+                  "age": 40,
+                  "userType": "adult"
+                },
+                {
+                  "age": 38,
+                  "userType": "adult"
+                }
+              ],
+              "region": "Hawaii"
+            },
+            "message": "That all sounds right.",
+            "referenceDate": "2030-01-15"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Authorization": [
+            "Bearer pact-example-invite-code"
+          ],
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Authorization": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^Bearer \\S+$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/v1/trip/extract"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "profile": {
+              "climate": "tropical",
+              "dateRange": {
+                "end": "2030-02-17",
+                "kind": "fixed",
+                "start": "2030-02-10"
+              },
+              "departure": {
+                "city": "Minneapolis",
+                "maxStops": 0,
+                "mode": "plane"
+              },
+              "experiences": [
+                "beach",
+                "snorkeling"
+              ],
+              "people": [
+                {
+                  "age": 40,
+                  "userType": "adult"
+                },
+                {
+                  "age": 38,
+                  "userType": "adult"
+                }
+              ],
+              "region": "Hawaii"
+            },
+            "status": "ready"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.profile": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^application\\/json(;.*)?$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a health check",
+      "pending": false,
+      "request": {
+        "method": "GET",
+        "path": "/v1/health"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "contractVersion": "0.8.0",
+            "status": "ok"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.contractVersion": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^application\\/json(;.*)?$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a presentation request",
+      "pending": false,
+      "request": {
+        "body": {
+          "content": {
+            "profile": {
+              "climate": "tropical",
+              "dateRange": {
+                "end": "2030-02-17",
+                "kind": "fixed",
+                "start": "2030-02-10"
+              },
+              "departure": {
+                "city": "Minneapolis",
+                "maxStops": 0,
+                "mode": "plane"
+              },
+              "experiences": [
+                "beach",
+                "snorkeling"
+              ],
+              "people": [
+                {
+                  "age": 40,
+                  "userType": "adult"
+                },
+                {
+                  "age": 38,
+                  "userType": "adult"
+                }
+              ],
+              "region": "Hawaii"
+            },
+            "recommendations": [
+              {
+                "claims": [
+                  {
+                    "kind": "flight",
+                    "statement": "Flights from Minneapolis may be available with one stop.",
+                    "verification": "unverified"
+                  }
+                ],
+                "destination": "Maui, Hawaii",
+                "id": "rec-1",
+                "matchedExperiences": [
+                  "beach",
+                  "snorkeling"
+                ],
+                "summary": "Warm beaches and calm snorkeling water in February."
+              }
+            ]
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Authorization": [
+            "Bearer pact-example-invite-code"
+          ],
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Authorization": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^Bearer \\S+$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/v1/trip/present"
+      },
+      "response": {
+        "headers": {
+          "Content-Type": [
+            "text/plain; charset=utf-8"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^text\\/plain(;.*)?$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a recommendation request for a party with no adult",
+      "pending": false,
+      "request": {
+        "body": {
+          "content": {
+            "profile": {
+              "climate": "tropical",
+              "dateRange": {
+                "end": "2030-02-17",
+                "kind": "fixed",
+                "start": "2030-02-10"
+              },
+              "departure": {
+                "city": "Minneapolis",
+                "maxStops": 0,
+                "mode": "plane"
+              },
+              "experiences": [
+                "beach",
+                "snorkeling"
+              ],
+              "people": [
+                {
+                  "age": 8,
+                  "userType": "child"
+                }
+              ],
+              "region": "Hawaii"
+            },
+            "referenceDate": "2030-01-15"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Authorization": [
+            "Bearer pact-example-invite-code"
+          ],
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Authorization": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^Bearer \\S+$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/v1/trip/recommend"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "error": {
+              "code": "VALIDATION_FAILED",
+              "message": "The request does not match the contract."
+            }
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.error.message": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^application\\/json(;.*)?$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 422
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a recommendation request for a ready profile",
+      "pending": false,
+      "request": {
+        "body": {
+          "content": {
+            "profile": {
+              "climate": "tropical",
+              "dateRange": {
+                "end": "2030-02-17",
+                "kind": "fixed",
+                "start": "2030-02-10"
+              },
+              "departure": {
+                "city": "Minneapolis",
+                "maxStops": 0,
+                "mode": "plane"
+              },
+              "experiences": [
+                "beach",
+                "snorkeling"
+              ],
+              "people": [
+                {
+                  "age": 40,
+                  "userType": "adult"
+                },
+                {
+                  "age": 38,
+                  "userType": "adult"
+                }
+              ],
+              "region": "Hawaii"
+            },
+            "referenceDate": "2030-01-15"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Authorization": [
+            "Bearer pact-example-invite-code"
+          ],
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Authorization": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^Bearer \\S+$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/v1/trip/recommend"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "critique": {
+              "pass": true,
+              "unresolved": [
+                {
+                  "issue": "A claim is unsupported.",
+                  "recommendationId": "rec-1"
+                }
+              ]
+            },
+            "recommendations": [
+              {
+                "claims": [
+                  {
+                    "kind": "flight",
+                    "statement": "Flights from Minneapolis may be available with one stop.",
+                    "verification": "unverified"
+                  }
+                ],
+                "destination": "Maui, Hawaii",
+                "id": "rec-1",
+                "matchedExperiences": [
+                  "beach"
+                ],
+                "summary": "Warm beaches and calm snorkeling water in February."
+              }
+            ]
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.critique.pass": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.critique.unresolved": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 0
+                }
+              ]
+            },
+            "$.critique.unresolved[*].issue": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.critique.unresolved[*].recommendationId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.recommendations": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.recommendations[*].claims": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.recommendations[*].claims[*].kind": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(flight|lodging|price|activity|other)$"
+                }
+              ]
+            },
+            "$.recommendations[*].claims[*].statement": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.recommendations[*].claims[*].verification": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(unverified|fixture)$"
+                }
+              ]
+            },
+            "$.recommendations[*].destination": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.recommendations[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.recommendations[*].matchedExperiences": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.recommendations[*].matchedExperiences[*]": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(beach|pool|golf|go-karts|hiking|snorkeling|theme-parks|museums|nightlife|skiing)$"
+                }
+              ]
+            },
+            "$.recommendations[*].summary": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^application\\/json(;.*)?$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a trip request with an empty message",
+      "pending": false,
+      "request": {
+        "body": {
+          "content": {
+            "message": "",
+            "referenceDate": "2030-01-15"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Authorization": [
+            "Bearer pact-example-invite-code"
+          ],
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Authorization": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^Bearer \\S+$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/v1/trip/extract"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "error": {
+              "code": "VALIDATION_FAILED",
+              "message": "The request does not match the contract."
+            }
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.error.message": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^application\\/json(;.*)?$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 422
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a vague trip request",
+      "pending": false,
+      "request": {
+        "body": {
+          "content": {
+            "message": "Somewhere warm",
+            "referenceDate": "2030-01-15"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Authorization": [
+            "Bearer pact-example-invite-code"
+          ],
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Authorization": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^Bearer \\S+$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/v1/trip/extract"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "clarificationQuestion": "Where would you like to go, and when?",
+            "profile": {},
+            "status": "needs_clarification",
+            "violations": [
+              {
+                "code": "INSUFFICIENT_DETAIL",
+                "params": {
+                  "populated": 1,
+                  "required": 3
+                },
+                "path": ""
+              }
+            ]
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.clarificationQuestion": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.profile": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.violations": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.violations[*].code": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.violations[*].params": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.violations[*].path": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^application\\/json(;.*)?$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pact-js": {
+      "version": "17.1.4"
+    },
+    "pactRust": {
+      "ffi": "0.5.8",
+      "models": "1.3.16"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "vacation-api"
+  }
+}

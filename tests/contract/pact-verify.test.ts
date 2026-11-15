@@ -1,5 +1,5 @@
 // Consumer-driven contract verification (CLAUDE.md §6.5): replays every pact the web consumer
-// tests write to contracts/pacts/ (WU-12) against the backend under test. The Pact verifier is
+// tests write to contracts/pacts/ (WU-12; the runner writes them first) against the backend under test. The Pact verifier is
 // language-neutral, so the same pacts verify any backend. No broker: pacts are committed.
 import { fileURLToPath } from 'node:url';
 import { Verifier } from '@pact-foundation/pact';
@@ -48,7 +48,7 @@ describe('Pact provider verification', () => {
 
   const pacts = listPactFiles();
   if (pacts.length === 0) {
-    it.skip('AC-CONTRACT-08: no pact files in contracts/pacts yet (written by WU-12)', () => {});
+    it.skip('AC-CONTRACT-08: no pact files in contracts/pacts (pnpm test:contract writes them first)', () => {});
   } else {
     it(
       `AC-CONTRACT-08: consumer pacts verify (${pacts.length} file(s))`,
