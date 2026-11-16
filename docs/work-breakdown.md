@@ -36,7 +36,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-22 | Invite-code access gate + rate limit | WU-07, WU-20 | done |
 | WU-12 | Web shell, API client, Pact consumer | WU-04, WU-07, WU-22 | done |
 | WU-13 | Conversation & clarification UI | WU-09, WU-12 | done |
-| WU-14 | Streamed presentation cards + a11y | WU-11, WU-13 | in-progress |
+| WU-14 | Streamed presentation cards + a11y | WU-11, WU-13 | done |
 | WU-15 | Journeys + integrated gate | WU-14 | todo |
 | WU-16 | Portfolio README & architecture docs | WU-15 | todo |
 | WU-23 | Live demo launch | WU-16, WU-21, WU-22 | todo |
@@ -855,7 +855,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-14 — Streamed presentation cards + a11y
-**Status:** in-progress · **Depends on:** WU-11, WU-13 · **Commits:**
+**Status:** done · **Depends on:** WU-11, WU-13 · **Commits:** [djuba/ai-trip-planner#34](https://github.com/djuba/ai-trip-planner/pull/34)
 
 **Goal:** recommendations render progressively from the stream.
 
@@ -880,6 +880,14 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
   - **Text and labels:** word enum values with `enumLabel` from the spec's message catalog (`@vp/domain-schema/messages`). Verification-badge text is UI copy, unless another client needs the same words.
   - **Tests:** `mockApi` answers can be arrays, used in order, and it returns the recorded requests. Scan with `expectNoAxeViolations` from `tests/support/axe.ts`, which waits for transitions.
   - **Accessibility:** any new live region (stream progress, errors) must always be in the DOM, with only its text changing ([plan](plans/WU-13.md), unit review fix 1). A looping animation, such as a spinner, would make the axe helper's wait time out, so the helper must then skip infinite animations.
+
+- Done (see the [plan](plans/WU-14.md) and its deviations):
+  - **The flow:** a ready profile offers **Get recommendations**. The reducer gains a `trip` sub-state (recommending → presenting → presented, or failed with the step and request that failed), so Retry repeats only the failed step, and a 401 goes through the invite-code flow.
+  - **Streaming:** `useObject` runs over a custom `fetch` that calls the typed `client.present`, so the invite code and error mapping stay in one place. A stream that breaks partway shows "The suggestions stopped partway." and discards the partial cards.
+  - **Cards:** a pure view model turns the partial object into cards. Verification badges, worded from the message catalog's new `verification` labels, appear once a card's blurb is done. A test renders the cards at many partial points of a real stream (the Definition of done).
+  - **Real streaming in Playwright:** a local stream server (`tests/support/stream-server.ts`) that `mockApi` forwards `/present` to with `{ continueTo }`, so a test can pause mid-card and cut the connection. Every new state has an axe scan.
+  - **Accessibility:** the results status line is always in the DOM and uses `empty:sr-only`, not `empty:hidden`, so its first announcement isn't lost. WU-13's message thread and composer still use `empty:hidden`.
+- Usage: main/Opus 131 req, 115k out; wu-implementer/Sonnet 18 req, 24k out; wu-reviewer/Sonnet 8 req, 10k out.
 
 ---
 
@@ -906,6 +914,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From deployment planning: the stack script supplies an invite code (WU-22), and journeys enter it the way a user would. Decide in the plan whether the stack can also run from the WU-20 images ("test what you ship"). The default path must still need no Docker.
 - From WU-08: add `record:cassettes --prune` to delete cassettes no test replays any more ([plan](plans/WU-08.md), R5). A dead-proxy "network off" check can't cover `test:contract`: Pact's native verifier routes even loopback requests through the proxy and ignores `NO_PROXY`, so use a real network-off run ([plan](plans/WU-08.md), deviation 7).
 - From WU-13: wait for animations and transitions to finish before every axe scan (`document.getAnimations()`, as in `apps/web-nextjs/tests/support/axe.ts`); scanning during a colour fade made `verify` flaky on CI ([plan](plans/WU-13.md), D12). Journeys can't import that helper (§6.6), so copy the one wait. The UI asks for the invite code only after a 401: a journey sends its first message, then enters the code in the "Invite code" field, or opens `/?invite=<code>`.
+- From WU-14: journey 1 ends at "Your recommendations are ready." (a `role="status"` line in the results region) with card headings at level 3; `/present` then streams from the real backend in replay mode, so the web suite's stream server isn't needed. Scope status lookups to a region: the page has two status lines (Conversation and results), plus Next's route announcer as an extra `alert`. A clean machine needs `pnpm exec playwright install chromium` before any Playwright run ([plan](plans/WU-14.md), deviation 4).
 
 ---
 
