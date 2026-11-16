@@ -82,7 +82,9 @@ test('AC-CONV-08 AC-CONV-14: shows Planning while a turn is in flight, and Start
 }) => {
   await open(page, 'hang');
   await send(page, 'Somewhere warm');
-  await expect(page.getByRole('main').getByRole('status')).toHaveText('Planning…');
+  await expect(page.getByRole('region', { name: 'Conversation' }).getByRole('status')).toHaveText(
+    'Planning…',
+  );
   await expect(page.getByRole('button', { name: 'Send' })).toBeDisabled();
   await expectNoAxeViolations(page);
 

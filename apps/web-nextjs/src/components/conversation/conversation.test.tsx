@@ -3,6 +3,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { buildFixture } from '@vp/domain-schema/testing';
 import { ExtractResponse, type ExtractRequest } from '@vp/domain-schema/wire';
+import { tripPresentation, tripRecommendResponse } from '../../../tests/support/fixtures';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ApiClient, ApiResult } from '@/lib/api';
 import { createInviteStore, type InviteStore } from '@/lib/invite';
@@ -27,20 +28,45 @@ const ready = buildFixture(ExtractResponse, {
 
 type Result = ApiResult<ExtractResponse>;
 
+type Client = Pick<ApiClient, 'extract' | 'recommend' | 'present'>;
+
+/** `/recommend` answers `tripRecommendResponse`; `/present` streams `present` (default: in full). */
 function fakeClient(...results: Result[]) {
   const bodies: ExtractRequest[] = [];
   const extract = vi.fn<ApiClient['extract']>((body) => {
     bodies.push(body);
     return Promise.resolve(results.shift() ?? { ok: false, error: { kind: 'network' } });
   });
-  return { client: { extract }, bodies };
+  const recommend = vi.fn<ApiClient['recommend']>(() =>
+    Promise.resolve({ ok: true, data: tripRecommendResponse() }),
+  );
+  let presentText = JSON.stringify(tripPresentation());
+  let holdOpen = false;
+  const present = vi.fn<ApiClient['present']>(() => {
+    const text = presentText;
+    const open = holdOpen;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(text));
+        if (!open) controller.close();
+      },
+    });
+    return Promise.resolve({ ok: true, data: stream });
+  });
+  const client: Client = { extract, recommend, present };
+  /** The next `/present` sends `text` and, with `open`, never ends. */
+  const streamNext = (text: string, open: boolean) => {
+    presentText = text;
+    holdOpen = open;
+  };
+  return { client, bodies, recommend, present, streamNext };
 }
 
 function memoryInvites(): InviteStore {
   return createInviteStore(() => undefined);
 }
 
-function renderConversation(client: Pick<ApiClient, 'extract'>, invites = memoryInvites()) {
+function renderConversation(client: Client, invites = memoryInvites()) {
   render(<Conversation client={client} invites={invites} today={() => '2030-01-15'} />);
   return invites;
 }
@@ -166,5 +192,53 @@ describe('Conversation', () => {
     expect(body.referenceDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
+  });
+
+  it('AC-CARDS-01: Get recommendations appears only at ready, and sends the profile', async () => {
+    const { client, recommend } = fakeClient(
+      { ok: true, data: clarification },
+      { ok: true, data: ready },
+    );
+    renderConversation(client);
+    sendMessage('Somewhere warm with my kid');
+    await screen.findByText('Is the 19-year-old an adult?');
+    expect(screen.queryByRole('button', { name: 'Get recommendations' })).not.toBeInTheDocument();
+    sendMessage('They are an adult, Hawaii');
+    fireEvent.click(await screen.findByRole('button', { name: 'Get recommendations' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Two calm Hawaiian beach weeks' }),
+    ).toBeInTheDocument();
+    expect(recommend).toHaveBeenCalledTimes(1);
+    expect(recommend.mock.calls[0]?.[0]).toEqual({
+      profile: ready.profile,
+      referenceDate: '2030-01-15',
+    });
+    expect(screen.queryByRole('button', { name: 'Get recommendations' })).not.toBeInTheDocument();
+    expect(screen.getAllByText('From sample route data').length).toBeGreaterThan(0);
+  });
+
+  it('AC-CARDS-10: Send is disabled while the cards stream, and Start over clears them', async () => {
+    const { client, streamNext } = fakeClient({ ok: true, data: ready });
+    streamNext(JSON.stringify(tripPresentation()).slice(0, 120), true);
+    renderConversation(client);
+    sendMessage('Hawaii, two adults, February');
+    fireEvent.click(await screen.findByRole('button', { name: 'Get recommendations' }));
+    expect(await screen.findByText('Writing up your trips…')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Your message'), { target: { value: 'One more' } });
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Start over' }));
+    expect(screen.queryByText('Writing up your trips…')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Two calm Hawaiian beach weeks' })).toBeNull();
+  });
+
+  it('AC-CARDS-11: a correction after the results clears them and offers the button again', async () => {
+    const { client } = fakeClient({ ok: true, data: ready }, { ok: true, data: ready });
+    renderConversation(client);
+    sendMessage('Hawaii, two adults, February');
+    fireEvent.click(await screen.findByRole('button', { name: 'Get recommendations' }));
+    await screen.findByText('Your recommendations are ready.');
+    sendMessage('Make it March');
+    expect(await screen.findByRole('button', { name: 'Get recommendations' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Two calm Hawaiian beach weeks' })).toBeNull();
   });
 });

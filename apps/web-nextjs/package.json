@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/react": "catalog:",
     "@radix-ui/react-slot": "1.5.0",
     "@vp/domain-schema": "workspace:*",
     "class-variance-authority": "0.7.1",
@@ -33,6 +34,7 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "ai": "catalog:",
     "jsdom": "catalog:",
     "msw": "catalog:",
     "tailwindcss": "4.3.3",
