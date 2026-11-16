@@ -1,11 +1,19 @@
 import { buildFixture } from '@vp/domain-schema/testing';
-import { ExtractRequest, ExtractResponse } from '@vp/domain-schema/wire';
+import {
+  ExtractRequest,
+  ExtractResponse,
+  PresentationModel,
+  RecommendRequest,
+  RecommendResponse,
+} from '@vp/domain-schema/wire';
 import { describe, expect, it } from 'vitest';
 import type { ApiError } from '../api';
 import {
+  canRecommend,
   canSend,
   conversationReducer as reduce,
   initialState,
+  tripInFlight,
   type Action,
   type ConversationState,
 } from './reducer';
@@ -205,5 +213,181 @@ describe('invite code', () => {
       asking,
     );
     expect(s.invite).toBe('none');
+  });
+});
+
+describe('recommendations (WU-14)', () => {
+  const recommendRequest = buildFixture(RecommendRequest, {
+    profile: ready.profile,
+    referenceDate: '2030-01-15',
+  });
+  const recommendResponse = buildFixture(RecommendResponse, {
+    recommendations: [
+      {
+        id: 'rec-1',
+        destination: 'Maui, Hawaii',
+        summary: 'Warm beaches.',
+        matchedExperiences: ['beach'],
+        claims: [],
+      },
+      {
+        id: 'rec-2',
+        destination: 'Cancún, Mexico',
+        summary: 'Warm water.',
+        matchedExperiences: [],
+        claims: [],
+      },
+    ],
+    critique: { pass: true, unresolved: [] },
+  });
+  const model = buildFixture(PresentationModel, {
+    headline: 'Two warm trips',
+    intro: 'Both are warm in March.',
+    cards: [],
+  });
+  const tripFail = (
+    step: 'recommend' | 'present',
+    error: ApiError,
+    hadInviteCode = false,
+  ): Action => ({ type: 'tripFailed', step, error, hadInviteCode });
+
+  const atReady = run([
+    { type: 'send', request: first },
+    { type: 'succeeded', response: ready },
+  ]);
+  const recommending = reduce(atReady, { type: 'recommendRequested', request: recommendRequest });
+  const presenting = reduce(recommending, {
+    type: 'recommendSucceeded',
+    response: recommendResponse,
+  });
+  const presented = reduce(presenting, { type: 'presentFinished', model });
+
+  it('AC-CARDS-01: recommendations are offered only at a settled ready profile', () => {
+    expect(canRecommend(initialState)).toBe(false);
+    expect(canRecommend(afterClarification)).toBe(false);
+    expect(canRecommend(atReady)).toBe(true);
+    expect(
+      reduce(afterClarification, { type: 'recommendRequested', request: recommendRequest }),
+    ).toBe(afterClarification);
+  });
+
+  it('AC-CARDS-01: requesting holds the recommend request', () => {
+    expect(recommending.trip).toEqual({ step: 'recommending', request: recommendRequest });
+    expect(canRecommend(recommending)).toBe(false);
+    expect(reduce(recommending, { type: 'recommendRequested', request: recommendRequest })).toBe(
+      recommending,
+    );
+  });
+
+  it('AC-CARDS-02: the present request is the profile plus the recommendations, in order', () => {
+    expect(presenting.trip).toEqual({
+      step: 'presenting',
+      recommend: recommendResponse,
+      request: { profile: ready.profile, recommendations: recommendResponse.recommendations },
+    });
+  });
+
+  it('AC-CARDS-05: a finished stream keeps the validated model', () => {
+    expect(presented.trip).toEqual({ step: 'presented', recommend: recommendResponse, model });
+  });
+
+  it('AC-CARDS-10: no turn can start while a trip step is in flight', () => {
+    expect(tripInFlight(recommending)).toBe(true);
+    expect(tripInFlight(presenting)).toBe(true);
+    expect(tripInFlight(presented)).toBe(false);
+    expect(canSend(recommending)).toBe(false);
+    expect(canSend(presenting)).toBe(false);
+    expect(canSend(presented)).toBe(true);
+    expect(reduce(presenting, { type: 'send', request: second })).toBe(presenting);
+  });
+
+  it('AC-CARDS-10: reset clears the results', () => {
+    expect(reduce(presenting, { type: 'reset' })).toEqual(initialState);
+  });
+
+  it('AC-CARDS-11: a new extract response clears the results', () => {
+    const s = run(
+      [
+        { type: 'send', request: second },
+        { type: 'succeeded', response: ready },
+      ],
+      presented,
+    );
+    expect(s.trip).toEqual({ step: 'none' });
+    expect(canRecommend(s)).toBe(true);
+  });
+
+  it('AC-CARDS-11: the results stay while a correction is in flight', () => {
+    const s = reduce(presented, { type: 'send', request: second });
+    expect(s.trip).toBe(presented.trip);
+  });
+
+  it('plan fix 5: results arriving in another step are dropped', () => {
+    expect(reduce(atReady, { type: 'recommendSucceeded', response: recommendResponse })).toBe(
+      atReady,
+    );
+    expect(reduce(presenting, { type: 'recommendSucceeded', response: recommendResponse })).toBe(
+      presenting,
+    );
+    expect(reduce(recommending, { type: 'presentFinished', model })).toBe(recommending);
+    expect(reduce(presented, { type: 'presentFinished', model })).toBe(presented);
+    expect(reduce(presenting, tripFail('recommend', { kind: 'network' }))).toBe(presenting);
+    expect(reduce(recommending, tripFail('present', { kind: 'network' }))).toBe(recommending);
+    expect(reduce(atReady, tripFail('present', { kind: 'network' }))).toBe(atReady);
+  });
+
+  it('AC-CARDS-07: a recommend failure keeps its request, and Retry resends it', () => {
+    const failed = reduce(recommending, tripFail('recommend', { kind: 'network' }));
+    expect(failed.trip).toEqual({
+      step: 'failed',
+      failedStep: 'recommend',
+      error: { kind: 'network' },
+      request: recommendRequest,
+    });
+    expect(canSend(failed)).toBe(true);
+    expect(reduce(failed, { type: 'tripRetry' }).trip).toEqual(recommending.trip);
+  });
+
+  it('AC-CARDS-06: Retry after a present failure resends only /present, with the same body', () => {
+    const failed = reduce(presenting, tripFail('present', { kind: 'interrupted' }));
+    expect(failed.trip).toMatchObject({ step: 'failed', failedStep: 'present' });
+    const retried = reduce(failed, { type: 'tripRetry' });
+    expect(retried.trip).toEqual(presenting.trip);
+    if (retried.trip.step !== 'presenting' || presenting.trip.step !== 'presenting') {
+      throw new Error('step');
+    }
+    expect(retried.trip.request).toBe(presenting.trip.request);
+  });
+
+  it('AC-CARDS-06: Retry does nothing unless a step failed', () => {
+    expect(reduce(presenting, { type: 'tripRetry' })).toBe(presenting);
+    expect(reduce(atReady, { type: 'tripRetry' })).toBe(atReady);
+  });
+
+  it('AC-CARDS-07: an abort the hook did not ask for just ends the step', () => {
+    expect(reduce(presenting, tripFail('present', { kind: 'aborted' })).trip).toEqual({
+      step: 'none',
+    });
+  });
+
+  it('AC-CARDS-07: a 401 asks for a code, and submitting one resends that step', () => {
+    const asking = reduce(presenting, tripFail('present', { kind: 'unauthorized' }, false));
+    expect(asking.invite).toBe('asking');
+    expect(canSend(asking)).toBe(false);
+    const resent = reduce(asking, { type: 'inviteSubmitted' });
+    expect(resent.invite).toBe('none');
+    expect(resent.trip).toEqual(presenting.trip);
+    expect(resent.status).toBe('ready');
+
+    const rejected = reduce(recommending, tripFail('recommend', { kind: 'unauthorized' }, true));
+    expect(rejected.invite).toBe('rejected');
+    expect(reduce(rejected, { type: 'inviteSubmitted' }).trip).toEqual(recommending.trip);
+  });
+
+  it('plan fix 3: an invite code with nothing to resend only closes the entry', () => {
+    const failed = reduce(presenting, tripFail('present', { kind: 'network' }));
+    const s = reduce({ ...failed, invite: 'asking' }, { type: 'inviteSubmitted' });
+    expect(s.invite).toBe('none');
+    expect(s.trip).toBe(failed.trip);
   });
 });

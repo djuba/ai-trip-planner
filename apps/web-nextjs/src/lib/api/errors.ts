@@ -9,6 +9,8 @@ export type ApiError =
   | { kind: 'upstream'; refusal: boolean }
   | { kind: 'server'; status: number }
   | { kind: 'network' }
+  /** A 2xx stream that broke before its end (CLAUDE.md §5; WU-14 plan D2). */
+  | { kind: 'interrupted' }
   | { kind: 'aborted' }
   | { kind: 'contract'; detail: string };
 

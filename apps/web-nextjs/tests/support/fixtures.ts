@@ -11,6 +11,7 @@ import {
   ExtractRequest,
   ExtractResponse,
   HealthResponse,
+  PresentationModel,
   PresentRequest,
   RecommendRequest,
   RecommendResponse,
@@ -130,4 +131,94 @@ export const readyAfterCorrectionResponse = () =>
         { userType: 'adult', age: 19 },
       ],
     },
+  });
+
+// Recommendations and their presentation (WU-14 plan fix 1). Two trips, so a test can see one
+// card finish while the next is still streaming; both verification labels appear.
+
+const TRIP_RECOMMENDATIONS = [
+  {
+    id: 'rec-1',
+    destination: 'Maui, Hawaii',
+    summary: 'Warm beaches and calm snorkeling water in February.',
+    matchedExperiences: ['beach', 'snorkeling'],
+    claims: [
+      {
+        kind: 'flight',
+        statement: 'Non-stop flights run from MSP to OGG.',
+        verification: 'fixture',
+      },
+      {
+        kind: 'lodging',
+        statement: 'Beachfront condos are common in Kihei.',
+        verification: 'unverified',
+      },
+    ],
+  },
+  {
+    id: 'rec-2',
+    destination: 'Kauai, Hawaii',
+    summary: 'Quieter beaches and reef snorkeling.',
+    matchedExperiences: ['beach', 'snorkeling'],
+    claims: [
+      {
+        kind: 'price',
+        statement: 'Rentals run about $250 a night in February.',
+        verification: 'unverified',
+      },
+    ],
+  },
+];
+
+export const tripRecommendResponse = () =>
+  buildFixture(RecommendResponse, {
+    recommendations: TRIP_RECOMMENDATIONS,
+    critique: { pass: true, unresolved: [] },
+  });
+
+/** The critic still had a concern after its revise cap (AC-CARDS-08). */
+export const tripRecommendWithConcernsResponse = () =>
+  buildFixture(RecommendResponse, {
+    recommendations: TRIP_RECOMMENDATIONS,
+    critique: {
+      pass: false,
+      unresolved: [{ recommendationId: 'rec-2', issue: 'The nightly price may be out of date.' }],
+    },
+  });
+
+export const emptyRecommendResponse = () =>
+  buildFixture(RecommendResponse, {
+    recommendations: [],
+    critique: { pass: true, unresolved: [] },
+  });
+
+/** What `/present` streams for `tripRecommendResponse`, in the server's key order. */
+export const tripPresentation = () =>
+  buildFixture(PresentationModel, {
+    headline: 'Two calm Hawaiian beach weeks',
+    intro: 'Both islands are warm in February and good for snorkeling.',
+    cards: [
+      {
+        recommendationId: 'rec-1',
+        claims: TRIP_RECOMMENDATIONS[0]!.claims,
+        title: 'Maui: beaches and turtles',
+        blurb: 'Calm turquoise bays on the south shore, with turtles close to the beach.',
+        highlights: ['Snorkel at Molokini', 'Sunset in Kihei'],
+      },
+      {
+        recommendationId: 'rec-2',
+        claims: TRIP_RECOMMENDATIONS[1]!.claims,
+        title: 'Kauai: quiet reefs',
+        blurb: 'Fewer crowds and reef snorkeling at Poipu.',
+        highlights: ['Poipu Beach', 'Waimea Canyon lookout'],
+      },
+    ],
+  });
+
+/** What `/present` streams for no recommendations (AC-PRESENT-13). */
+export const emptyPresentation = () =>
+  buildFixture(PresentationModel, {
+    headline: 'No trips to show',
+    intro: 'Nothing matched this profile.',
+    cards: [],
   });
