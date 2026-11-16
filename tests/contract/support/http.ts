@@ -143,6 +143,9 @@ export function postOversized(
       url,
       {
         method: 'POST',
+        // A fresh connection: the server may close this one after its 413, so a pooled socket from
+        // an earlier request could be one it already closed (WU-15 deviation).
+        agent: false,
         headers: {
           'content-type': 'application/json',
           'content-length': String(size),
