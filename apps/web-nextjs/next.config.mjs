@@ -15,6 +15,9 @@ const nextConfig = {
   // The wire schemas are TS source; the browser bundle needs them compiled (CLAUDE.md §4.2).
   transpilePackages: ['@vp/domain-schema'],
   poweredByHeader: false,
+  // The journeys' stack runner builds into its own directory, so it never overwrites the
+  // functional suite's mock-API build (WU-15 plan D3). Unset everywhere else.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   // Stops `next dev` writing an AGENTS.md when it detects a coding agent; CLAUDE.md governs here.
   agentRules: false,
   outputFileTracingRoot: repoRoot,
