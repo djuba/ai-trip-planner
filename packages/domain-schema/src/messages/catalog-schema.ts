@@ -2,7 +2,14 @@
 // itself is hand-written in spec/; this schema only gives its shape to TS and, through `gen`, to
 // every other reader as `spec/generated/MessageCatalog.schema.json`.
 import { z } from 'zod';
-import { Climate, Experience, RuleCode, TravelMode, UserType } from '../wire/models/enums.ts';
+import {
+  Climate,
+  Experience,
+  RuleCode,
+  TravelMode,
+  UserType,
+  Verification,
+} from '../wire/models/enums.ts';
 
 /**
  * One required, non-empty string per enum value. A `z.object` rather than a `z.record`, so the
@@ -25,6 +32,7 @@ export const MessageCatalog = z.object({
     climate: keyedBy(Climate.options),
     travelMode: keyedBy(TravelMode.options),
     userType: keyedBy(UserType.options),
+    verification: keyedBy(Verification.options),
   }),
 });
 export type MessageCatalog = z.infer<typeof MessageCatalog>;

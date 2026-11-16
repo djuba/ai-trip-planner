@@ -28,6 +28,7 @@ import {
   RuleCode,
   TravelMode,
   UserType,
+  Verification,
 } from '../../src/wire/index.ts';
 
 export interface SampleSet {
@@ -569,6 +570,7 @@ function messageCatalog() {
       climate: text(Climate.options),
       travelMode: text(TravelMode.options),
       userType: text(UserType.options),
+      verification: text(Verification.options),
     },
   };
 }

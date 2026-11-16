@@ -130,4 +130,9 @@ describe('enumLabel', () => {
     expect(enumLabel('travelMode', 'train')).toBe('Train');
     expect(enumLabel('userType', 'child')).toBe('Child');
   });
+
+  it('AC-CARDS-04: labels both verification values from the catalog', () => {
+    expect(enumLabel('verification', 'unverified')).toBe('Unverified');
+    expect(enumLabel('verification', 'fixture')).toBe('From sample route data');
+  });
 });

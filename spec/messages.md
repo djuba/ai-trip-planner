@@ -17,7 +17,8 @@ The language-neutral source of truth for how a client words what the spec define
     "experience": { "<Experience>": "<text>" },          // one per value
     "climate":    { "<Climate>": "<text>" },
     "travelMode": { "<TravelMode>": "<text>" },
-    "userType":   { "<UserType>": "<text>" }
+    "userType":   { "<UserType>": "<text>" },
+    "verification": { "<Verification>": "<text>" } // a factual claim's label
   }
 }
 ```
