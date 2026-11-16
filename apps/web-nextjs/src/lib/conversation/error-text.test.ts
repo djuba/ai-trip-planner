@@ -82,3 +82,13 @@ describe('errorText', () => {
     }
   });
 });
+
+describe('errorText for the results', () => {
+  it('AC-CARDS-06: a stream that stopped partway can be retried', () => {
+    expect(errorText({ kind: 'interrupted' })).toEqual({
+      title: 'The suggestions stopped partway.',
+      detail: 'Try again.',
+      canRetry: true,
+    });
+  });
+});

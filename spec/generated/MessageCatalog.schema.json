@@ -184,13 +184,31 @@
             "adult",
             "child"
           ]
+        },
+        "verification": {
+          "type": "object",
+          "properties": {
+            "unverified": {
+              "type": "string",
+              "minLength": 1
+            },
+            "fixture": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "unverified",
+            "fixture"
+          ]
         }
       },
       "required": [
         "experience",
         "climate",
         "travelMode",
-        "userType"
+        "userType",
+        "verification"
       ]
     }
   },

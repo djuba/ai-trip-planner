@@ -6,10 +6,16 @@
 // A route's answer may be one answer or an array, consumed in order per key (WU-13 plan D9); a
 // request past the end fails like an unmocked one. `mockApi` returns every non-OPTIONS request it
 // saw (parsed JSON body and headers), keyed like the routes, so tests can assert what was sent.
+// A `{ continueTo }` answer passes the request on unchanged to another origin, which must send
+// the same CORS headers (`tests/support/stream-server.ts` does; WU-14 plan D9).
 import type { Page, Route } from '@playwright/test';
 
 export type MockAnswer =
-  { status: number; json: unknown; headers?: Record<string, string> } | 'abort' | 'hang';
+  | { status: number; json: unknown; headers?: Record<string, string> }
+  /** Hands the request on to another server (same path), e.g. the stream server (WU-14 D9). */
+  | { continueTo: string }
+  | 'abort'
+  | 'hang';
 
 /** Keys are `<METHOD> <path>`, e.g. `GET /v1/health`. Any other API request fails the test. */
 export type MockRoutes = Record<string, MockAnswer | MockAnswer[]>;
@@ -19,9 +25,9 @@ export interface RecordedRequest {
   headers: Record<string, string>;
 }
 
-const WEB_ORIGIN = 'http://localhost:3000';
+export const WEB_ORIGIN = 'http://localhost:3000';
 
-const corsHeaders = {
+export const corsHeaders = {
   'access-control-allow-origin': WEB_ORIGIN,
   'access-control-allow-methods': 'GET, POST, OPTIONS',
   'access-control-allow-headers': 'authorization, content-type',
@@ -70,6 +76,11 @@ export async function mockApi(
       return;
     }
     if (answer === 'hang') return; // never answered: the request stays pending
+    if ('continueTo' in answer) {
+      const url = new URL(request.url());
+      await route.continue({ url: `${answer.continueTo}${url.pathname}${url.search}` });
+      return;
+    }
     await route.fulfill({
       status: answer.status,
       headers: { ...corsHeaders, ...answer.headers },

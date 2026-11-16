@@ -38,6 +38,10 @@
     "userType": {
       "adult": "Adult",
       "child": "Child"
+    },
+    "verification": {
+      "unverified": "Unverified",
+      "fixture": "From sample route data"
     }
   }
 }

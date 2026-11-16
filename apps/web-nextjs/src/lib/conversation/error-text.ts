@@ -1,4 +1,5 @@
-// Words for an API failure in the conversation view (AC-CONV-09, AC-CONV-12). Display only.
+// Words for an API failure in the conversation view (AC-CONV-09, AC-CONV-12) and the results
+// (AC-CARDS-06, AC-CARDS-07). Display only.
 import type { ApiError } from '../api/errors.ts';
 
 export interface ErrorText {
@@ -53,6 +54,12 @@ export function errorText(error: ApiError): ErrorText | null {
             detail: 'Try again in a moment.',
             canRetry: true,
           };
+    case 'interrupted':
+      return {
+        title: 'The suggestions stopped partway.',
+        detail: 'Try again.',
+        canRetry: true,
+      };
     case 'network':
       return {
         title: "Can't reach the planner.",

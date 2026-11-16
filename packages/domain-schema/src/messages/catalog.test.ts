@@ -14,6 +14,7 @@ import {
   RuleCode,
   TravelMode,
   UserType,
+  Verification,
   type RuleViolation,
 } from '../wire/index.ts';
 import { EN_MESSAGES, MessageCatalog, violationArguments, violationField } from './index.ts';
@@ -135,11 +136,15 @@ describe('AC-MSG-02: one entry per rule code and enum value, and no extra keys',
       'experience',
       'travelMode',
       'userType',
+      'verification',
     ]);
     expect(Object.keys(raw.labels.experience ?? {}).sort()).toEqual([...Experience.options].sort());
     expect(Object.keys(raw.labels.climate ?? {}).sort()).toEqual([...Climate.options].sort());
     expect(Object.keys(raw.labels.travelMode ?? {}).sort()).toEqual([...TravelMode.options].sort());
     expect(Object.keys(raw.labels.userType ?? {}).sort()).toEqual([...UserType.options].sort());
+    expect(Object.keys(raw.labels.verification ?? {}).sort()).toEqual(
+      [...Verification.options].sort(),
+    );
   });
 
   it('every rule code in the generated schema has its params listed', () => {

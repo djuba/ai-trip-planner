@@ -1,6 +1,6 @@
 # Conversation UI: acceptance criteria
 
-How a user talks to the planner in `apps/web-nextjs` until their trip profile is `ready`. The design is in [the WU-13 plan](../plans/WU-13.md) (D1–D13 and the fixes at approval). The client holds the whole conversation: the server is stateless (CLAUDE.md §5), so every turn sends the current profile, and every response's profile replaces it. Calls go through the typed client ([`web-client.md`](web-client.md)). Violations and enum values are worded from the spec's message catalog ([`message-catalog.md`](message-catalog.md)). Recommendations and cards are WU-14.
+How a user talks to the planner in `apps/web-nextjs` until their trip profile is `ready`. The design is in [the WU-13 plan](../plans/WU-13.md) (D1–D13 and the fixes at approval). The client holds the whole conversation: the server is stateless (CLAUDE.md §5), so every turn sends the current profile, and every response's profile replaces it. Calls go through the typed client ([`web-client.md`](web-client.md)). Violations and enum values are worded from the spec's message catalog ([`message-catalog.md`](message-catalog.md)). Recommendations and cards are in [`presentation-ui.md`](presentation-ui.md).
 
 ## Acceptance criteria
 

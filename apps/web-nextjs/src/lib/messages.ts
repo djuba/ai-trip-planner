@@ -7,6 +7,7 @@ import type {
   RuleViolation,
   TravelMode,
   UserType,
+  Verification,
 } from '@vp/domain-schema/wire';
 import { IntlMessageFormat } from 'intl-messageformat';
 
@@ -31,6 +32,7 @@ interface EnumValues {
   climate: Climate;
   travelMode: TravelMode;
   userType: UserType;
+  verification: Verification;
 }
 
 /** The catalog's label for a value of one of the closed enums. */
