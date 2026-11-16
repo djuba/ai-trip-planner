@@ -36,7 +36,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-22 | Invite-code access gate + rate limit | WU-07, WU-20 | done |
 | WU-12 | Web shell, API client, Pact consumer | WU-04, WU-07, WU-22 | done |
 | WU-13 | Conversation & clarification UI | WU-09, WU-12 | done |
-| WU-14 | Streamed presentation cards + a11y | WU-11, WU-13 | todo |
+| WU-14 | Streamed presentation cards + a11y | WU-11, WU-13 | in-progress |
 | WU-15 | Journeys + integrated gate | WU-14 | todo |
 | WU-16 | Portfolio README & architecture docs | WU-15 | todo |
 | WU-23 | Live demo launch | WU-16, WU-21, WU-22 | todo |
@@ -855,7 +855,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-14 — Streamed presentation cards + a11y
-**Status:** todo · **Depends on:** WU-11, WU-13 · **Commits:**
+**Status:** in-progress · **Depends on:** WU-11, WU-13 · **Commits:**
 
 **Goal:** recommendations render progressively from the stream.
 
