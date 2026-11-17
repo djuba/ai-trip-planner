@@ -38,7 +38,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-13 | Conversation & clarification UI | WU-09, WU-12 | done |
 | WU-14 | Streamed presentation cards + a11y | WU-11, WU-13 | done |
 | WU-15 | Journeys + integrated gate | WU-14 | done |
-| WU-16 | Portfolio README & architecture docs | WU-15 | in-progress |
+| WU-16 | Portfolio README & architecture docs | WU-15 | done |
 | WU-23 | Live demo launch | WU-16, WU-21, WU-22 | todo |
 
 ```
@@ -924,7 +924,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-16 — Portfolio README & architecture docs
-**Status:** in-progress · **Depends on:** WU-15 · **Commits:**
+**Status:** done · **Depends on:** WU-15 · **Commits:** [djuba/ai-trip-planner#36](https://github.com/djuba/ai-trip-planner/pull/36)
 
 **Goal:** a reviewer understands the design in five minutes and can run it in ten.
 
@@ -938,6 +938,11 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 **Notes:**
 - From WU-15: the README's "How interchangeability is checked" table now has every row Built, so the Status column can go. Describe the gate set as it now stands: `pnpm verify` (project), `pnpm verify:integrated` and `pnpm verify:full` (local only), the CI `image` and `infra` jobs, and the post-deploy contract check ([features/journeys.md](features/journeys.md)).
 - From deployment planning: don't link to or offer the hosted environment. Describing the deployment pipeline and its checks is fine (WU-20, WU-21). WU-23 adds the "live demo available on request" line once the demo works. Do cover the hosting approach as a design decision (ADR 0005) and the cost-control approach.
+- Done: the README is reorganized for a reviewer (quickstart, Mermaid architecture diagram, pipeline, design and tradeoffs including ADRs 0001, 0004 and 0005, test pyramid, gates as they now stand, cost control, the contract), with `docs/decisions/README.md` as the ADR index. `scripts/docs-links.test.ts` (AC-DOCS-01/02) checks the README's and the index's relative links, and that every ADR is indexed.
+- The replay-mode UI is the journeys (`pnpm test:journeys --grep @smoke --headed` or `--ui`): `pnpm dev` in replay answers nothing a person types, since cassette keys include the browser's date ([plan](plans/WU-16.md), D1).
+- DoD: a fresh clone of the branch, following only the README, passed `pnpm verify` (about 30 s; 2,830 unit and integration, 49 functional, 40 contract tests) and the headed `@smoke` journey, with no API key and no `.env.local`. The old README's route-handler path was wrong (`src/app/v1/`, deviation 1).
+- From the unit review (two P2s, applied in a `fix(repo)` commit): the link test also checks `#heading` anchors against GitHub's heading slugs, in the same file or another Markdown file, and strips indented code fences.
+- Usage: main/Opus 59 req, 45k out; wu-reviewer/Sonnet 5 req, 4k out.
 
 ---
 
@@ -981,6 +986,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From WU-21: the model IDs need no change for live mode: the hosted service already runs the CLAUDE.md §8.1 IDs, because the cassettes are keyed on them. Revisit `request_timeout_seconds` with WU-10's latency figure.
 - From WU-10: measured `/recommend` cost and size. A first-try pass is 2 Sonnet calls (recommend about 460–780 output tokens, critic 16); the worst recorded case was 6 calls and about 1,600 output tokens in about 17 s. The theoretical bound is 12 calls with retries, each up to its `maxOutputTokens` (recommend 17,408, critic 13,824). The live eval (12 runs, judge on) cost US$0.37, about 1% of its US$33.62 worst-case estimate, so size the spend limit from measured spend and keep the worst case as the bound. A passing critic call is about 16 output tokens, so `MODEL_CRITIC` on Haiku is worth trying. The 300 s `request_timeout_seconds` is far above the measured 17 s ([WU-10 plan](plans/WU-10.md)).
 - From WU-12 (deferred at its plan approval): add `apps/web-nextjs/Dockerfile` on the WU-20 pattern, with `NEXT_PUBLIC_API_BASE_URL` as a build argument because Next inlines it at build time; add the web service to `infra/`, point the API's `WEB_ORIGIN` at it, and extend the deploy workflow. The web functional tests already build the app with a non-default base URL, so the build-argument path is proven.
+- From WU-16: add the "live demo available on request" line to the README's Quickstart, next to "To try your own messages", and keep it free of the hosted URL if the demo is offered privately. `scripts/docs-links.test.ts` fails if a README link or `#heading` anchor stops resolving ([plan](plans/WU-16.md)).
 
 ---
 
