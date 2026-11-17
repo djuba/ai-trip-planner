@@ -1,7 +1,7 @@
 // HTTP helpers for the conformance checks. Everything is read as text, so a check sees exactly
 // what a client in any language would.
-import { request as httpRequest } from 'node:http';
-import { request as httpsRequest } from 'node:https';
+import { Agent as HttpAgent, request as httpRequest } from 'node:http';
+import { Agent as HttpsAgent, request as httpsRequest } from 'node:https';
 import { inviteCode } from './artifacts.ts';
 
 export interface HttpResult {
@@ -131,21 +131,26 @@ export function postOversized(
   options: AuthOptions = {},
 ): Promise<HttpResult> {
   const url = new URL(`${baseUrl}${path}`);
-  const send = url.protocol === 'https:' ? httpsRequest : httpRequest;
+  const https = url.protocol === 'https:';
+  const send = https ? httpsRequest : httpRequest;
+  // A fresh connection: the server may close this one after its 413, so a pooled socket from an
+  // earlier request could be one it already closed. A keep-alive agent of its own, not
+  // `agent: false`: that sends `Connection: close`, and a server told so closes as soon as its 413
+  // is out, mid-upload, so the client's write meets a reset before it reads the 413 (WU-15
+  // deviation 16; seen on Linux CI).
+  const agent = https ? new HttpsAgent({ keepAlive: true }) : new HttpAgent({ keepAlive: true });
   // A JSON string: valid JSON at any length, so only the size can be the reason for a rejection.
   const body = Buffer.alloc(size, 'a');
   body[0] = 0x22; // "
   body[size - 1] = 0x22;
 
-  return new Promise((resolve, reject) => {
+  return new Promise<HttpResult>((resolve, reject) => {
     let answered = false;
     const req = send(
       url,
       {
         method: 'POST',
-        // A fresh connection: the server may close this one after its 413, so a pooled socket from
-        // an earlier request could be one it already closed (WU-15 deviation).
-        agent: false,
+        agent,
         headers: {
           'content-type': 'application/json',
           'content-length': String(size),
@@ -199,7 +204,7 @@ export function postOversized(
       req.end();
     };
     pump();
-  });
+  }).finally(() => agent.destroy());
 }
 
 /** `text/plain; charset=utf-8` → `text/plain`. Parameters are not part of the contract (D5). */
