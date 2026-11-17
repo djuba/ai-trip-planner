@@ -38,7 +38,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-13 | Conversation & clarification UI | WU-09, WU-12 | done |
 | WU-14 | Streamed presentation cards + a11y | WU-11, WU-13 | done |
 | WU-15 | Journeys + integrated gate | WU-14 | done |
-| WU-16 | Portfolio README & architecture docs | WU-15 | todo |
+| WU-16 | Portfolio README & architecture docs | WU-15 | in-progress |
 | WU-23 | Live demo launch | WU-16, WU-21, WU-22 | todo |
 
 ```
@@ -924,7 +924,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-16 — Portfolio README & architecture docs
-**Status:** todo · **Depends on:** WU-15 · **Commits:**
+**Status:** in-progress · **Depends on:** WU-15 · **Commits:**
 
 **Goal:** a reviewer understands the design in five minutes and can run it in ten.
 
