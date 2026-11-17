@@ -11,6 +11,7 @@ const excludeEverywhere = [
   'tests/journeys/**',
   'apps/web-nextjs/tests/functional/**',
   '**/.next/**',
+  '**/.next-journeys/**',
   // Claude Code's git worktrees for other units (WU-20 plan, deviations): their tests aren't ours.
   '.claude/**',
 ];

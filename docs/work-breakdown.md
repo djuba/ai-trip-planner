@@ -37,7 +37,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-12 | Web shell, API client, Pact consumer | WU-04, WU-07, WU-22 | done |
 | WU-13 | Conversation & clarification UI | WU-09, WU-12 | done |
 | WU-14 | Streamed presentation cards + a11y | WU-11, WU-13 | done |
-| WU-15 | Journeys + integrated gate | WU-14 | todo |
+| WU-15 | Journeys + integrated gate | WU-14 | done |
 | WU-16 | Portfolio README & architecture docs | WU-15 | todo |
 | WU-23 | Live demo launch | WU-16, WU-21, WU-22 | todo |
 
@@ -892,7 +892,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-15 — Journeys + integrated gate
-**Status:** todo · **Depends on:** WU-14 · **Commits:**
+**Status:** done · **Depends on:** WU-14 · **Commits:** [djuba/ai-trip-planner#35](https://github.com/djuba/ai-trip-planner/pull/35)
 
 **Goal:** prove the integrated system works for a user, and close the gate set.
 
@@ -915,6 +915,11 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - From WU-08: add `record:cassettes --prune` to delete cassettes no test replays any more ([plan](plans/WU-08.md), R5). A dead-proxy "network off" check can't cover `test:contract`: Pact's native verifier routes even loopback requests through the proxy and ignores `NO_PROXY`, so use a real network-off run ([plan](plans/WU-08.md), deviation 7).
 - From WU-13: wait for animations and transitions to finish before every axe scan (`document.getAnimations()`, as in `apps/web-nextjs/tests/support/axe.ts`); scanning during a colour fade made `verify` flaky on CI ([plan](plans/WU-13.md), D12). Journeys can't import that helper (§6.6), so copy the one wait. The UI asks for the invite code only after a 401: a journey sends its first message, then enters the code in the "Invite code" field, or opens `/?invite=<code>`.
 - From WU-14: journey 1 ends at "Your recommendations are ready." (a `role="status"` line in the results region) with card headings at level 3; `/present` then streams from the real backend in replay mode, so the web suite's stream server isn't needed. Scope status lookups to a region: the page has two status lines (Conversation and results), plus Next's route announcer as an extra `alert`. A clean machine needs `pnpm exec playwright install chromium` before any Playwright run ([plan](plans/WU-14.md), deviation 4).
+- Done: `pnpm test:journeys` (`scripts/run-journeys.ts`) builds and starts api-nextjs as when hosted (replay, blank key, a fresh invite code) and web-nextjs against it in `.next-journeys`, then runs Playwright with only URLs and the code. `verify:integrated` runs `@smoke` + `@critical`; `verify:full` runs `@full` then `pnpm test:contract`. Journeys fix the browser clock at 2026-11-16 (UTC), so cassette keys never change; journey 4's 502 is its recorded extract with the response swapped for a provider error in a temporary copy ([plan](plans/WU-15.md), D4, D5).
+- Re-record with `pnpm record:cassettes --journeys [filters]` (live; the first recording cost about $0.03), then run `pnpm record:cassettes --prune` (replay only) and review the deleted cassettes as a git diff.
+- DoD: `verify:integrated` and `test:journeys --grep @full` each passed three consecutive runs, and `verify:integrated` passed with the network off (api.anthropic.com unreachable throughout).
+- macOS 27 exposed a race in the contract self-test's early-413 fake: `Connection: close` made Node reset the socket mid-upload, losing the 413. Fixed with a lingering close in the fake and `agent: false` in `postOversized` ([plan](plans/WU-15.md), deviation 10).
+- Usage: main/Opus 106 req, 87k out; wu-implementer/Sonnet 17 req, 16k out; wu-reviewer/Sonnet 8 req, 9k out.
 
 ---
 
@@ -931,6 +936,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 **Definition of done:** a fresh clone, following only the README, reaches a green `pnpm verify` and a working UI in replay mode.
 
 **Notes:**
+- From WU-15: the README's "How interchangeability is checked" table now has every row Built, so the Status column can go. Describe the gate set as it now stands: `pnpm verify` (project), `pnpm verify:integrated` and `pnpm verify:full` (local only), the CI `image` and `infra` jobs, and the post-deploy contract check ([features/journeys.md](features/journeys.md)).
 - From deployment planning: don't link to or offer the hosted environment. Describing the deployment pipeline and its checks is fine (WU-20, WU-21). WU-23 adds the "live demo available on request" line once the demo works. Do cover the hosting approach as a design decision (ADR 0005) and the cost-control approach.
 
 ---
@@ -962,6 +968,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 
 **Notes:**
 - From deployment planning: review tier `sonnet`; likely one code commit.
+- From WU-15: the journeys run against `next start` builds, not the container image (the image is checked by `pnpm test:image`). If the launch wants "test what you ship" end to end, add an opt-in `--image` mode to `scripts/run-journeys.ts` that starts the API from the image; the default must still need no Docker ([plan](plans/WU-15.md), D9).
 - If WU-21 was skipped, its scope moves here, ahead of everything above.
 - From WU-21 (plan review #5): once the runtime service account can read the API key secret, the deploy identity can reach the key too, by deploying an image that runs as that account. Accept it with the Anthropic spend limit as the bound, or move live deploys to their own identity behind the GitHub Environment this unit already plans. Record the choice in ADR 0005.
 - From WU-21: consider deploying with `--no-traffic --tag candidate`, running the contract check on the tagged URL, then moving traffic, so a failing revision never serves the demo. Pin the traffic block in Terraform's `ignore_changes` if so.

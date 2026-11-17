@@ -27,10 +27,10 @@
     "record:cassettes": "node scripts/record-cassettes.ts",
     "invite:new": "node scripts/invite-code.ts",
     "eval": "node backends/api-nextjs/eval/run.ts",
-    "test:journeys": "pnpm --filter @vp/journeys test",
+    "test:journeys": "node scripts/run-journeys.ts",
     "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm gen:check && pnpm audit:prod && pnpm test:coverage && pnpm test:functional && pnpm test:contract",
-    "verify:integrated": "node scripts/skip.mjs \"integrated gate (build all, start stack, journeys @smoke + @critical)\" WU-15",
-    "verify:full": "node scripts/skip.mjs \"full gate (journeys @full and provider contracts against api-nextjs)\" WU-15"
+    "verify:integrated": "pnpm test:journeys --grep \"@smoke|@critical\"",
+    "verify:full": "pnpm test:journeys --grep @full && pnpm test:contract"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",

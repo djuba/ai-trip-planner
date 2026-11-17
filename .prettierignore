@@ -8,6 +8,7 @@ playwright-report/
 test-results/
 blob-report/
 .next/
+.next-journeys/
 next-env.d.ts
 dist/
 

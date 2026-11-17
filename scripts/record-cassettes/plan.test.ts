@@ -34,4 +34,26 @@ describe('planRecord', () => {
       filters: ['conformance/extract'],
     });
   });
+
+  it('AC-JOURNEY-09: --journeys needs no filters and passes any it has through', () => {
+    expect(planRecord(['--journeys'])).toEqual({ kind: 'journeys', filters: [] });
+    expect(planRecord(['--journeys', '--grep', '@smoke'])).toEqual({
+      kind: 'journeys',
+      filters: ['--grep', '@smoke'],
+    });
+  });
+
+  it('AC-JOURNEY-09: --prune takes no filters', () => {
+    expect(planRecord(['--prune'])).toEqual({ kind: 'prune' });
+    expect(() => planRecord(['--prune', 'x'])).toThrow(/no filters/);
+  });
+
+  it('AC-JOURNEY-09: --journeys, --prune, --contract and --project exclude each other', () => {
+    expect(() => planRecord(['--journeys', '--prune'])).toThrow(/exclude each other/);
+    expect(() => planRecord(['--prune', '--contract'])).toThrow(RecordPlanError);
+    expect(() => planRecord(['--journeys', '--contract'])).toThrow(RecordPlanError);
+    expect(() => planRecord(['--prune', '--project', 'integration'])).toThrow(RecordPlanError);
+    // Stricter than before WU-15, when --project was silently ignored next to --contract.
+    expect(() => planRecord(['--contract', '--project', 'integration'])).toThrow(RecordPlanError);
+  });
 });

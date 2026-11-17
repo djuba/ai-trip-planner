@@ -222,13 +222,18 @@ export async function startFakeBackend(options: FakeOptions = {}): Promise<FakeB
     const oversized = declared > maxBytes;
 
     if (oversized && options.early413) {
-      // Answer before the upload ends, then close gracefully, as real servers do: discard the rest
-      // of the body and let Connection: close end the socket with a FIN. Destroying the socket
-      // while upload data is unread sends a TCP reset that can discard the 413 in transit.
+      // Answer before the upload ends, then close gracefully, as real servers do: a lingering
+      // close. The 413 is written at once, but the response is finished, and the socket ended,
+      // only after the rest of the body has been read and discarded. Node's server tears the
+      // socket down when a response finishes while the request is still unread; upload data
+      // arriving after that draws a TCP reset, and on macOS 27 the reset can discard the 413
+      // before the client reads it (WU-15 deviation).
       const fake = describeRequest(req, '', true);
-      res.setHeader('connection', 'close');
+      const response = hook(fake, defaultResponse(fake));
+      res.writeHead(response.status, response.headers);
+      for (const chunk of response.chunks) res.write(chunk);
+      req.on('end', () => res.end(() => req.socket.end()));
       req.resume();
-      send(res, hook(fake, defaultResponse(fake)));
       return;
     }
 

@@ -2,7 +2,7 @@
 // Anthropic provider takes this as its `fetch`, so our code and the SDK run for real and only the
 // network is recorded or replayed.
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 
@@ -50,7 +50,8 @@ export function cassetteKey(body: string): string {
 }
 
 export type CassetteFetchOptions =
-  { mode: 'replay'; dir: string } | { mode: 'record'; dir: string; network: typeof fetch };
+  | { mode: 'replay'; dir: string; usageLog?: string }
+  | { mode: 'record'; dir: string; network: typeof fetch };
 
 export interface CassetteFetch {
   fetch: typeof fetch;
@@ -165,7 +166,12 @@ export function createCassetteFetch(options: CassetteFetchOptions): CassetteFetc
     // No network handle exists in this branch, so a miss can never fall through to live (§6.1).
     const replay = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
       const body = bodyOf(init);
-      return replayResponse(await loadCassette(options.dir, cassetteKey(body), body));
+      const key = cassetteKey(body);
+      const response = replayResponse(await loadCassette(options.dir, key, body));
+      // Test-only: `record:cassettes --prune` learns which cassettes the suites replay. One
+      // append per hit, so several processes can share the file.
+      if (options.usageLog !== undefined) await appendFile(options.usageLog, `${key}\n`);
+      return response;
     };
     return { fetch: replay, flush: () => Promise.resolve() };
   }

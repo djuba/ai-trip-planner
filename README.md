@@ -56,7 +56,7 @@ See [ADR 0003](docs/decisions/0003-spec-first-one-implementation.md) for the dec
 | Pact | The backend does what the web client expects | The web client's consumer tests (`apps/web-nextjs/tests/contract/`) write `contracts/pacts/`; `tests/contract/pact-verify.test.ts` verifies it | Built |
 | Container image | The API image builds from a clean checkout, runs as a non-root user with no secrets, and passes the provider contract tests in replay mode | `backends/api-nextjs/Dockerfile`, run by `pnpm test:image` in the CI `image` job | Built |
 | Deployment check | After every merge to `main`, the image is deployed to the hosted environment (replay mode, unadvertised) and passes the provider contract tests there, through the platform's front end | `.github/workflows/deploy.yml`, `infra/` | Built |
-| Journeys | The whole system works from the user's side | `tests/journeys/` | Planned (WU-15) |
+| Journeys | The whole system works from the user's side: the browser drives the built web app against the built API, which replays recorded LLM calls | `tests/journeys/`, run by `pnpm verify:integrated` (`@smoke`, `@critical`) and `pnpm verify:full` (`@full`) ([journeys.md](docs/features/journeys.md)) | Built |
 
 ## Prerequisites
 
@@ -75,11 +75,14 @@ pnpm dev                  # web on http://localhost:3000, API on :4000 (copy .en
                           # or open http://localhost:3000/?invite=local-dev-invite
 pnpm verify               # project gate: typecheck, lint, format, audit, tests + coverage
 pnpm test:unit            # or test:integration, test:functional, test:contract
-pnpm verify:integrated    # integrated gate (stub until WU-15)
-pnpm verify:full          # nightly-equivalent gate (stub until WU-15)
+pnpm verify:integrated    # integrated gate: build both apps, start them (replay), journeys @smoke + @critical
+pnpm verify:full          # nightly-equivalent gate: journeys @full, then the provider contract tests
+pnpm test:journeys        # every journey; Playwright arguments pass through (e.g. --grep @full)
 pnpm test:image           # needs Docker: build the API image, check it, contract tests against it
 pnpm eval --budget 1      # LIVE, costs money: extraction quality and injection evals (never gated)
 ```
+
+The journeys and the web functional tests drive Chromium. Install it once: `pnpm --filter @vp/journeys exec playwright install chromium`. The integrated and full gates run locally only; CI runs the project gate. `pnpm record:cassettes --journeys` re-records the journeys (live, costs money), and `pnpm record:cassettes --prune` deletes cassettes no gated suite replays any more (no live calls; review the deletion before committing).
 
 Git hooks: `commit-msg` enforces Conventional Commits with the scopes in CLAUDE.md §10, `pre-commit` lints and formats staged files and runs gitleaks, and `pre-push` runs `pnpm verify`.
 
@@ -115,8 +118,6 @@ pnpm test:contract:external   # API_BASE_URL defaults to http://localhost:4000 i
 | The web client | `apps/web-nextjs/` |
 | Acceptance criteria and decisions | `docs/features/` and `docs/decisions/` |
 | LLM evals: cases, scorers and the results history | `backends/api-nextjs/eval/` ([eval.md](docs/features/eval.md)) |
-
-The backend, web client and journeys are scaffolds until their work units land, so some of these folders don't exist yet.
 
 ### How this maps to Clean Architecture
 
