@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "playwright test --pass-with-no-tests",
+    "test": "playwright test",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@playwright/test": "catalog:",
     "@types/node": "catalog:",
     "typescript": "catalog:"
