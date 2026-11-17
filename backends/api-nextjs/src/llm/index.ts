@@ -56,6 +56,7 @@ export function createLlmClient(config: Config, deps: LlmRuntimeDeps = {}): LlmR
 
   if (config.llmMode === 'record' || config.llmMode === 'replay') {
     const dir = resolveCassetteDir(config.cassetteDir, deps.workspace);
+    const usageLog = process.env.LLM_CASSETTE_USAGE_LOG;
     if (config.llmMode === 'record') {
       ({ fetch: fetchFn, flush } = createCassetteFetch({
         mode: 'record',
@@ -66,6 +67,8 @@ export function createLlmClient(config: Config, deps: LlmRuntimeDeps = {}): LlmR
       ({ fetch: fetchFn, flush } = createCassetteFetch({
         mode: 'replay',
         dir,
+        // Test-only, set by `pnpm record:cassettes --prune`.
+        ...(usageLog !== undefined && usageLog !== '' ? { usageLog } : {}),
       }));
       apiKey = 'replay-no-network';
     }

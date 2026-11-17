@@ -246,6 +246,23 @@ describe('cassette fetch: recording', () => {
   });
 });
 
+describe('cassette fetch: usage log', () => {
+  it('AC-JOURNEY-08: a replay hit appends its key to the usage log, and a miss appends nothing', async () => {
+    await writeCassette({
+      request: { method: 'POST', url: URL_MESSAGES, body: JSON.parse(BODY) },
+      response: { status: 200, headers: {}, body: {} },
+    });
+    const usageLog = join(dir, 'usage.log');
+    const replay = createCassetteFetch({ mode: 'replay', dir, usageLog });
+
+    await replay.fetch(URL_MESSAGES, init());
+    await replay.fetch(URL_MESSAGES, init());
+    await replay.fetch(URL_MESSAGES, init('{"other":1}')).catch(() => undefined);
+
+    expect(await readFile(usageLog, 'utf8')).toBe(`${cassetteKey(BODY)}\n${cassetteKey(BODY)}\n`);
+  });
+});
+
 describe('cassette fetch: replay misses', () => {
   it('AC-LLM-03: a miss rejects with the key, the model and the re-record hint, never touching the network', async () => {
     const spy = vi.spyOn(globalThis, 'fetch');
