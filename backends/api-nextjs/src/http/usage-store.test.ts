@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { describeUsageStore } from '../../tests/support/usage-store-suite.ts';
 import { MemoryUsageStore, type Counter } from './usage-store.ts';
 
 const HOUR = 3_600_000;
@@ -66,4 +67,9 @@ describe('MemoryUsageStore', () => {
     );
     expect(results.filter((r) => r.allowed)).toHaveLength(3);
   });
+});
+
+// Memory can't share state between instances, so the cross-instance cases are skipped for it.
+describeUsageStore('MemoryUsageStore', () => [new MemoryUsageStore(), new MemoryUsageStore()], {
+  sharesState: false,
 });

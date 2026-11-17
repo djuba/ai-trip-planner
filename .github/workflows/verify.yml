@@ -63,6 +63,8 @@ jobs:
       # The contract suite runs from the checkout; the image is built from it by test:image.
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:image
+      # The usage-store suite against the real Firestore emulator (Docker), proving the test fake.
+      - run: pnpm test:firestore
 
   infra:
     runs-on: ubuntu-latest
