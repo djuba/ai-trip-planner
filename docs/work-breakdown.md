@@ -40,7 +40,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-15 | Journeys + integrated gate | WU-14 | done |
 | WU-16 | Portfolio README & architecture docs | WU-15 | done |
 | WU-23a | Live-ready API | WU-21, WU-22 | done |
-| WU-23b | Web service + live release workflow | WU-23a | todo |
+| WU-23b | Web service + live release workflow | WU-23a | in-progress |
 | WU-23c | Live demo launch | WU-16, WU-23b | todo |
 
 ```
@@ -990,18 +990,18 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-23b — Web service + live release workflow
-**Status:** todo · **Depends on:** WU-23a · **Commits:**
+**Status:** in-progress · **Depends on:** WU-23a · **Commits:**
 
-**Goal:** the web client runs on Cloud Run next to the API, and live deploys go out only through a manual release that you approve.
+**Goal:** the web client runs on Cloud Run next to the API, and every merge that passes every check deploys both automatically, through an identity only the promote step holds. (Revised at plan approval, 2026-11-17: automated promotion replaced the manual release this unit was scoped with; see [the plan](plans/WU-23b.md).)
 
 **Scope** (from WU-23 and the WU-12, WU-15 and WU-21 Notes carried under WU-23c)
 - `apps/web-nextjs/Dockerfile` on the WU-20 pattern, with `NEXT_PUBLIC_API_BASE_URL` as a build argument; the web service in `infra/`; the API's `WEB_ORIGIN` pointed at it; the deploy workflow extended.
-- **Release trigger:** live deploys run from a manual workflow (or a tag), after `pnpm verify:integrated` passes locally, through a GitHub Environment that needs your approval. Merges to `main` no longer deploy straight to live. Record in ADR 0005 how the replay-mode contract check fits from now on.
-- The live deploy identity: accept that the deploy identity can reach the API key, or give live deploys their own identity behind the Environment (WU-21 Note). Record the choice in ADR 0005.
+- **Release trigger:** a merge's pipeline runs the contract suite on a replay twin of the API and `pnpm verify:integrated`, and only then promotes both images to the user-facing services, with a model-free smoke check and automatic rollback. No merge calls the model. Record in ADR 0005 how the replay-mode contract check fits from now on, and the manual approval this replaced.
+- The live deploy identity: the promote step gets its own identity, scoped by a GitHub Environment, so no job that installs dependencies can deploy as the account that will read the API key (WU-21 Note). Record the choice in ADR 0005.
 - Optional: candidate-tag deploys and the journeys' `--image` mode (WU-23c's Notes).
 
 **Definition of done**
-- The web service serves the UI against the hosted API (still replay), CORS across the real origins works, and the manual release workflow deploys both with your approval.
+- The web service serves the UI against the hosted API (still replay), CORS across the real origins works, and a merge that passes the twin's contract suite and the journeys deploys both automatically, rolling back if the smoke check fails.
 
 **Notes:** see the WU-12, WU-15 and WU-21 entries under WU-23c's Notes, which this unit takes.
 - From WU-23a: the deploy workflow mints a Google ID token for the contract check (`contract-token` step; audience `ai-trip-planner-api`), and the API trusts the deploy identity as `ci-deploy`. A live-release workflow needs the same step. If live deploys get their own identity, add it to `TRUSTED_SERVICE_ACCOUNTS` with its own label (never one an invite entry uses) and grant it the ID-token role on itself. A contract check against a live service calls the model and counts toward the global daily window: decide whether it runs against live, or only against a replay candidate ([plan](plans/WU-23a.md), deviation 16).
