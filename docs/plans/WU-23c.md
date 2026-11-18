@@ -1,6 +1,6 @@
 # WU-23c — Live demo launch: plan
 
-**Status:** approved (2026-11-18), with the recommended answers and every plan-review fix · **Depends on:** WU-16, WU-23b (both done on `main`) · **Author:** main agent (Opus), 2026-11-18
+**Status:** done (2026-11-18), approved 2026-11-18, with the recommended answers and every plan-review fix · **Depends on:** WU-16, WU-23b (both done on `main`) · **Author:** main agent (Opus), 2026-11-18
 
 **Review tier:** `sonnet` for the plan review (done) and the unit review. That was set at deployment planning (WU-23c Notes). The unit changes no contract, rule or `LlmClient` interface. Its one risky area, the secret and its IAM, sits in two Terraform files that the reviewer can read in full.
 
@@ -170,3 +170,15 @@ No two tasks run in parallel: T1–T4 share `service.tf`, the test file or the r
 6. `docs(repo): close WU-23c`: deviations, checklist results, Notes, usage, backlog item. After T7.
 
 Commits 3 and 4 may merge into one if the runbook turns out to be small.
+
+## Deviations during implementation
+
+1. **The daily-window sizing rule (material; you chose it, 2026-11-18).** Planned (review fix #4): size `RATE_LIMIT_GLOBAL_PER_DAY` as if every request were a `/recommend`, with 30 full days under $10. That gave about 11 requests a day, about two sessions. You chose the per-code bound instead. Lifetime quotas cap each invited code (about $0.20 measured), the daily window of 60 caps the owner's code and a leaked one (a worst-mix day costs about $1.80), and the $10 spend limit caps the month. Recorded in the ADR addendum.
+2. **Removing the rollout sections** from `infra/README.md` also meant inlining, in "Prove a deploy workflow change before merge", the `gh api` commands for allowing a branch in the Environment `live`, which that section used to point to. It also meant rewording the `usage_store` comment in `service.tf`, which pointed to the removed WU-23a section; the variable itself is unchanged. WU-23b's Notes still name the "Rolling out WU-23a" section as prose, which is history in a done unit, so it's left alone.
+3. **Acceptance criteria:** `live-demo.md` has ten ACs, not nine. The spend-limit check (review #3) became AC-LIVE-06, and the dispatched promote (review #2) became AC-LIVE-10. So the manual checklist is AC-LIVE-06 to -10.
+4. **`allTerraform()` in `scripts/infra-config.test.ts`** now reads every `.tf` file in `infra/` rather than a fixed list, so a new file (here `secrets.tf`) can't slip past the IAM checks. AC-GATE-29 uses it too.
+5. **No separate cleanup commit.** Planned as its own `chore(infra)` commit, as required by WU-23b's Notes. But the cleanup and the live switch touch the same files (`service.tf`, `variables.tf`, `terraform.tfvars.example`, `scripts/infra-config.test.ts`, `infra/README.md`). Each file lands in one commit with no hunk splitting, so the cleanup went into the `feat(infra)` commit, and its message says so (you approved, 2026-11-18).
+6. **Unit review fix #3:** AC-LIVE-03 compares the Secret Manager role strings only, not the line as `terraform fmt` aligns it.
+7. **A stale daily count blocked the first live request.** `usage/global:day` in Firestore held 80 from the replay era's contract checks on `api`, above the new limit of 60, so the first live `/extract` got 429 `RATE_LIMITED` (Retry-After about 8.5 h). With your approval, that one document was deleted (the runbook's "fresh allowance" exception), and the next request started a fresh window. No CI caller reaches `api` now, so it can't recur.
+8. **Going live needed the invite entries before the full apply.** The first full plan had an empty `INVITE_CODES`, and a live server refuses to start without codes, so it wasn't applied. The runbook already orders this (step 4 before step 5), and the plan was redone with the owner and `launch-check` entries.
+9. **The launch checklist** passed in full; the results are in the WU-23c Notes in `docs/work-breakdown.md`. The dispatched promote (AC-LIVE-10) showed that the promote identity needs no Secret Manager role, which settles risk R2 and review #2.
