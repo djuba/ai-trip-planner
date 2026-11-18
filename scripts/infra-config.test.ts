@@ -372,6 +372,16 @@ describe('the build and promote identities (WU-23b)', () => {
     expect(actAs[0]).toContain('google_service_account.replay_runtime.name');
   });
 
+  it('AC-HOST-13: the promote identity may read both repositories, and push to neither', () => {
+    const promoteGrants = steadyIdentity()
+      .split(/\nresource /)
+      .filter((block) => /member\s*=\s*google_service_account\.promote\.member/.test(block));
+    const registry = promoteGrants.filter((block) => block.includes('artifactregistry'));
+    expect(registry).toHaveLength(2);
+    for (const block of registry) expect(block).toContain('roles/artifactregistry.reader');
+    expect(promoteGrants.join('\n')).not.toContain('artifactregistry.writer');
+  });
+
   it('AC-HOST-13: the rollout-only grants switch off with rollout_wu23b', () => {
     const identity = read('infra/deploy-identity.tf');
     const rollout = identity.slice(identity.indexOf('# Rollout only'));

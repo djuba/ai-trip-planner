@@ -155,6 +155,22 @@ resource "google_cloud_run_v2_service_iam_member" "promote_web" {
   member   = google_service_account.promote.member
 }
 
+# Read the images it deploys: Cloud Run checks that the deployer itself may download the image
+# (WU-23b deviation 8). Read only; only the build identity can push.
+resource "google_artifact_registry_repository_iam_member" "promote_read_api" {
+  repository = google_artifact_registry_repository.api.name
+  location   = google_artifact_registry_repository.api.location
+  role       = "roles/artifactregistry.reader"
+  member     = google_service_account.promote.member
+}
+
+resource "google_artifact_registry_repository_iam_member" "promote_read_web" {
+  repository = google_artifact_registry_repository.web.name
+  location   = google_artifact_registry_repository.web.location
+  role       = "roles/artifactregistry.reader"
+  member     = google_service_account.promote.member
+}
+
 resource "google_service_account_iam_member" "promote_act_as_runtime" {
   service_account_id = google_service_account.runtime.name
   role               = "roles/iam.serviceAccountUser"
