@@ -20,6 +20,7 @@ locals {
     "iamcredentials.googleapis.com",
     "monitoring.googleapis.com",
     "run.googleapis.com",
+    "secretmanager.googleapis.com",
     "serviceusage.googleapis.com",
     "sts.googleapis.com",
   ])

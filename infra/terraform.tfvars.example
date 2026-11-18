@@ -18,5 +18,5 @@ revoked_invite_codes = []
 # Only while proving a deploy workflow change on a scratch branch (infra/README.md). Leave unset.
 # extra_deploy_ref = "refs/heads/scratch/wu-23b"
 
-# WU-23b rollout (infra/README.md): true until the new pipeline has run on main, then false.
-# rollout_wu23b = false
+# The anthropic-api-key secret version api reads (infra/README.md, "The live demo"). Bump it to rotate.
+anthropic_api_key_version = "1"

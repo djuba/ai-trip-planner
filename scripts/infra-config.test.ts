@@ -2,7 +2,7 @@
 // needs (WU-21). Cassette keys hash the model request, model ID included, so the service must use
 // the contract runner's model IDs, or every replay misses. Text checks only: `pnpm verify` needs no
 // Terraform, and the CI `infra` job validates the HCL itself.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   DEV_INVITE_CODE_HASH,
@@ -33,13 +33,14 @@ const workflowSteps = (workflow: string) =>
 describe('infra/service.tf', () => {
   const env = terraformEnv(read('infra/service.tf'));
 
-  it('AC-HOST-02: runs in replay mode with the contract runner’s model IDs', () => {
-    expect(env).toMatchObject({
+  it('AC-HOST-02: the replay twin, not api, runs with the contract runner’s mode and model IDs', () => {
+    expect(terraformEnv(read('infra/replay.tf'))).toMatchObject({
       LLM_MODE: CONTRACT_TEST_ENV.LLM_MODE,
       MODEL_FAST: CONTRACT_TEST_ENV.MODEL_FAST,
       MODEL_REASONING: CONTRACT_TEST_ENV.MODEL_REASONING,
       MODEL_CRITIC: CONTRACT_TEST_ENV.MODEL_CRITIC,
     });
+    expect(env.LLM_MODE).toBe('live');
   });
 
   it('AC-HOST-10: sets WEB_ORIGIN to the web service’s URI, which the deploy workflow reads back', () => {
@@ -138,23 +139,14 @@ describe('persistent counts and alerts in the hosted environment (WU-23a)', () =
     );
   });
 
-  it('AC-GATE-29: the runtime account’s only role is Firestore, limited to the default database', () => {
-    const terraform = [
-      'main',
-      'service',
-      'replay',
-      'web',
-      'firestore',
-      'alerts',
-      'deploy-identity',
-      'registry',
-      'budget',
-    ]
-      .map((name) => read(`infra/${name}.tf`))
-      .join('\n');
+  it('AC-GATE-29: the runtime account’s roles are Firestore, limited to the default database, and the one key secret', () => {
+    const terraform = allTerraform();
     // Grants *to* the runtime account name it as the member.
     const grants = terraform.match(/member\s*=\s*google_service_account\.runtime\.member/g) ?? [];
-    expect(grants).toHaveLength(1);
+    expect(grants).toHaveLength(2);
+    expect(read('infra/secrets.tf')).toMatch(
+      /member\s*=\s*google_service_account\.runtime\.member/,
+    );
     const firestore = read('infra/firestore.tf');
     expect(firestore).toMatch(/role\s*=\s*"roles\/datastore\.user"/);
     expect(firestore).toMatch(/expression\s*=\s*"resource\.name == /);
@@ -194,26 +186,11 @@ function workflowJobs(workflow: string): Record<string, string> {
 
 /** Every Terraform file in infra/, joined. */
 const allTerraform = () =>
-  [
-    'main',
-    'service',
-    'replay',
-    'web',
-    'firestore',
-    'alerts',
-    'deploy-identity',
-    'registry',
-    'budget',
-  ]
-    .map((name) => read(`infra/${name}.tf`))
+  readdirSync(new URL('infra/', root))
+    .filter((name) => name.endsWith('.tf'))
+    .sort()
+    .map((name) => read(`infra/${name}`))
     .join('\n');
-
-/** The part of deploy-identity.tf before its rollout-only section (WU-23b plan D8). */
-const steadyIdentity = () => {
-  const identity = read('infra/deploy-identity.tf');
-  const end = identity.indexOf('# Rollout only');
-  return end === -1 ? identity : identity.slice(0, end);
-};
 
 describe('the web service (WU-23b)', () => {
   it('AC-HOST-10: has no env, no secret and a runtime account with no role', () => {
@@ -245,11 +222,11 @@ describe('the replay twin (WU-23b)', () => {
     expect(twin).not.toHaveProperty('LOCAL_DEV');
   });
 
-  it('AC-HOST-11: shares api’s model IDs and web origin, so its cassettes and CORS match', () => {
-    for (const name of ['MODEL_FAST', 'MODEL_REASONING', 'MODEL_CRITIC', 'WEB_ORIGIN']) {
-      expect(twin[name], name).toBe(api[name]);
+  it('AC-HOST-11: pins the contract runner’s model IDs and shares api’s web origin, so its cassettes and CORS match', () => {
+    for (const name of ['MODEL_FAST', 'MODEL_REASONING', 'MODEL_CRITIC'] as const) {
+      expect(twin[name], name).toBe(CONTRACT_TEST_ENV[name]);
     }
-    expect(twin.MODEL_FAST).toBe(CONTRACT_TEST_ENV.MODEL_FAST);
+    expect(twin.WEB_ORIGIN).toBe(api.WEB_ORIGIN);
   });
 
   it('AC-HOST-11: its runtime account has no role', () => {
@@ -345,19 +322,19 @@ describe('the build and promote identities (WU-23b)', () => {
   });
 
   it('AC-HOST-13: each identity is bound to its own deployer value', () => {
-    const steady = steadyIdentity();
-    expect(steady).toMatch(
+    const identity = read('infra/deploy-identity.tf');
+    expect(identity).toMatch(
       /service_account_id = google_service_account\.deploy\.name\s+role\s+= "roles\/iam\.workloadIdentityUser"\s+member\s+= "\$\{local\.pool_principal\}\/attribute\.deployer\/build"/,
     );
-    expect(steady).toMatch(
+    expect(identity).toMatch(
       /service_account_id = google_service_account\.promote\.name\s+role\s+= "roles\/iam\.workloadIdentityUser"\s+member\s+= "\$\{local\.pool_principal\}\/attribute\.deployer\/promote"/,
     );
-    expect(steady).not.toContain('attribute.repository_id/');
+    expect(identity).not.toContain('attribute.repository_id/');
   });
 
-  it('AC-HOST-13: outside the rollout, the build identity can neither deploy api nor act as its runtime account', () => {
-    const steady = steadyIdentity();
-    const buildGrants = steady
+  it('AC-HOST-13: the build identity can neither deploy api nor act as its runtime account', () => {
+    const identity = read('infra/deploy-identity.tf');
+    const buildGrants = identity
       .split(/\nresource /)
       .filter(
         (block) =>
@@ -373,7 +350,7 @@ describe('the build and promote identities (WU-23b)', () => {
   });
 
   it('AC-HOST-13: the promote identity may read both repositories, and push to neither', () => {
-    const promoteGrants = steadyIdentity()
+    const promoteGrants = read('infra/deploy-identity.tf')
       .split(/\nresource /)
       .filter((block) => /member\s*=\s*google_service_account\.promote\.member/.test(block));
     const registry = promoteGrants.filter((block) => block.includes('artifactregistry'));
@@ -381,13 +358,69 @@ describe('the build and promote identities (WU-23b)', () => {
     for (const block of registry) expect(block).toContain('roles/artifactregistry.reader');
     expect(promoteGrants.join('\n')).not.toContain('artifactregistry.writer');
   });
+});
 
-  it('AC-HOST-13: the rollout-only grants switch off with rollout_wu23b', () => {
-    const identity = read('infra/deploy-identity.tf');
-    const rollout = identity.slice(identity.indexOf('# Rollout only'));
-    const resources = rollout.match(/\nresource "/g) ?? [];
-    const counted = rollout.match(/count\s*=\s*var\.rollout_wu23b \? 1 : 0/g) ?? [];
-    expect(resources.length).toBeGreaterThan(0);
-    expect(counted).toHaveLength(resources.length);
+describe('live mode in the hosted environment (WU-23c)', () => {
+  const service = read('infra/service.tf');
+  const env = terraformEnv(service);
+  const secrets = read('infra/secrets.tf');
+
+  it('AC-LIVE-01: api runs live with the CLAUDE.md §8.1 model IDs', () => {
+    expect(env).toMatchObject({
+      LLM_MODE: 'live',
+      MODEL_FAST: 'claude-haiku-5-5',
+      MODEL_REASONING: 'claude-sonnet-5-5',
+      MODEL_CRITIC: 'claude-sonnet-5-5',
+    });
+  });
+
+  it('AC-LIVE-02: the API key comes only from the Terraform secret, at a pinned version Terraform never holds', () => {
+    expect(service).toMatch(
+      /name = "ANTHROPIC_API_KEY"\s*value_source \{\s*secret_key_ref \{\s*secret\s*= google_secret_manager_secret\.anthropic_api_key\.secret_id\s*version = var\.anthropic_api_key_version\s*\}/,
+    );
+    expect(env).not.toHaveProperty('ANTHROPIC_API_KEY');
+    const terraform = allTerraform();
+    expect(terraform).not.toMatch(/google_secret_manager_secret_version|secret_data/);
+    expect(terraform.match(/"ANTHROPIC_API_KEY"/g)).toHaveLength(1);
+    expect(read('infra/variables.tf')).toMatch(
+      /variable "anthropic_api_key_version" \{(?![^}]*default)[^]*?regex\("\^\[1-9\]\[0-9\]\*\$"/,
+    );
+  });
+
+  it('AC-LIVE-03: only api’s runtime account may read the secret, and no project-wide Secret Manager role exists', () => {
+    const roles = [
+      ...allTerraform().matchAll(/role\s*=\s*"(roles\/secretmanager\.[A-Za-z]+)"/g),
+    ].map(([, role]) => role);
+    expect(roles).toEqual(['roles/secretmanager.secretAccessor']);
+    expect(secrets).toMatch(
+      /resource "google_secret_manager_secret_iam_member" "runtime_api_key" \{\s*secret_id = google_secret_manager_secret\.anthropic_api_key\.id\s*role\s*= "roles\/secretmanager\.secretAccessor"\s*member\s*= google_service_account\.runtime\.member\s*\}/,
+    );
+    expect(allTerraform()).not.toMatch(/google_project_iam_member"[^{]*\{[^}]*secretmanager/);
+  });
+
+  // Upper bounds from the cost arithmetic in ADR 0005's WU-23c addendum. Raising a limit past its
+  // bound means redoing that arithmetic, then changing the bound here.
+  const LIMIT_BOUNDS = {
+    QUOTA_EXTRACT: 40,
+    QUOTA_RECOMMEND: 5,
+    QUOTA_PRESENT: 5,
+    RATE_LIMIT_PER_HOUR: 30,
+    RATE_LIMIT_GLOBAL_PER_DAY: 60,
+  } as const;
+
+  it('AC-LIVE-05: every limit on api is a positive integer within its cost-sized bound', () => {
+    for (const [name, bound] of Object.entries(LIMIT_BOUNDS)) {
+      const value = env[name] ?? '';
+      expect(value, name).toMatch(/^[1-9][0-9]*$/);
+      expect(Number(value), name).toBeLessThanOrEqual(bound);
+    }
+  });
+
+  it('AC-LIVE-04: neither the replay twin nor web can see the key', () => {
+    for (const file of ['infra/replay.tf', 'infra/web.tf']) {
+      const hcl = read(file);
+      expect(hcl, file).not.toMatch(/ANTHROPIC_API_KEY|value_source|secret_key_ref/);
+    }
+    expect(terraformEnv(read('infra/replay.tf')).LLM_MODE).toBe('replay');
   });
 });

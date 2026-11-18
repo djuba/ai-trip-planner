@@ -41,9 +41,9 @@ variable "extra_deploy_ref" {
 }
 
 variable "request_timeout_seconds" {
-  description = "Cloud Run request timeout. Revisit once WU-10 measures the worst-case /recommend latency."
+  description = "Cloud Run request timeout. About 7x the worst /recommend WU-10 measured (17 s), with room for a slow /present stream (WU-23c plan D4)."
   type        = number
-  default     = 300
+  default     = 120
 }
 
 variable "placeholder_image" {
@@ -122,10 +122,14 @@ variable "alert_email" {
   sensitive   = true
 }
 
-# WU-23b: the web service, the replay twin and the promote identity.
+# WU-23c: live mode.
 
-variable "rollout_wu23b" {
-  description = "Keeps what today's deploy.yml on main needs (the deploy identity's grants on api and api-runtime, its repository-wide binding, api's trusted CI caller) until WU-23b's pipeline has run on main. Apply with false after that run; the WU-23b close commit removes it (infra/README.md)."
-  type        = bool
-  default     = true
+variable "anthropic_api_key_version" {
+  description = "The version of the anthropic-api-key secret that api reads (a number, e.g. \"1\"). Add a version with gcloud, then set this and apply: that starts a new revision with the key (infra/README.md, \"The live demo\")."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[1-9][0-9]*$", var.anthropic_api_key_version))
+    error_message = "anthropic_api_key_version must be a secret version number, e.g. \"1\"; never \"latest\", which a deploy of the same image wouldn't re-read."
+  }
 }
