@@ -12,8 +12,18 @@ output "gcp_wif_provider" {
 }
 
 output "gcp_deploy_sa" {
-  description = "GitHub secret GCP_DEPLOY_SA: the deploy service account's email."
+  description = "GitHub secret GCP_DEPLOY_SA: the build identity's email (deploy workflow's build and twin-check jobs)."
   value       = google_service_account.deploy.email
+}
+
+output "gcp_promote_sa" {
+  description = "GitHub secret GCP_PROMOTE_SA: the promote identity's email (deploy workflow's promote job)."
+  value       = google_service_account.promote.email
+}
+
+output "web_url" {
+  description = "The web client's URL, the one origin the API allows. Share this one, not another URL Cloud Run lists for the service."
+  value       = google_cloud_run_v2_service.web.uri
 }
 
 output "deploy_condition" {

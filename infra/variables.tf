@@ -30,7 +30,7 @@ variable "github_repository_id" {
 }
 
 variable "extra_deploy_ref" {
-  description = "One extra git ref (e.g. refs/heads/scratch/wu-21-deploy) whose deploy.yml may also deploy. Only for proving a workflow change before merge; leave empty otherwise (WU-21 plan D10)."
+  description = "One extra git ref (e.g. refs/heads/scratch/wu-23b) whose deploy.yml may also run, as both its build and promote identities. Only for proving a workflow change before merge; leave empty otherwise (WU-21 plan D10)."
   type        = string
   default     = ""
 
@@ -38,12 +38,6 @@ variable "extra_deploy_ref" {
     condition     = var.extra_deploy_ref == "" || can(regex("^refs/heads/[A-Za-z0-9._/-]+$", var.extra_deploy_ref))
     error_message = "extra_deploy_ref must be empty or one exact refs/heads/<branch> ref."
   }
-}
-
-variable "web_origin" {
-  description = "The origin CORS allows (WEB_ORIGIN). No web service exists before WU-23, so it defaults to the local dev origin."
-  type        = string
-  default     = "http://localhost:3000"
 }
 
 variable "request_timeout_seconds" {
@@ -126,4 +120,12 @@ variable "alert_email" {
   description = "Where the access-gate alert emails go. Set it in terraform.tfvars (git-ignored)."
   type        = string
   sensitive   = true
+}
+
+# WU-23b: the web service, the replay twin and the promote identity.
+
+variable "rollout_wu23b" {
+  description = "Keeps what today's deploy.yml on main needs (the deploy identity's grants on api and api-runtime, its repository-wide binding, api's trusted CI caller) until WU-23b's pipeline has run on main. Apply with false after that run; the WU-23b close commit removes it (infra/README.md)."
+  type        = bool
+  default     = true
 }
