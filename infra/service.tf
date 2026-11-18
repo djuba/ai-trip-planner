@@ -4,7 +4,7 @@
 # (replay.tf; WU-23b plan D4).
 
 # Runs the service. Its one role is Firestore in the default database (firestore.tf), for the
-# gate's usage counts. WU-23c grants it read access to the one API key secret.
+# gate's usage counts, and it may read the one API key secret (secrets.tf; WU-23c plan D2).
 resource "google_service_account" "runtime" {
   account_id   = "api-runtime"
   display_name = "api-nextjs runtime"
@@ -29,7 +29,7 @@ resource "google_cloud_run_v2_service" "api" {
 
     scaling {
       min_instance_count = 0
-      # One instance caps compute spend and keeps WU-22's in-memory rate limiter correct (ADR 0005 §4).
+      # One instance caps compute spend (ADR 0005 §4). Counts are in Firestore, so more would stay correct.
       max_instance_count = 1
     }
 
@@ -49,17 +49,33 @@ resource "google_cloud_run_v2_service" "api" {
         cpu_idle = true
       }
 
+      # Live: real model calls, paid from the Anthropic workspace whose hard spend limit bounds the
+      # demo's cost (ADR 0005, WU-23c addendum). The replay twin (replay.tf) still replays.
       env {
         name  = "LLM_MODE"
-        value = "replay"
+        value = "live"
+      }
+      # From Secret Manager, at a pinned version: a new version reaches the service only when
+      # var.anthropic_api_key_version changes and Terraform starts a new revision.
+      env {
+        name = "ANTHROPIC_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.anthropic_api_key.secret_id
+            version = var.anthropic_api_key_version
+          }
+        }
       }
       # The web service's URL (web.tf), the one origin CORS allows (WU-23b plan D3).
       env {
         name  = "WEB_ORIGIN"
         value = google_cloud_run_v2_service.web.uri
       }
-      # The access gate (WU-22, WU-23a). Replay costs nothing, so the limits only need to stay out
-      # of the way of the post-deploy contract check. WU-23c sets the live values.
+      # The access gate (WU-22, WU-23a). Live limits from the cost arithmetic in ADR 0005's WU-23c
+      # addendum: each code's lifetime quotas bound what it can spend (about $0.20 measured), the
+      # daily window bounds the owner's unquota'd code and a leaked one, and the Anthropic spend
+      # limit bounds the month. Entry options override all but the daily window. No CI caller
+      # reaches this service, so the limits leave no room for one.
       env {
         name  = "INVITE_CODES"
         value = local.invite_codes
@@ -70,26 +86,26 @@ resource "google_cloud_run_v2_service" "api" {
       }
       env {
         name  = "QUOTA_EXTRACT"
-        value = "1000000"
+        value = "40"
       }
       env {
         name  = "QUOTA_RECOMMEND"
-        value = "1000000"
+        value = "5"
       }
       env {
         name  = "QUOTA_PRESENT"
-        value = "1000000"
+        value = "5"
       }
       env {
         name  = "RATE_LIMIT_PER_HOUR"
-        value = "1000"
+        value = "30"
       }
       env {
         name  = "RATE_LIMIT_GLOBAL_PER_DAY"
-        value = "10000"
+        value = "60"
       }
       # Counts persist in Firestore, so hosted live mode can start (WU-23a plan D1). A variable only
-      # for the rollout: an image from before WU-23a refuses `firestore` (infra/README.md).
+      # for staging a rollout over an image that refuses `firestore` (ADR 0005, WU-23a addendum).
       env {
         name  = "USAGE_STORE"
         value = var.usage_store
@@ -99,22 +115,7 @@ resource "google_cloud_run_v2_service" "api" {
         name  = "GOOGLE_CLOUD_PROJECT"
         value = var.project_id
       }
-      # Until WU-23b's rollout ends, the deploy workflow on `main` still contract-checks this service
-      # with an ID token of the deploy identity (WU-23a plan D4). From then on, the contract check
-      # runs only on the replay twin (replay.tf), and no CI caller is trusted here (WU-23b plan D8).
-      dynamic "env" {
-        for_each = var.rollout_wu23b ? {
-          TRUSTED_SERVICE_ACCOUNTS = "ci-deploy:${google_service_account.deploy.email}"
-          ID_TOKEN_AUDIENCE        = var.id_token_audience
-        } : {}
-        content {
-          name  = env.key
-          value = env.value
-        }
-      }
-      # Must equal CONTRACT_TEST_ENV (backends/api-nextjs/tests/support/api-server.ts): cassette
-      # keys hash the model request, model ID included, so the contract suite's cassettes replay
-      # only with these. They're the CLAUDE.md §8.1 IDs, which live mode (WU-23) uses too.
+      # The CLAUDE.md §8.1 model IDs. The twin pins its own (replay.tf), so these may change.
       env {
         name  = "MODEL_FAST"
         value = "claude-haiku-5-5"
@@ -150,8 +151,12 @@ resource "google_cloud_run_v2_service" "api" {
     ]
   }
 
-  # A revision on the Firestore store needs its grant before it starts.
-  depends_on = [google_project_service.apis, google_project_iam_member.runtime_firestore]
+  # A revision needs its Firestore and secret grants before it starts.
+  depends_on = [
+    google_project_service.apis,
+    google_project_iam_member.runtime_firestore,
+    google_secret_manager_secret_iam_member.runtime_api_key,
+  ]
 }
 
 # Public, so the browser can call it; the access gate decides who may. Unadvertised and capped at one

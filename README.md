@@ -32,6 +32,8 @@ This builds both apps, starts them in replay mode, and drives the UI the way a u
 
 **To try your own messages**, you need an Anthropic API key, and each conversation costs a few cents. Copy `.env.example` to `.env.local`, set `ANTHROPIC_API_KEY` and `LLM_MODE=live`, then run `pnpm dev` and open http://localhost:3000. When the app asks for an invite code, enter `local-dev-invite` (it only works on a developer machine; see [access-gate.md](docs/features/access-gate.md)).
 
+**A live demo is available on request.** It runs on the hosted environment, behind an invite code. To try it without an API key, get in touch through [my GitHub profile](https://github.com/djuba), and I will send you a code and the link.
+
 ## How it works
 
 ```mermaid

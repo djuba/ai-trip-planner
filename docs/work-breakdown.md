@@ -41,7 +41,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-16 | Portfolio README & architecture docs | WU-15 | done |
 | WU-23a | Live-ready API | WU-21, WU-22 | done |
 | WU-23b | Web service + live release workflow | WU-23a | done |
-| WU-23c | Live demo launch | WU-16, WU-23b | todo |
+| WU-23c | Live demo launch | WU-16, WU-23b | done |
 
 ```
 WU-01 ─┬─ WU-02 ─┐
@@ -1005,7 +1005,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 
 **Notes:** see the WU-12, WU-15 and WU-21 entries under WU-23c's Notes, which this unit takes.
 - From WU-23a: the deploy workflow mints a Google ID token for the contract check (`contract-token` step; audience `ai-trip-planner-api`), and the API trusts the deploy identity as `ci-deploy`. A live-release workflow needs the same step. If live deploys get their own identity, add it to `TRUSTED_SERVICE_ACCOUNTS` with its own label (never one an invite entry uses) and grant it the ID-token role on itself. A contract check against a live service calls the model and counts toward the global daily window: decide whether it runs against live, or only against a replay candidate ([plan](plans/WU-23a.md), deviation 16).
-- From WU-23a: changes that need new configuration the running image refuses must be staged (a Terraform variable, as `usage_store` was) and proven on a scratch branch, with nothing else merged to `main` in between ([`infra/README.md`](../infra/README.md), "Rolling out WU-23a").
+- From WU-23a: changes that need new configuration the running image refuses must be staged (a Terraform variable, as `usage_store` was) and proven on a scratch branch, with nothing else merged to `main` in between ([ADR 0005 WU-23a addendum](decisions/0005-hosting-and-access.md#addendum-ready-for-live-mode-wu-23a-2026-11-17); the one-time rollout steps were removed from the runbook in WU-23c and are in [the WU-23a plan](plans/WU-23a.md)).
 - Done: see [the plan](plans/WU-23b.md) (revision 2) and its deviations, and the [ADR 0005 WU-23b addendum](decisions/0005-hosting-and-access.md). The web image (`apps/web-nextjs/Dockerfile`, its own allowlist) and the `web` service; a replay twin, `api-replay`, where every merge's contract suite runs, so no merge calls the model; one automated pipeline in `deploy.yml` (`build` → `twin-check` + `journeys` → `promote`, with a model-free smoke check and rollback of both services); a separate promote identity that only the job in GitHub Environment `live` can become, and which installs nothing. Proven on a scratch branch: a full green run, a forced smoke failure that rolled back, and a refused identity request. Contract unchanged (0.8.0).
 - Decided at plan approval: automated promotion instead of the scoped manual release (revision 2); twin named `api-replay`; a failure rolls back both services; `sonnet` reviews.
 - Learned: `gcloud run services update` checks that the *deployer* may download the image, so a deploy identity needs `artifactregistry.reader` even though Cloud Run's service agent does the pull (deviation 9). A job timeout cancels the job, and `if: failure()` steps don't run on a cancel, so a rollback needs step timeouts and `cancelled()` (review fix #1, #2). A WIF attribute mapping can branch on a claim that only some jobs carry (`"environment" in assertion`) to tell jobs of one workflow apart.
@@ -1014,7 +1014,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-23c — Live demo launch
-**Status:** todo · **Depends on:** WU-16, WU-23b · **Commits:**
+**Status:** done · **Depends on:** WU-16, WU-23b · **Commits:** [djuba/ai-trip-planner#39](https://github.com/djuba/ai-trip-planner/pull/39)
 
 **Goal:** the hosted environment becomes a live demo, offered on request to interviewers, with a worst-case monthly cost within the $5–10 budget.
 
@@ -1036,6 +1036,19 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - No secret exists outside Secret Manager and the Anthropic console.
 
 **Notes:** (carried over from WU-23; the WU-12, WU-15 and WU-21 deploy items belong to WU-23b, the persistent counts, per-code limits, CI credential and alerts to WU-23a)
+- **Done (2026-11-18):** see [the plan](plans/WU-23c.md) and its deviations, [`live-demo.md`](features/live-demo.md) (AC-LIVE-01 to -10), the [ADR 0005 WU-23c addendum](decisions/0005-hosting-and-access.md#addendum-the-live-demo-wu-23c-2026-11-18) and the runbook's "The live demo" section ([`infra/README.md`](../infra/README.md#the-live-demo)).
+  - `api` runs live, with its key in Secret Manager at a pinned version (`anthropic_api_key_version`); Terraform holds no secret version. The twin still replays.
+  - Limits: 40 / 5 / 5 per code for life, 30 an hour, 60 a day; timeout 120 s. The cost per demo session is about $0.02–0.05.
+  - The WU-23b rollout scaffolding is removed. Contract unchanged (0.6.0).
+- **Launch checklist (2026-11-18, on the hosted environment; all passed, confirmed by the owner and in the gate's logs):**
+  - AC-LIVE-06: the demo's own Anthropic workspace holds the key, with a $10 monthly spend limit that stops requests, set before `api` went live.
+  - AC-LIVE-07: `GET /v1/health` with no code → 200.
+  - AC-LIVE-08: the owner's code through the web UI on `web_url`, end to end: the gate logged 5 extract, 3 recommend and 3 present requests allowed for `owner`.
+  - AC-LIVE-09: `launch-check` (`--extract 1`) → 200, then 429 `QUOTA_EXHAUSTED`. After it was revoked → 401, logged `revoked`. The alert emails arrived.
+  - AC-LIVE-10: the dispatched `deploy.yml` on `main` ([run](https://github.com/djuba/ai-trip-planner/actions/runs/44366270457)) promoted onto live `api` and passed its smoke check. The promote identity needed no Secret Manager role.
+- **Stale daily count at launch (deviation 7):** the first live request got 429 `RATE_LIMITED`. `usage/global:day` held 80 from the replay era's contract checks on `api` (`ci-deploy`, before WU-23b's rollout ended), above the new limit of 60. With your approval the document was deleted, and the next request started a fresh window. No CI caller reaches `api` any more, so it can't recur.
+- Decided at plan approval: the README asks people to get in touch through the owner's GitHub profile; `MODEL_CRITIC` stays on Sonnet; a $10 hard limit and a $5 notification; timeout 120 s; live mode applied from the branch before the merge; every plan-review fix. During the build: the daily window is sized on the per-code bound (60 a day), not the all-`/recommend` mix (deviation 1); the cleanup is folded into the `feat(infra)` commit (deviation 5).
+- Usage: main/Opus 102 req, 80k out; wu-reviewer/Sonnet 7 req, 10k out.
 - From WU-23b ([plan](plans/WU-23b.md), deviations 11–13):
   - **First, the rollout cleanup:** after WU-23b's rollout step 3 is applied (`rollout_wu23b = false`), delete the then-dead code in a `chore(infra)` commit: the `rollout_wu23b` variable, the rollout-only section of `deploy-identity.tf` (its `count` resources and `moved` blocks), and the `dynamic "env"` block on `api` in `service.tf`. `terraform plan` must stay clean.
   - **Model IDs:** the twin must keep the cassettes' model IDs (`CONTRACT_TEST_ENV`), whatever `api` runs. If `MODEL_CRITIC` moves to Haiku on `api`, change AC-HOST-11 in `scripts/infra-config.test.ts` to compare the twin with `CONTRACT_TEST_ENV` rather than with `api`.
@@ -1067,6 +1080,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - Local Docker Pact Broker + `can-i-deploy`
 - Remaining abuse controls from ADR 0004's Future hardening section (written in WU-17). Invite codes and per-code rate limits are now WU-22, and the spend limit is WU-23. Left: an on-topic guard step (it may move into WU-18 if the evals show it's needed). User accounts belong here only if this becomes a product (ADR 0005).
 - Performance testing, against the hosted environment (WU-21)
+- From WU-23c (WU-15 Notes): an opt-in `--image` mode for `scripts/run-journeys.ts` that starts the API from its container image, so the journeys test what ships. The default must still need no Docker ([plan](plans/WU-15.md), D9). The image is already contract-checked on the twin on every merge, so this is optional.
 - A custom domain for the hosted environment (ADR 0005: optional). Likely through Cloudflare in front of Cloud Run, which adds an edge, DDoS protection and a WAF, and makes Cloudflare Access an option (ADR 0005, "Considered after acceptance: Cloudflare")
 - Terraform applied from CI: plan and apply on merge, with its own near-owner identity behind a GitHub Environment that needs your approval. Plan output must stay out of the public Actions logs. Today it is applied by hand ([`infra/README.md`](../infra/README.md))
 - Closed beta after WU-23: a small pool of testers on invite codes, a feedback channel outside the app (a form, a GitHub issue template or a short call, since the server stores nothing), consented capture of real inputs as WU-18 eval cases, and the pool sized from WU-23's cost per session

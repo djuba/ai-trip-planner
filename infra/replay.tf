@@ -1,8 +1,8 @@
 # The API's replay twin (WU-23b plan D4). Every merge deploys its API image here and runs the
 # provider contract suite against it, so the check never calls the model, even once `api` is live
 # (WU-23c). Only CI calls it: no invite codes, and the one trusted caller is the build identity's ID
-# token. It runs the same image as `api`; scripts/infra-config.test.ts keeps every variable a model
-# request or the contract suite depends on equal to `api`'s (service.tf).
+# token. It runs the same image as `api`; scripts/infra-config.test.ts keeps its model IDs equal to
+# the contract runner's (CONTRACT_TEST_ENV) and its WEB_ORIGIN equal to `api`'s (service.tf).
 
 # Runs the twin. No roles: replay needs no key, and the memory store needs no Firestore.
 resource "google_service_account" "replay_runtime" {
@@ -71,7 +71,8 @@ resource "google_cloud_run_v2_service" "api_replay" {
         name  = "ID_TOKEN_AUDIENCE"
         value = var.id_token_audience
       }
-      # Must equal `api`'s and CONTRACT_TEST_ENV: cassette keys hash the model ID.
+      # Must equal CONTRACT_TEST_ENV: cassette keys hash the model ID. Pinned here rather than
+      # taken from `api`, so `api`'s live models may change (WU-23c plan D5).
       env {
         name  = "MODEL_FAST"
         value = "claude-haiku-5-5"
