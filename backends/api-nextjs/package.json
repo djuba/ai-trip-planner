@@ -13,6 +13,7 @@
     "@ai-sdk/anthropic": "catalog:",
     "@vp/domain-schema": "workspace:*",
     "ai": "catalog:",
+    "jose": "catalog:",
     "next": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",

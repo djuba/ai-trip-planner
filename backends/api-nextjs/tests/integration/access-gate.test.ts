@@ -9,10 +9,18 @@ import { POST as present } from '../../src/app/v1/trip/present/route.ts';
 import { POST as recommend } from '../../src/app/v1/trip/recommend/route.ts';
 import { TEST_INVITE_CODE_HASH, type AccessConfig } from '../../src/http/access-config.ts';
 import { createGate } from '../../src/http/gate.ts';
+import { createIdTokenVerifier } from '../../src/http/id-token.ts';
 import { hashInviteCode } from '../../src/http/invite-code.ts';
 import { route } from '../../src/http/route.ts';
 import { MemoryUsageStore } from '../../src/http/usage-store.ts';
 import { TEST_INVITE_CODE, TEST_INVITE_LABEL, authHeaders } from '../support/invite.ts';
+import {
+  ISSUED_AT,
+  TEST_ACCOUNT,
+  TEST_AUDIENCE,
+  testSigner,
+  type TestSigner,
+} from '../support/id-token.ts';
 import { stubInviteEnv } from '../support/stub-invite-env.ts';
 
 const WEB_ORIGIN = 'https://web.example.test';
@@ -230,6 +238,80 @@ describe('access gate', () => {
       }
       advance(24 * 60 * 60 * 1000);
       expect((await send(PATH_EXTRACT)).status).toBe(200);
+    });
+  });
+  describe('credentials and stores added in WU-23a, through the adapter', () => {
+    const NOW = (ISSUED_AT + 60) * 1000;
+    let signer: TestSigner;
+
+    beforeAll(async () => {
+      signer = await testSigner();
+    });
+
+    it('AC-GATE-23: a trusted service account’s ID token reaches the handler', async () => {
+      let handled = 0;
+      const gate = createGate({
+        config: {
+          codes: [],
+          revoked: [],
+          trusted: [{ label: 'ci-deploy', email: TEST_ACCOUNT }],
+          limits: {
+            quota: { extract: 1, recommend: 1, present: 1 },
+            perHour: 1,
+            globalPerDay: 100,
+          },
+        },
+        store: new MemoryUsageStore(),
+        now: () => NOW,
+        log: () => undefined,
+        idTokens: createIdTokenVerifier({ audience: TEST_AUDIENCE, keys: signer.keys }),
+      });
+      const handler = route(
+        () => {
+          handled += 1;
+          return Response.json({ ok: true });
+        },
+        { gate: () => gate },
+      );
+      const token = await signer.sign();
+      for (let i = 0; i < 3; i += 1) {
+        expect((await handler(post('/v1/trip/extract', {}, authHeaders(token)))).status).toBe(200);
+      }
+      const refused = await handler(
+        post('/v1/trip/extract', {}, authHeaders(await signer.sign({ aud: 'elsewhere' }))),
+      );
+      expect(refused.status).toBe(401);
+      expect(await codeOf(refused)).toBe('UNAUTHORIZED');
+      expect(refused.headers.get('www-authenticate')).toBe('Bearer');
+      expect(handled).toBe(3);
+    });
+
+    it('AC-GATE-27: a failing usage store is a 500 INTERNAL_ERROR, and the handler never runs', async () => {
+      let handled = false;
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const gate = createGate({
+        config: {
+          codes: [{ label: TEST_INVITE_LABEL, hash: TEST_INVITE_CODE_HASH }],
+          revoked: [],
+          limits: { quota: { extract: 9, recommend: 9, present: 9 }, perHour: 9, globalPerDay: 9 },
+        },
+        store: { take: () => Promise.reject(new Error('firestore unreachable')) },
+        now: () => 0,
+        log: () => undefined,
+      });
+      const handler = route(
+        () => {
+          handled = true;
+          return Response.json({ ok: true });
+        },
+        { gate: () => gate },
+      );
+      const response = await handler(post('/v1/trip/extract', {}, authHeaders()));
+      expect(response.status).toBe(500);
+      expect(await codeOf(response)).toBe('INTERNAL_ERROR');
+      expect(response.headers.get('access-control-allow-origin')).toBe(WEB_ORIGIN);
+      expect(handled).toBe(false);
+      vi.mocked(console.error).mockRestore();
     });
   });
 });

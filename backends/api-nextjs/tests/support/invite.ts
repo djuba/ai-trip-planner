@@ -25,6 +25,8 @@ export function inviteEnv(entries = `${TEST_INVITE_LABEL}:${TEST_INVITE_CODE_HAS
     ACCESS_GATE: 'on',
     INVITE_CODES: entries,
     REVOKED_INVITE_CODES: '',
+    TRUSTED_SERVICE_ACCOUNTS: '',
+    ID_TOKEN_AUDIENCE: '',
     USAGE_STORE: 'memory',
     ...GENEROUS_LIMITS,
   };

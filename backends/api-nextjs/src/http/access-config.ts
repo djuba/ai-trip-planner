@@ -4,11 +4,31 @@
 // committed codes' hashes are literals, checked against the real hash function by the tests.
 import { ConfigError, getConfig, type Config } from '../config.ts';
 
-/** One `label:hash` entry. The label names the holder in logs and counters; it isn't secret. */
+/**
+ * One code's own limits, from `;key=value` options on its entry (WU-23a plan D3). Unset fields take
+ * the service-wide values; the global daily window always applies.
+ */
+export interface EntryOptions {
+  /** Lifetime quota per endpoint; `null` means none for that endpoint. */
+  quota?: Partial<Record<TripEndpoint, number | null>>;
+  perHour?: number;
+  /** The first instant (epoch ms) the code no longer works: midnight UTC after its `expires` day. */
+  expiresAt?: number;
+}
+
+/** One `label:hash[;options]` entry. The label names the holder in logs and counters; it isn't secret. */
 export interface InviteEntry {
   label: string;
   /** Lowercase hex SHA-256 of the code. */
   hash: string;
+  /** Present only when the entry has options. */
+  options?: EntryOptions;
+}
+
+/** A service account whose Google ID token is accepted in place of a code (WU-23a plan D4). */
+export interface TrustedAccount {
+  label: string;
+  email: string;
 }
 
 export interface Limits {
@@ -30,9 +50,13 @@ export interface AccessConfig {
   gate: 'on' | 'off';
   codes: InviteEntry[];
   revoked: InviteEntry[];
+  /** Empty unless TRUSTED_SERVICE_ACCOUNTS is set. */
+  trusted: TrustedAccount[];
+  /** The `aud` an ID token must carry; set exactly when `trusted` is non-empty. */
+  idTokenAudience?: string;
   limits: Limits;
-  /** Only `memory` exists so far; a persistent store arrives with hosted live mode (WU-23). */
-  usageStore: 'memory';
+  /** `memory` resets on restart; `firestore` persists (WU-23a plan D1). */
+  usageStore: 'memory' | 'firestore';
 }
 
 /** SHA-256 of `local-dev-invite`, the code `.env.example` configures for `pnpm dev`. */
@@ -55,7 +79,10 @@ export const DEFAULT_LIMITS: Limits = {
 
 const LABEL = /^[a-z0-9-]{1,32}$/;
 const HASH = /^[0-9a-f]{64}$/;
-const USAGE_STORES = ['memory'] as const;
+const USAGE_STORES = ['memory', 'firestore'] as const;
+const QUOTA_OPTIONS = ['extract', 'recommend', 'present'] as const;
+const EMAIL = /^[^\s@:;,]+@[^\s@:;,]+\.[^\s@:;,]+$/;
+const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const GATE_MODES = ['on', 'off'] as const;
 
 type Env = Record<string, string | undefined>;
@@ -69,24 +96,103 @@ function read(env: Env, name: string): string | undefined {
   return value === undefined || value === '' ? undefined : value;
 }
 
-/** Parses `label:hash,label:hash`. Reasons never quote a value: an entry may be pasted wrongly. */
-function entries(env: Env, name: string, fail: (p: Problem) => void): InviteEntry[] {
+/**
+ * The items of a list variable: separated by commas or newlines, with blank items and lines
+ * starting with `#` skipped, so a hand-edited list can carry comments (AC-GATE-22).
+ */
+function items(env: Env, name: string): string[] {
   const raw = read(env, name);
   if (raw === undefined) return [];
+  return raw
+    .split(/[,\n]/)
+    .map((item) => item.trim())
+    .filter((item) => item !== '' && !item.startsWith('#'));
+}
+
+/** The exclusive end (epoch ms) of a real `YYYY-MM-DD` day in UTC, or undefined. */
+function endOfDay(value: string): number | undefined {
+  const match = DATE.exec(value);
+  if (match === null) return undefined;
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const start = Date.UTC(year, month - 1, day);
+  const date = new Date(start);
+  const real =
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  return real ? start + 24 * 60 * 60 * 1000 : undefined;
+}
+
+const isPositiveInteger = (value: string): boolean =>
+  /^[1-9][0-9]*$/.test(value) && Number.isSafeInteger(Number(value));
+
+/** Parses `;key=value` options (AC-GATE-20); returns undefined after failing on any bad one. */
+function options(parts: readonly string[]): EntryOptions | undefined | 'invalid' {
+  if (parts.length === 0) return undefined;
+  const out: EntryOptions = {};
+  const seen = new Set<string>();
+  for (const part of parts) {
+    const equals = part.indexOf('=');
+    const key = part.slice(0, equals);
+    const value = part.slice(equals + 1);
+    if (equals < 0 || seen.has(key)) return 'invalid';
+    seen.add(key);
+    if ((QUOTA_OPTIONS as readonly string[]).includes(key)) {
+      if (value !== 'none' && !isPositiveInteger(value)) return 'invalid';
+      out.quota = { ...out.quota, [key]: value === 'none' ? null : Number(value) };
+    } else if (key === 'hour') {
+      if (!isPositiveInteger(value)) return 'invalid';
+      out.perHour = Number(value);
+    } else if (key === 'expires') {
+      const expiresAt = endOfDay(value);
+      if (expiresAt === undefined) return 'invalid';
+      out.expiresAt = expiresAt;
+    } else {
+      return 'invalid';
+    }
+  }
+  return out;
+}
+
+/**
+ * Parses `label:hash[;key=value…]` items. Reasons never quote a value: an entry may be pasted
+ * wrongly, and a hash next to a label says who holds which code.
+ */
+function entries(env: Env, name: string, fail: (p: Problem) => void): InviteEntry[] {
   const out: InviteEntry[] = [];
-  raw.split(',').forEach((part, index) => {
-    const entry = part.trim();
-    const colon = entry.indexOf(':');
-    const label = entry.slice(0, colon);
-    const hash = entry.slice(colon + 1);
-    if (colon < 0 || !LABEL.test(label) || !HASH.test(hash)) {
+  items(env, name).forEach((item, index) => {
+    const [head = '', ...rest] = item.split(';').map((part) => part.trim());
+    const colon = head.indexOf(':');
+    const label = head.slice(0, colon);
+    const hash = head.slice(colon + 1);
+    const parsed = options(rest);
+    if (colon < 0 || !LABEL.test(label) || !HASH.test(hash) || parsed === 'invalid') {
       fail({
         variable: name,
-        reason: `entry ${index + 1} must be label:hash (label [a-z0-9-]{1,32}, hash 64 lowercase hex)`,
+        reason:
+          `entry ${index + 1} must be label:hash[;option=value…] (label [a-z0-9-]{1,32}, hash 64 ` +
+          'lowercase hex; options extract, recommend, present, hour, expires, each at most once)',
       });
       return;
     }
-    out.push({ label, hash });
+    out.push(parsed === undefined ? { label, hash } : { label, hash, options: parsed });
+  });
+  return out;
+}
+
+/** Parses `label:email` items of TRUSTED_SERVICE_ACCOUNTS (AC-GATE-25). */
+function trustedAccounts(env: Env, fail: (p: Problem) => void): TrustedAccount[] {
+  const out: TrustedAccount[] = [];
+  items(env, 'TRUSTED_SERVICE_ACCOUNTS').forEach((item, index) => {
+    const colon = item.indexOf(':');
+    const label = item.slice(0, colon);
+    const email = item.slice(colon + 1);
+    if (colon < 0 || !LABEL.test(label) || !EMAIL.test(email)) {
+      fail({
+        variable: 'TRUSTED_SERVICE_ACCOUNTS',
+        reason: `entry ${index + 1} must be label:email (label [a-z0-9-]{1,32})`,
+      });
+      return;
+    }
+    out.push({ label, email });
   });
   return out;
 }
@@ -109,6 +215,14 @@ export function loadAccessConfig(env: Env, llmMode: Config['llmMode']): AccessCo
 
   const codes = entries(env, 'INVITE_CODES', fail);
   const revoked = entries(env, 'REVOKED_INVITE_CODES', fail);
+  const trusted = trustedAccounts(env, fail);
+  const idTokenAudience = read(env, 'ID_TOKEN_AUDIENCE');
+  if (trusted.length > 0 && idTokenAudience === undefined) {
+    fail({
+      variable: 'ID_TOKEN_AUDIENCE',
+      reason: 'required when TRUSTED_SERVICE_ACCOUNTS is set',
+    });
+  }
 
   const labels = new Set<string>();
   const hashes = new Set<string>();
@@ -117,6 +231,15 @@ export function loadAccessConfig(env: Env, llmMode: Config['llmMode']): AccessCo
     if (hashes.has(hash)) fail({ variable: 'INVITE_CODES', reason: 'hashes must be unique' });
     labels.add(label);
     hashes.add(hash);
+  }
+  for (const { label } of trusted) {
+    if (labels.has(label)) {
+      fail({
+        variable: 'TRUSTED_SERVICE_ACCOUNTS',
+        reason: 'labels must be unique, and differ from every invite entry',
+      });
+    }
+    labels.add(label);
   }
 
   const limits: Limits = {
@@ -185,7 +308,15 @@ export function loadAccessConfig(env: Env, llmMode: Config['llmMode']): AccessCo
   }
 
   if (problems.length > 0) throw new ConfigError(problems);
-  return { gate, codes, revoked, limits, usageStore };
+  return {
+    gate,
+    codes,
+    revoked,
+    trusted,
+    ...(trusted.length > 0 ? { idTokenAudience } : {}),
+    limits,
+    usageStore,
+  };
 }
 
 /** What a developer should know at startup about a valid configuration; never quotes a value. */
@@ -196,7 +327,7 @@ export function startupWarnings(config: AccessConfig, llmMode: Config['llmMode']
         'nothing caps spend. For a local demo only.',
     ];
   }
-  if (config.codes.length === 0) {
+  if (config.codes.length === 0 && config.trusted.length === 0) {
     return ['INVITE_CODES is empty: every trip request will be refused with 401'];
   }
   const warnings: string[] = [];
