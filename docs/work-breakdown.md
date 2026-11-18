@@ -40,7 +40,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-15 | Journeys + integrated gate | WU-14 | done |
 | WU-16 | Portfolio README & architecture docs | WU-15 | done |
 | WU-23a | Live-ready API | WU-21, WU-22 | done |
-| WU-23b | Web service + live release workflow | WU-23a | todo |
+| WU-23b | Web service + live release workflow | WU-23a | done |
 | WU-23c | Live demo launch | WU-16, WU-23b | todo |
 
 ```
@@ -990,22 +990,26 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-23b — Web service + live release workflow
-**Status:** todo · **Depends on:** WU-23a · **Commits:**
+**Status:** done · **Depends on:** WU-23a · **Commits:** [djuba/ai-trip-planner#38](https://github.com/djuba/ai-trip-planner/pull/38)
 
-**Goal:** the web client runs on Cloud Run next to the API, and live deploys go out only through a manual release that you approve.
+**Goal:** the web client runs on Cloud Run next to the API, and every merge that passes every check deploys both automatically, through an identity only the promote step holds. (Revised at plan approval, 2026-11-17: automated promotion replaced the manual release this unit was scoped with; see [the plan](plans/WU-23b.md).)
 
 **Scope** (from WU-23 and the WU-12, WU-15 and WU-21 Notes carried under WU-23c)
 - `apps/web-nextjs/Dockerfile` on the WU-20 pattern, with `NEXT_PUBLIC_API_BASE_URL` as a build argument; the web service in `infra/`; the API's `WEB_ORIGIN` pointed at it; the deploy workflow extended.
-- **Release trigger:** live deploys run from a manual workflow (or a tag), after `pnpm verify:integrated` passes locally, through a GitHub Environment that needs your approval. Merges to `main` no longer deploy straight to live. Record in ADR 0005 how the replay-mode contract check fits from now on.
-- The live deploy identity: accept that the deploy identity can reach the API key, or give live deploys their own identity behind the Environment (WU-21 Note). Record the choice in ADR 0005.
+- **Release trigger:** a merge's pipeline runs the contract suite on a replay twin of the API and `pnpm verify:integrated`, and only then promotes both images to the user-facing services, with a model-free smoke check and automatic rollback. No merge calls the model. Record in ADR 0005 how the replay-mode contract check fits from now on, and the manual approval this replaced.
+- The live deploy identity: the promote step gets its own identity, scoped by a GitHub Environment, so no job that installs dependencies can deploy as the account that will read the API key (WU-21 Note). Record the choice in ADR 0005.
 - Optional: candidate-tag deploys and the journeys' `--image` mode (WU-23c's Notes).
 
 **Definition of done**
-- The web service serves the UI against the hosted API (still replay), CORS across the real origins works, and the manual release workflow deploys both with your approval.
+- The web service serves the UI against the hosted API (still replay), CORS across the real origins works, and a merge that passes the twin's contract suite and the journeys deploys both automatically, rolling back if the smoke check fails.
 
 **Notes:** see the WU-12, WU-15 and WU-21 entries under WU-23c's Notes, which this unit takes.
 - From WU-23a: the deploy workflow mints a Google ID token for the contract check (`contract-token` step; audience `ai-trip-planner-api`), and the API trusts the deploy identity as `ci-deploy`. A live-release workflow needs the same step. If live deploys get their own identity, add it to `TRUSTED_SERVICE_ACCOUNTS` with its own label (never one an invite entry uses) and grant it the ID-token role on itself. A contract check against a live service calls the model and counts toward the global daily window: decide whether it runs against live, or only against a replay candidate ([plan](plans/WU-23a.md), deviation 16).
 - From WU-23a: changes that need new configuration the running image refuses must be staged (a Terraform variable, as `usage_store` was) and proven on a scratch branch, with nothing else merged to `main` in between ([`infra/README.md`](../infra/README.md), "Rolling out WU-23a").
+- Done: see [the plan](plans/WU-23b.md) (revision 2) and its deviations, and the [ADR 0005 WU-23b addendum](decisions/0005-hosting-and-access.md). The web image (`apps/web-nextjs/Dockerfile`, its own allowlist) and the `web` service; a replay twin, `api-replay`, where every merge's contract suite runs, so no merge calls the model; one automated pipeline in `deploy.yml` (`build` → `twin-check` + `journeys` → `promote`, with a model-free smoke check and rollback of both services); a separate promote identity that only the job in GitHub Environment `live` can become, and which installs nothing. Proven on a scratch branch: a full green run, a forced smoke failure that rolled back, and a refused identity request. Contract unchanged (0.8.0).
+- Decided at plan approval: automated promotion instead of the scoped manual release (revision 2); twin named `api-replay`; a failure rolls back both services; `sonnet` reviews.
+- Learned: `gcloud run services update` checks that the *deployer* may download the image, so a deploy identity needs `artifactregistry.reader` even though Cloud Run's service agent does the pull (deviation 9). A job timeout cancels the job, and `if: failure()` steps don't run on a cancel, so a rollback needs step timeouts and `cancelled()` (review fix #1, #2). A WIF attribute mapping can branch on a claim that only some jobs carry (`"environment" in assertion`) to tell jobs of one workflow apart.
+- Usage: main/Opus 128 req, 132k out; wu-implementer/Sonnet 13 req, 18k out; wu-reviewer/Sonnet 10 req, 16k out.
 
 ---
 
@@ -1032,6 +1036,12 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - No secret exists outside Secret Manager and the Anthropic console.
 
 **Notes:** (carried over from WU-23; the WU-12, WU-15 and WU-21 deploy items belong to WU-23b, the persistent counts, per-code limits, CI credential and alerts to WU-23a)
+- From WU-23b ([plan](plans/WU-23b.md), deviations 11–13):
+  - **First, the rollout cleanup:** after WU-23b's rollout step 3 is applied (`rollout_wu23b = false`), delete the then-dead code in a `chore(infra)` commit: the `rollout_wu23b` variable, the rollout-only section of `deploy-identity.tf` (its `count` resources and `moved` blocks), and the `dynamic "env"` block on `api` in `service.tf`. `terraform plan` must stay clean.
+  - **Model IDs:** the twin must keep the cassettes' model IDs (`CONTRACT_TEST_ENV`), whatever `api` runs. If `MODEL_CRITIC` moves to Haiku on `api`, change AC-HOST-11 in `scripts/infra-config.test.ts` to compare the twin with `CONTRACT_TEST_ENV` rather than with `api`.
+  - **Limits:** no CI caller reaches `api` any more (the contract suite runs on the twin; the smoke check sends no code), so the live limits need no room for CI.
+  - **Launch checklist:** add "the gate accepts a new code from the web UI on the hosted URL" (not checked in WU-23b). Share only `terraform output web_url`: CORS allows that one URL, not the other one Cloud Run lists.
+  - **Approval:** promotion is automatic. If the live demo should wait for you, add yourself as a required reviewer of Environment `live` (`infra/README.md`).
 - From WU-23a: the persistent store, per-code limits, the ID-token CI credential and the alert are built. The owner's code is `pnpm invite:new owner --no-quota --hour <n>`. Set the service-wide limits in `service.tf` from the cost arithmetic; per-code options override them. The global daily window is shared by every code and by the CI identity (`ci-deploy`), so size it to leave room for contract checks. An allowed request costs 3 Firestore reads and 3 writes, far inside the free tier ([ADR 0005 addendum](decisions/0005-hosting-and-access.md)).
 - From deployment planning: review tier `sonnet`; likely one code commit.
 - From WU-15: the journeys run against `next start` builds, not the container image (the image is checked by `pnpm test:image`). If the launch wants "test what you ship" end to end, add an opt-in `--image` mode to `scripts/run-journeys.ts` that starts the API from the image; the default must still need no Docker ([plan](plans/WU-15.md), D9).

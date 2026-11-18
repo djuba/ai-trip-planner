@@ -1,6 +1,7 @@
-# The API service (WU-21 plan D1-D3). Terraform owns everything about it except the running image,
-# which the deploy workflow sets (gcloud run services update --image), so a deploy leaves
-# `terraform plan` clean.
+# The API service users reach (WU-21 plan D1-D3). Terraform owns everything about it except the
+# running image, which the deploy workflow's promote job sets (gcloud run services update --image),
+# so a deploy leaves `terraform plan` clean. Merges check their image on the replay twin first
+# (replay.tf; WU-23b plan D4).
 
 # Runs the service. Its one role is Firestore in the default database (firestore.tf), for the
 # gate's usage counts. WU-23c grants it read access to the one API key secret.
@@ -52,9 +53,10 @@ resource "google_cloud_run_v2_service" "api" {
         name  = "LLM_MODE"
         value = "replay"
       }
+      # The web service's URL (web.tf), the one origin CORS allows (WU-23b plan D3).
       env {
         name  = "WEB_ORIGIN"
-        value = var.web_origin
+        value = google_cloud_run_v2_service.web.uri
       }
       # The access gate (WU-22, WU-23a). Replay costs nothing, so the limits only need to stay out
       # of the way of the post-deploy contract check. WU-23c sets the live values.
@@ -97,17 +99,18 @@ resource "google_cloud_run_v2_service" "api" {
         name  = "GOOGLE_CLOUD_PROJECT"
         value = var.project_id
       }
-      # The post-deploy contract check sends a Google ID token of the deploy identity, not a stored
-      # code (WU-23a plan D4). The gate counts it only in the global daily window. The audience must
-      # equal id_token_audience in .github/workflows/deploy.yml (a test checks). The label must differ
-      # from every invite entry's, or the server refuses to start; `ci-contract` was the old CI code's.
-      env {
-        name  = "TRUSTED_SERVICE_ACCOUNTS"
-        value = "ci-deploy:${google_service_account.deploy.email}"
-      }
-      env {
-        name  = "ID_TOKEN_AUDIENCE"
-        value = var.id_token_audience
+      # Until WU-23b's rollout ends, the deploy workflow on `main` still contract-checks this service
+      # with an ID token of the deploy identity (WU-23a plan D4). From then on, the contract check
+      # runs only on the replay twin (replay.tf), and no CI caller is trusted here (WU-23b plan D8).
+      dynamic "env" {
+        for_each = var.rollout_wu23b ? {
+          TRUSTED_SERVICE_ACCOUNTS = "ci-deploy:${google_service_account.deploy.email}"
+          ID_TOKEN_AUDIENCE        = var.id_token_audience
+        } : {}
+        content {
+          name  = env.key
+          value = env.value
+        }
       }
       # Must equal CONTRACT_TEST_ENV (backends/api-nextjs/tests/support/api-server.ts): cassette
       # keys hash the model request, model ID included, so the contract suite's cassettes replay
@@ -151,8 +154,8 @@ resource "google_cloud_run_v2_service" "api" {
   depends_on = [google_project_service.apis, google_project_iam_member.runtime_firestore]
 }
 
-# Public, so the contract suite (and later the browser) can call it. Unadvertised, replay-only and
-# capped at one instance (WU-21 plan D3, R5).
+# Public, so the browser can call it; the access gate decides who may. Unadvertised and capped at one
+# instance (WU-21 plan D3, R5).
 resource "google_cloud_run_v2_service_iam_member" "public" {
   name     = google_cloud_run_v2_service.api.name
   location = google_cloud_run_v2_service.api.location

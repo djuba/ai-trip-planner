@@ -1,0 +1,28 @@
+# The web image's build context (WU-23b plan D1). BuildKit uses this file, beside
+# apps/web-nextjs/Dockerfile, in place of the root .dockerignore (which stays the API image's).
+# An allowlist: everything is excluded, then only what the web build needs is added back. The
+# cassettes and the backend's sources never enter this context.
+*
+
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+# Manifests only, so the frozen install sees the whole workspace.
+!backends/api-nextjs/package.json
+!tests/contract/package.json
+!tests/journeys/package.json
+!packages/domain-schema/
+!spec/messages/
+!apps/web-nextjs/
+
+# Never, even inside an allowed directory.
+**/node_modules
+**/.next
+**/.next-journeys
+**/coverage
+**/playwright-report
+**/test-results
+**/.env*
+apps/web-nextjs/tests
+apps/web-nextjs/Dockerfile*

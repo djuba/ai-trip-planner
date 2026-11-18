@@ -16,6 +16,7 @@ It is built **spec-first, with one implementation** ([ADR 0003](docs/decisions/0
 ai-trip-planner/
 ├── apps/
 │   └── web-nextjs/              # Next.js App Router client. Talks HTTP only.
+│       ├── Dockerfile           # The web image, built per API URL (ADR 0005 §8); own allowlist beside it
 │       └── tests/functional/    # Playwright, API mocked at the network edge
 ├── backends/
 │   └── api-nextjs/              # The TypeScript backend (Route Handlers only)
@@ -45,7 +46,7 @@ ai-trip-planner/
 ├── spikes/                      # NON-PRODUCTION spikes; outside the workspace and every gate
 ├── .llm-cassettes/              # Recorded LLM HTTP exchanges for replay — COMMITTED
 ├── .dockerignore                # Allowlist: the only files the image build can see
-├── .github/workflows/           # verify.yml (PR checks), deploy.yml (deploys main to the hosted environment)
+├── .github/workflows/           # verify.yml (PR checks), deploy.yml (checks each merge on a replay twin, then promotes it)
 ├── pnpm-workspace.yaml
 ├── package.json
 └── README.md
@@ -70,7 +71,8 @@ ai-trip-planner/
 | Functional tests | `pnpm test:functional` |
 | Contract tests (consumer + provider) | `pnpm test:contract` (builds and starts its own api-nextjs); `pnpm test:contract:external` tests the backend at `API_BASE_URL` instead, sending `CONTRACT_INVITE_CODE` as the Bearer credential: an invite code whose limits allow a full run (the post-deploy check sends a Google ID token) |
 | Make an invite code (prints the code and its `label:hash` entry; flags set its own limits and expiry) | `pnpm invite:new <label> [flags]` (see `infra/README.md`) |
-| API image: build, check, contract tests (needs Docker) | `pnpm test:image` |
+| API and web images: build, check, contract tests (needs Docker) | `pnpm test:image` |
+| Post-deploy smoke check (model-free; `API_BASE_URL`, `WEB_BASE_URL`, `WEB_ORIGIN`) | `pnpm release:smoke` |
 | Firestore usage store against the emulator (needs Docker) | `pnpm test:firestore` |
 | Hosted environment: plan / apply (needs Terraform + gcloud; never from CI) | in `infra/`: `terraform plan -out=tfplan` / `terraform apply tfplan` (see `infra/README.md`) |
 | LLM evals (live, costs money, never gated; §6.8) | `pnpm eval --budget <usd>` (see `docs/features/eval.md`) |
@@ -271,9 +273,9 @@ The backend runs both halves with `LLM_MODE=replay`, and passes the rule-fixture
 | **Full** (≈ nightly) | `pnpm verify:full` | journeys `@full`; provider contract tests against api-nextjs | manual |
 | **Image** (CI) | `pnpm test:image`, `pnpm test:firestore` | build the API image, check it runs as non-root with no secret-like variables or `.env` files, then the provider contract tests against the container in replay mode; then the Firestore usage store against the Firestore emulator | CI job `image`; locally only where Docker is available |
 | **Infra** (CI) | — | `terraform fmt -check`, `terraform init -backend=false`, `terraform validate` in `infra/`; no credentials | CI job `infra` |
-| **Deploy** (after merge) | — | build and push the API image, deploy it to Cloud Run by digest, then the provider contract tests against the hosted URL in replay mode | `.github/workflows/deploy.yml`, on push to `main` |
+| **Deploy** (after merge) | — | build and push both images; the provider contract tests against the API's replay twin, and `pnpm verify:integrated`; then promote the same digests to the API and web services, smoke-check them (`pnpm release:smoke`) and roll back on failure | `.github/workflows/deploy.yml`, on push to `main` |
 
-Each gate is a single command. **GitHub Actions mirrors the project gate** on every PR and push to `main`: `.github/workflows/verify.yml`, job `verify`. The local gates stay the source of truth, and CI runs the same command. The same workflow's job `image` runs `pnpm test:image` and `pnpm test:firestore`, which need Docker and so stays out of `pnpm verify`; CI is the one place it always runs. Its job `infra` checks the Terraform, so `pnpm verify` needs no Terraform. **`verify`, `image` and `infra` are the three required status checks for merging** (§10). CI holds no credentials: gated tests never call a live LLM (§6.1). None of those jobs has cloud access. **Deploys** run in `.github/workflows/deploy.yml` after each merge to `main`, and get cloud credentials only through GitHub OIDC and Workload Identity Federation, so no long-lived cloud key is stored anywhere. Its only Actions secrets are three non-credential identifiers, kept as secrets so the public logs mask them; the post-deploy contract check authenticates to the API with a short-lived ID token the workflow mints. Its identity can only push the API image and deploy the one service; Terraform is applied by hand, never from CI ([ADR 0005](docs/decisions/0005-hosting-and-access.md), `infra/README.md`). A failed post-deploy contract check is fixed forward or rolled back (`infra/README.md`). The integrated and full gates stay local. Performance testing is out of scope until there is a deployed environment; until then, per-stage latency is logged (§7.3).
+Each gate is a single command. **GitHub Actions mirrors the project gate** on every PR and push to `main`: `.github/workflows/verify.yml`, job `verify`. The local gates stay the source of truth, and CI runs the same command. The same workflow's job `image` runs `pnpm test:image` and `pnpm test:firestore`, which need Docker and so stays out of `pnpm verify`; CI is the one place it always runs. Its job `infra` checks the Terraform, so `pnpm verify` needs no Terraform. **`verify`, `image` and `infra` are the three required status checks for merging** (§10). CI holds no credentials: gated tests never call a live LLM (§6.1). None of those jobs has cloud access. **Deploys** run in `.github/workflows/deploy.yml` after each merge to `main`, and get cloud credentials only through GitHub OIDC and Workload Identity Federation, so no long-lived cloud key is stored anywhere. Its only Actions secrets are four non-credential identifiers, kept as secrets so the public logs mask them. Every merge runs the contract suite against a **replay twin** of the API, never the service users reach, so no merge calls the model; the suite authenticates with a short-lived ID token the workflow mints. The same run builds the web image against the API's URL and runs `pnpm verify:integrated`. Only when both pass does the `promote` job deploy the same image digests to the API and web services, run a model-free smoke check, and roll both back if it fails. Two identities: the build identity pushes images and deploys the twin; the promote identity, issued only to the job in GitHub Environment `live`, which installs and builds nothing, deploys the services users reach. Terraform is applied by hand, never from CI ([ADR 0005](docs/decisions/0005-hosting-and-access.md), `infra/README.md`). The integrated gate runs locally before a release and again in the deploy pipeline; the full gate stays local. Performance testing is out of scope until there is a deployed environment; until then, per-stage latency is logged (§7.3).
 
 ### 6.8 What tests do not cover
 Tests prove plumbing, contracts and rules. They do **not** judge whether recommendations are good. LLM output quality is assessed separately by an opt-in, non-gating eval script (`pnpm eval`, live, costs money; `backends/api-nextjs/eval/`, [`eval.md`](docs/features/eval.md)). It drives the use cases in-process with a live `LlmClient`, scores deterministically first, and appends one line per run to `eval/results/runs.jsonl` so runs can be compared. WU-10 and WU-11 add cases for their stages.

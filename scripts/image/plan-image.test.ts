@@ -4,9 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  API_IMAGE,
   CONTAINER_PORT,
-  DOCKERFILE,
   PROBE_SCRIPT,
+  WEB_IMAGE,
+  WEB_TEST_API_URL,
   buildArgs,
   dockerfileEnvDefaults,
   dotenvValues,
@@ -21,16 +23,32 @@ const read = (path: string) => readFileSync(new URL(path, ROOT), 'utf8');
 
 describe('docker arguments', () => {
   it('AC-IMAGE-01: builds the backend Dockerfile from the repo root for linux/amd64', () => {
-    expect(buildArgs('t:1')).toEqual([
+    expect(buildArgs({ ...API_IMAGE, tag: 't:1' })).toEqual([
       'build',
       '--platform',
       'linux/amd64',
       '-f',
-      DOCKERFILE,
+      'backends/api-nextjs/Dockerfile',
       '-t',
       't:1',
       '.',
     ]);
+  });
+
+  it('AC-IMAGE-05: builds the web Dockerfile with the API URL as a build argument', () => {
+    expect(buildArgs(WEB_IMAGE)).toEqual([
+      'build',
+      '--platform',
+      'linux/amd64',
+      '-f',
+      'apps/web-nextjs/Dockerfile',
+      '--build-arg',
+      `NEXT_PUBLIC_API_BASE_URL=${WEB_TEST_API_URL}`,
+      '-t',
+      'vp-web-nextjs:test',
+      '.',
+    ]);
+    expect(WEB_TEST_API_URL).toBe('https://api.image-test.invalid');
   });
 
   it('AC-IMAGE-04: runs detached on loopback only, passing each variable', () => {
@@ -109,11 +127,11 @@ describe('image checks', () => {
 });
 
 describe('the Dockerfile', () => {
-  const defaults = dockerfileEnvDefaults(read(DOCKERFILE));
+  const defaults = dockerfileEnvDefaults(read(API_IMAGE.dockerfile));
 
   it('AC-IMAGE-04: defaults to replay mode, with cassettes at the baked-in path', () => {
     expect(defaults.LLM_MODE).toBe('replay');
-    expect(read(DOCKERFILE)).toContain('LLM_CASSETTE_DIR=/app/.llm-cassettes/api-nextjs');
+    expect(read(API_IMAGE.dockerfile)).toContain('LLM_CASSETTE_DIR=/app/.llm-cassettes/api-nextjs');
   });
 
   it('AC-IMAGE-04: its model ID defaults equal .env.example (CLAUDE.md §8.1)', () => {
@@ -125,13 +143,54 @@ describe('the Dockerfile', () => {
   });
 
   it('AC-IMAGE-02: runs as the node user', () => {
-    expect(read(DOCKERFILE)).toMatch(/^USER node$/m);
+    expect(read(API_IMAGE.dockerfile)).toMatch(/^USER node$/m);
   });
 
   it('AC-IMAGE-03: sets no secret-looking variable', () => {
     const names = Object.keys(defaults).map((name) => `${name}=`);
     expect(secretLikeEnvNames(names)).toEqual([]);
-    expect(read(DOCKERFILE)).not.toMatch(/^ARG\s+\S*(KEY|SECRET|TOKEN)/im);
+    expect(read(API_IMAGE.dockerfile)).not.toMatch(/^ARG\s+\S*(KEY|SECRET|TOKEN)/im);
+  });
+});
+
+describe('the web Dockerfile', () => {
+  const text = read(WEB_IMAGE.dockerfile);
+
+  it('AC-IMAGE-05: declares the API URL argument with no default and refuses a non-http(s) value', () => {
+    expect(text).toMatch(/^ARG NEXT_PUBLIC_API_BASE_URL$/m);
+    expect(text).toMatch(/http:\/\/\?\*\|https:\/\/\?\*\) ;;/);
+    expect(text).toContain('exit 1');
+  });
+
+  it('AC-IMAGE-06: runs as the node user', () => {
+    expect(text).toMatch(/^USER node$/m);
+  });
+
+  it('AC-IMAGE-06: sets no secret-looking variable', () => {
+    const names = Object.keys(dockerfileEnvDefaults(text)).map((name) => `${name}=`);
+    expect(secretLikeEnvNames(names)).toEqual([]);
+    // The one build argument is a public URL; its name carries no secret word.
+    expect(text).not.toMatch(/^ARG\s+\S*(KEY|SECRET|TOKEN)/im);
+  });
+});
+
+describe('the image sources', () => {
+  const nodeImage = (path: string) => /^ARG NODE_IMAGE=.+$/m.exec(read(path))?.[0];
+
+  it('AC-IMAGE-08: both Dockerfiles pin the same base image', () => {
+    expect(nodeImage(API_IMAGE.dockerfile)).toBeDefined();
+    expect(nodeImage(WEB_IMAGE.dockerfile)).toBe(nodeImage(API_IMAGE.dockerfile));
+  });
+
+  it('AC-IMAGE-08: the web build context excludes everything, then allows only what it needs', () => {
+    const lines = read('apps/web-nextjs/Dockerfile.dockerignore')
+      .split(/\r?\n/)
+      .filter((line) => line.trim() !== '' && !line.startsWith('#'));
+    expect(lines[0]).toBe('*');
+    const allowed = lines.filter((line) => line.startsWith('!'));
+    expect(allowed.some((line) => line.includes('.llm-cassettes'))).toBe(false);
+    const backend = allowed.filter((line) => line.includes('backends/'));
+    expect(backend).toEqual(['!backends/api-nextjs/package.json']);
   });
 });
 
