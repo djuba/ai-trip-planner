@@ -1,6 +1,6 @@
 # infra: the hosted environment
 
-Terraform for the one hosted environment ([ADR 0005](../docs/decisions/0005-hosting-and-access.md)): on Cloud Run, the API (`backends/api-nextjs/Dockerfile`), the web client (`apps/web-nextjs/Dockerfile`), and a replay twin of the API that only CI calls. Everything runs in **replay mode** (no API key, no LLM cost) until WU-23c turns `api` live. It isn't a demo yet, and nothing links to it.
+Terraform for the one hosted environment ([ADR 0005](../docs/decisions/0005-hosting-and-access.md)): on Cloud Run, the API (`backends/api-nextjs/Dockerfile`), the web client (`apps/web-nextjs/Dockerfile`), and a replay twin of the API that only CI calls. `api` runs in **live mode**: real model calls, paid from a dedicated Anthropic workspace whose hard spend limit bounds the cost ("The live demo" below). The twin always replays. The demo is offered on request; nothing public links to it.
 
 **What a merge does** ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml), ADR 0005 WU-23b addendum): build both images and push them; run the provider contract suite against the twin (`api-replay`) and `pnpm verify:integrated` on the runner; only if both pass, deploy the same digests to `api`, then `web`; run a model-free smoke check; and if a deploy or the smoke check fails, put both services back on the images that were running. No step calls the model, and no human approves anything: the checks are the gate.
 
@@ -10,7 +10,8 @@ Terraform for the one hosted environment ([ADR 0005](../docs/decisions/0005-host
 |---|---|
 | `main.tf` | the provider and the project's APIs |
 | `registry.tf` | Artifact Registry, keeping the 5 most recent images |
-| `service.tf` | the API's runtime service account and the `api` service users reach: 0 to 1 instances, `/v1/health` startup probe, replay mode, public, `WEB_ORIGIN` = the web service's URL |
+| `service.tf` | the API's runtime service account and the `api` service users reach: 0 to 1 instances, `/v1/health` startup probe, live mode with the key from `secrets.tf`, the access gate's limits, public, `WEB_ORIGIN` = the web service's URL |
+| `secrets.tf` | the `anthropic-api-key` secret (no version: you add the value) and the runtime account's read access to it alone |
 | `replay.tf` | the replay twin, `api-replay`: the same image, always replay, memory counts, no invite codes, trusts only the build identity's ID token; its runtime account has no role. Only the contract check calls it |
 | `web.tf` | the `web` service (no env, no secret, a role-less runtime account, public), and its image repository |
 | `firestore.tf` | the default Firestore database, where the access gate keeps its usage counts, and the runtime account's one role (read and write documents in that database) |
@@ -97,7 +98,7 @@ The trip endpoints need an invite code ([ADR 0005](../docs/decisions/0005-hostin
 - **Revoke a code:** move its entry from `invite_codes` to `revoked_invite_codes`, then plan and apply. The code gets a 401 from the next revision on, and every later attempt is logged as `revoked` with its label.
 - **See usage:** every gate decision is one JSON log line with `event: "gate"`, `outcome` (`allowed`, `missing`, `unknown`, `revoked`, `expired`, `invalid_token`, `rate_limited`, `quota_exhausted`), `path` and `code` (the label). In Logs Explorer: `jsonPayload.event="gate"`, then filter on `jsonPayload.code` or `jsonPayload.outcome`. The current counts are in Firestore (below).
 - **Alerts:** a `revoked`, `expired`, `quota_exhausted` or `rate_limited` decision emails `alert_email`, at most once per 5 minutes, naming the label and the outcome. `unknown` and `missing` don't alert: anything scanning the URL would make them noise.
-- **Limits:** the service-wide values are set in `service.tf`. No CI check calls `api` (the contract suite runs on the twin, and the smoke check sends no code), so WU-23c can set the live values with no room left for CI.
+- **Limits:** the service-wide values are set in `service.tf`, sized from the cost arithmetic in ADR 0005's WU-23c addendum: 40 extracts, 5 recommends and 5 presents per code for its whole life, 30 requests an hour per code, 60 a day for all codes together. `scripts/infra-config.test.ts` holds them as upper bounds, so raise one only after redoing the arithmetic. No CI check calls `api` (the contract suite runs on the twin, and the smoke check sends no code), so the limits leave no room for CI.
 - **Never use a committed code.** `terraform plan` rejects the hashes of `local-dev-invite` and the tests' code, and a malformed entry; the server refuses committed codes unless `LOCAL_DEV=true`, which Cloud Run refuses.
 - **Never set `ACCESS_GATE` or `LOCAL_DEV`** on the service. Both are for local use: the server refuses `ACCESS_GATE=off` without `LOCAL_DEV=true`, refuses `LOCAL_DEV=true` on Cloud Run, and a test checks that `service.tf` sets neither.
 - **The CI credential:** the contract check sends an ID token of the build identity, not a code, and only to the replay twin (see "GitHub Actions secrets" above). It is logged there under the label `ci-deploy`, has no quota or hourly window, and counts only toward the twin's own daily window, never `api`'s.
@@ -119,22 +120,61 @@ You never edit these documents to change a limit: edit the entry and apply. Two 
 - **A fresh allowance rather than a larger one:** delete that code's `quota:` documents in the console (Firestore → Data → `usage`). Raising the limit does the same job without touching Firestore.
 - **A renamed label** starts from zero; the old label's documents stay behind, a few bytes each.
 
-### Rolling out WU-23a (once)
+## The live demo
 
-Today's image refuses `USAGE_STORE=firestore`, and the new deploy workflow sends an ID token that only the new image accepts. So the change is proven on a scratch branch first (as in "Prove a deploy workflow change before merge" below):
+`api` calls the model with a key from Secret Manager. The key exists in two places only: the Anthropic console and the secret's versions. Terraform holds neither: it creates the secret and its one grant, never a version. What bounds the cost is a hard monthly spend limit on the workspace the key belongs to. The per-code quotas and the daily window shape how it's spent ([ADR 0005](../docs/decisions/0005-hosting-and-access.md), WU-23c addendum). The acceptance criteria are in [`live-demo.md`](../docs/features/live-demo.md).
 
-1. Add `alert_email` to `terraform.tfvars`. On the PR branch: `terraform plan -var usage_store=memory -var extra_deploy_ref=refs/heads/scratch/wu-23a-deploy -out=tfplan`, review, `terraform apply tfplan`. This adds Firestore and its role, the ID-token role, the alert, and two variables today's image ignores.
-2. Push a scratch branch whose `deploy.yml` also runs on `scratch/wu-23a-deploy`. Its deploy runs the new image, and the contract check passes with an ID token.
-3. Apply again without `-var usage_store=memory`, and re-run the scratch deploy: the check now runs on Firestore. **From here until this PR's own deploy passes on `main`, merge nothing else to `main`:** today's image refuses `USAGE_STORE=firestore`, so any other merge's deploy would fail.
-4. After the merge's deploy passes on `main`: plan and apply from `main` with no `-var` flags, confirm `terraform plan` is clean, remove the `ci-contract` entry from `invite_codes` and apply, then `gh secret delete CONTRACT_INVITE_CODE`.
+### The Anthropic workspace (once)
 
-### Rolling out WU-23b (once)
+In the Anthropic Console, under Settings → Workspaces:
 
-Today's `deploy.yml` on `main` deploys `api` with the deploy identity and contract-checks it with that identity's ID token. The new pipeline needs the twin, the web service, the promote identity and the Environment first. So everything is added before the merge, the old grants stay until the new pipeline has run on `main` (the `rollout_wu23b` variable, `true` by default), and **nothing else merges to `main` from step 1 until the merge's own run passes**.
+1. Create a workspace used only by the demo, e.g. `trip-planner-demo`.
+2. Set its **monthly spend limit to $10**. Make sure it's a limit that rejects requests once it's reached, not only a notification. If the console offers a notification threshold too, set one at $5.
+3. Create an API key **in that workspace**. Copy it once, straight into step 3 of "Going live" below, and don't save it anywhere else.
 
-1. On the PR branch: set `extra_deploy_ref = "refs/heads/scratch/wu-23b"` in `terraform.tfvars`, then `terraform plan -out=tfplan`, review, `terraform apply tfplan`. This adds the web repository and service, the twin, the promote account, the `deployer` attribute and both identities' new grants, and points `api`'s `WEB_ORIGIN` at the web service. Set `GCP_PROMOTE_SA` (above), create the Environment `live` (above), and also allow the scratch branch: `gh api -X POST repos/{owner}/{repo}/environments/live/deployment-branch-policies -f name=scratch/wu-23b -f type=branch`.
-2. Push a scratch branch whose `deploy.yml` also runs on `scratch/wu-23b`. Its run builds, checks on the twin, runs the journeys and promotes. Then prove the failure paths there: a promote whose smoke check fails rolls back, and a job without the environment can't become the promote identity.
-3. After the merge's run passes on `main`: remove `extra_deploy_ref`, set `rollout_wu23b = false`, plan, apply. This removes the deploy identity's grants on `api` and its runtime account, the old repository-wide binding, and `api`'s trusted CI caller. Remove the scratch branch from `live` (`gh api repos/{owner}/{repo}/environments/live/deployment-branch-policies` lists the IDs; `gh api -X DELETE …/deployment-branch-policies/<id>`), and read it back: only `main`. `terraform plan` on `main` is then clean.
+The spend limit is the bound on everything: a leaked code, a bug that loops, a bad release. Keep it on.
+
+### Going live (once)
+
+`api` was switched from replay to live by WU-23c, from its PR branch before the merge. The order matters: a revision that references a secret with no version fails to start.
+
+1. Set `anthropic_api_key_version = "1"` in `terraform.tfvars`. Then create the secret and its grant only:
+   ```sh
+   terraform plan -out=tfplan -target=google_project_service.apis \
+     -target=google_secret_manager_secret.anthropic_api_key \
+     -target=google_secret_manager_secret_iam_member.runtime_api_key
+   terraform apply tfplan
+   ```
+2. Set up the workspace, its limit and its key (above).
+3. Add the key as version 1. Paste it on stdin, so it stays out of your shell history and out of every file. Never pass it as an argument.
+   ```sh
+   gcloud secrets versions add anthropic-api-key --data-file=-
+   # paste the key, press Enter, then Ctrl-D (Ctrl-Z then Enter on Windows)
+   ```
+   The output names the version it created. It must equal `anthropic_api_key_version`.
+4. Issue your own code (`pnpm invite:new owner --no-quota --hour 30`), and any codes you're giving out. Add their entries to `invite_codes`.
+5. Plan and apply in full (`terraform plan -out=tfplan`, review, `terraform apply tfplan`). `api` gets a new revision in live mode.
+
+### Rotate the key
+
+1. In the Anthropic Console, create a new key in the demo's workspace.
+2. Add it as a new version (`gcloud secrets versions add anthropic-api-key --data-file=-`, as above), and note the version number it prints.
+3. Set `anthropic_api_key_version` to that number, then plan and apply. Terraform starts a new revision that reads the new key. A redeploy of the same image wouldn't: the version is pinned for exactly that reason.
+4. Once the new revision serves (`gcloud run services describe api --region us-central1 --format="value(status.latestReadyRevisionName)"`), disable the old version (`gcloud secrets versions disable <old-version> --secret anthropic-api-key`) and delete the old key in the console.
+
+If a key may have leaked, delete it in the console **first**. Requests fail with a 502 until step 3 has applied, and nothing more can be spent with it.
+
+### Pause the demo
+
+- **For a while:** move every entry from `invite_codes` to `revoked_invite_codes`, then plan and apply. Every code gets a 401 from the next revision on. To keep testing yourself, leave your own entry where it is. Move the entries back to resume; their counts are kept.
+- **At once, in an emergency:** disable the key in the Anthropic Console. Model calls fail with a 502 straight away, and nothing more can be spent. To resume, rotate the key (above).
+- Scaling to zero pauses nothing: `api` already scales to zero when idle, and a request starts an instance.
+
+### Read the bill
+
+- **Model spend:** in the Anthropic Console, Usage and Cost, filtered to the demo's workspace. The workspace's spend limit shows how much of the month's limit is used. Expect a few cents per demo session (ADR 0005, WU-23c addendum).
+- **Who used it:** the gate's log lines (`jsonPayload.event="gate"`) give each request's label and outcome. The counts in Firestore give each code's totals ("Usage counts in Firestore" above).
+- **Hosting:** Google Cloud Billing → Reports, filtered to the project ("Cost" below).
 
 ## Reviewing and applying infra changes
 
@@ -156,7 +196,7 @@ The state bucket locks during an apply, so two applies can't collide, and it's v
 
 - **Change the infrastructure:** see above. CI checks `terraform fmt` and `terraform validate` on every PR (the `infra` job in `verify.yml`), but never plans or applies.
 - **Check for drift:** `terraform plan` should say "No changes" after any deploy. If it doesn't, something changed the service outside Terraform.
-- **Prove a deploy workflow change before merge:** the identity condition admits only `deploy.yml` on `main`. To test a change on a scratch branch, add the branch to `on.push.branches` in that branch's copy of `deploy.yml` only, set `extra_deploy_ref = "refs/heads/<branch>"` in `terraform.tfvars` and apply. For its promote job to run, also allow the branch in the Environment `live` (as in "Rolling out WU-23b"), and remove it afterwards. A push to the branch before that apply should fail at `auth` ("rejected by the attribute condition"), which shows other branches are refused. Remove it and apply again as soon as the run is green, then confirm `terraform output deploy_condition` mentions only `main`.
+- **Prove a deploy workflow change before merge:** the identity condition admits only `deploy.yml` on `main`. To test a change on a scratch branch, add the branch to `on.push.branches` in that branch's copy of `deploy.yml` only, set `extra_deploy_ref = "refs/heads/<branch>"` in `terraform.tfvars` and apply. For its promote job to run, also allow the branch in the Environment `live` (`gh api -X POST repos/{owner}/{repo}/environments/live/deployment-branch-policies -f name=<branch> -f type=branch`), and remove it afterwards (`gh api repos/{owner}/{repo}/environments/live/deployment-branch-policies` lists the IDs; `gh api -X DELETE …/deployment-branch-policies/<id>`; read it back: only `main`). A push to the branch before that apply should fail at `auth` ("rejected by the attribute condition"), which shows other branches are refused. Remove it and apply again as soon as the run is green, then confirm `terraform output deploy_condition` mentions only `main`.
 
 ## Rollback
 
@@ -178,6 +218,8 @@ Images of one commit carry the same tag (its SHA), so pick the pair by tag. Or r
 ## Cost
 
 Hosting should cost about $0 a month: the three services scale to zero, and the Cloud Run and Firestore free tiers cover a demo's traffic (an allowed request is 3 small reads and 3 writes). Check it in the console under Billing → Reports, filtered to the project. The budget emails the billing account's admins at 20 %, 50 % and 100 % of `budget_amount_usd` ($5 by default), and when the forecast passes it. Google Cloud has no hard spend cap; the budget is a warning.
+
+Model spend is billed by Anthropic, not Google, and capped by the demo workspace's spend limit ("The live demo" above). Secret Manager adds nothing: one active version and a few hundred reads a month are inside its free tier.
 
 ## Teardown
 
