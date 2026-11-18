@@ -39,7 +39,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-14 | Streamed presentation cards + a11y | WU-11, WU-13 | done |
 | WU-15 | Journeys + integrated gate | WU-14 | done |
 | WU-16 | Portfolio README & architecture docs | WU-15 | done |
-| WU-23a | Live-ready API | WU-21, WU-22 | in-progress |
+| WU-23a | Live-ready API | WU-21, WU-22 | done |
 | WU-23b | Web service + live release workflow | WU-23a | todo |
 | WU-23c | Live demo launch | WU-16, WU-23b | todo |
 
@@ -949,7 +949,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-23a — Live-ready API
-**Status:** in-progress · **Depends on:** WU-21, WU-22 · **Commits:**
+**Status:** done · **Depends on:** WU-21, WU-22 · **Commits:** [djuba/ai-trip-planner#37](https://github.com/djuba/ai-trip-planner/pull/37)
 
 **Goal:** everything the API needs before it can safely run live is built and proven on the hosted environment, which still runs in replay mode. After this unit, going live is configuration only.
 
@@ -975,6 +975,17 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 
 **Notes:**
 - Split from WU-23 at its start (2026-11-16); see [the plan](plans/WU-23a.md).
+- Done: see [the plan](plans/WU-23a.md), [`access-gate.md`](features/access-gate.md) (AC-GATE-20 to -29), [`production-logs.md`](features/production-logs.md) and the [ADR 0005 addendum](decisions/0005-hosting-and-access.md). The gate counts in Firestore through its REST API (preconditioned commits, jittered retries; `pnpm test:firestore` runs the store suite against the emulator in CI's `image` job). Invite entries take `;extract=`, `;recommend=`, `;present=` (a number or `none`), `;hour=` and `;expires=` options, set by `pnpm invite:new` flags. The post-deploy contract check sends a Google ID token of the deploy identity (label `ci-deploy`), verified with `jose`. An email alert fires on `revoked`, `expired`, `quota_exhausted` and `rate_limited`. Contract unchanged (0.6.0).
+- Decided at plan approval: WU-23 split in three; invite entries stay in Terraform (no Secret Manager; the WU-23 Secrets line predates hashed entries); Firestore through REST, not the SDK; ID tokens with `jose` in this unit; scratch-branch proof; `opus` unit review; all plan-review fixes.
+- Proven on the hosted environment (2026-11-18, plan deviation 16): the scratch deploy passed 33/33 contract tests with an ID token, first on the memory store, then on Firestore. Cloud Run passes the JWT through; the token is masked in the public log.
+- **Definition of done:** the hosted service runs on Firestore and the contract check passes with an ID token — done on the scratch branch, confirmed again by the merge's `main` deploy. The `CONTRACT_INVITE_CODE` secret and the `ci-contract` entry — **after the merge** (rollout step 4, below). Hosted live mode would start with this configuration — done: the persistent store was the obstacle; the API key and `LLM_MODE` are WU-23c's.
+- **After the merge** (rollout step 4, [`infra/README.md`](../infra/README.md)): once the `main` deploy passes, from an up-to-date `main` in `infra/`: `terraform plan -out=tfplan` with no `-var` flags (it should show only the identity condition dropping the scratch ref), `terraform apply tfplan`; then remove `ci-contract` from `invite_codes`, plan and apply (one service change); then `gh secret delete CONTRACT_INVITE_CODE` and `git push origin --delete scratch/wu-23a-deploy`. Until the `main` deploy passes, merge nothing else to `main`.
+- Learned:
+  - A trusted account's label must differ from every invite entry's, including entries about to be removed: the server refuses a label used twice at startup (unit review P0).
+  - A rollout where the new image needs new configuration and the old image refuses it needs a variable to stage it (`usage_store`), and a window in which nothing else merges to `main`.
+  - `terraform init` on a new platform adds its checksum to the lock file; commit it, or `-lockfile=readonly` fails there.
+  - In the desktop app's `!` shell each command starts at the repo root, so Terraform needs `-chdir=infra`.
+- Usage: main/Opus 143 req, 159k out; wu-implementer/Sonnet 31 req, 33k out; wu-reviewer/Opus 12 req, 17k out; wu-reviewer/Sonnet 3 req, 6k out.
 
 ---
 
@@ -993,6 +1004,8 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - The web service serves the UI against the hosted API (still replay), CORS across the real origins works, and the manual release workflow deploys both with your approval.
 
 **Notes:** see the WU-12, WU-15 and WU-21 entries under WU-23c's Notes, which this unit takes.
+- From WU-23a: the deploy workflow mints a Google ID token for the contract check (`contract-token` step; audience `ai-trip-planner-api`), and the API trusts the deploy identity as `ci-deploy`. A live-release workflow needs the same step. If live deploys get their own identity, add it to `TRUSTED_SERVICE_ACCOUNTS` with its own label (never one an invite entry uses) and grant it the ID-token role on itself. A contract check against a live service calls the model and counts toward the global daily window: decide whether it runs against live, or only against a replay candidate ([plan](plans/WU-23a.md), deviation 16).
+- From WU-23a: changes that need new configuration the running image refuses must be staged (a Terraform variable, as `usage_store` was) and proven on a scratch branch, with nothing else merged to `main` in between ([`infra/README.md`](../infra/README.md), "Rolling out WU-23a").
 
 ---
 
@@ -1019,6 +1032,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - No secret exists outside Secret Manager and the Anthropic console.
 
 **Notes:** (carried over from WU-23; the WU-12, WU-15 and WU-21 deploy items belong to WU-23b, the persistent counts, per-code limits, CI credential and alerts to WU-23a)
+- From WU-23a: the persistent store, per-code limits, the ID-token CI credential and the alert are built. The owner's code is `pnpm invite:new owner --no-quota --hour <n>`. Set the service-wide limits in `service.tf` from the cost arithmetic; per-code options override them. The global daily window is shared by every code and by the CI identity (`ci-deploy`), so size it to leave room for contract checks. An allowed request costs 3 Firestore reads and 3 writes, far inside the free tier ([ADR 0005 addendum](decisions/0005-hosting-and-access.md)).
 - From deployment planning: review tier `sonnet`; likely one code commit.
 - From WU-15: the journeys run against `next start` builds, not the container image (the image is checked by `pnpm test:image`). If the launch wants "test what you ship" end to end, add an opt-in `--image` mode to `scripts/run-journeys.ts` that starts the API from the image; the default must still need no Docker ([plan](plans/WU-15.md), D9).
 - If WU-21 was skipped, its scope moves here, ahead of everything above.
