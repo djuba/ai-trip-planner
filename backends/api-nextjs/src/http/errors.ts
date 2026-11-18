@@ -51,7 +51,11 @@ export function toErrorResponse(error: unknown): Response {
   if (error instanceof LlmError) {
     return envelope(502, error.code, error.message);
   }
-  // A bug: the details go to the log, never to the client.
-  console.error('Unhandled error in route handler', error);
+  // A bug: the details go to the log, never to the client. Only the name and stack are logged: the
+  // error object's other properties can carry a request body (AC-LOG-02).
+  console.error(
+    'Unhandled error in route handler',
+    error instanceof Error ? (error.stack ?? `${error.name}: ${error.message}`) : String(error),
+  );
   return envelope(500, 'INTERNAL_ERROR', 'Internal server error');
 }

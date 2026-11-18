@@ -81,6 +81,29 @@ describe('toErrorResponse', () => {
     const body = await response.text();
     expect(body).not.toContain('hunter2');
     expect(ErrorResponse.parse(JSON.parse(body)).error.code).toBe('INTERNAL_ERROR');
-    expect(log).toHaveBeenCalledWith(expect.any(String), thrown);
+    expect(log).toHaveBeenCalledWith(expect.any(String), expect.any(String));
+  });
+
+  it('AC-LOG-02: the log line holds the error name and stack, not its other properties', () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const error = Object.assign(new TypeError('boom'), {
+      requestBodyValues: { message: 'SENTINEL-USER-MESSAGE' },
+    });
+    toErrorResponse(error);
+    const logged = JSON.stringify(log.mock.calls);
+    expect(logged).not.toContain('SENTINEL-USER-MESSAGE');
+    expect(logged).toContain('TypeError');
+    expect(logged).toContain(error.stack?.split('\n')[1]?.trim() ?? 'unreachable');
+  });
+
+  it('AC-LOG-02: an error with no stack is logged as its name and message', () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const error = new RangeError('out of range');
+    error.stack = undefined;
+    toErrorResponse(error);
+    expect(log).toHaveBeenCalledWith(
+      'Unhandled error in route handler',
+      'RangeError: out of range',
+    );
   });
 });

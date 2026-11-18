@@ -74,6 +74,8 @@ export class ApiExitedError extends Error {
 
 export interface RunningApi {
   baseUrl: string;
+  /** Everything the server has written to stdout and stderr so far. */
+  output(): string;
   stop(): Promise<void>;
 }
 
@@ -124,7 +126,7 @@ export async function startApi(options: { env?: NodeJS.ProcessEnv } = {}): Promi
     if (exited) throw new ApiExitedError(await exit, output);
     try {
       const response = await fetch(`${baseUrl}/v1/health`);
-      if (response.ok) return { baseUrl, stop };
+      if (response.ok) return { baseUrl, output: () => output, stop };
     } catch {
       // Not listening yet.
     }
