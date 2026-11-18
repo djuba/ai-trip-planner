@@ -281,6 +281,14 @@ describe('the deploy pipeline (WU-23b)', () => {
     }
   });
 
+  it('AC-HOST-14: build checks a dispatched commit is a full SHA on main, and only a dispatched one', () => {
+    const steps = workflowSteps(jobs.build ?? '');
+    const check = steps.find((step) => step.startsWith('name: Check the commit is on main')) ?? '';
+    expect(check).toContain("if: inputs.sha != ''");
+    expect(check).toContain('^[0-9a-f]{40}$');
+    expect(check).toContain('git merge-base --is-ancestor "$SHA" origin/main');
+  });
+
   it('AC-HOST-14: journeys runs the integrated gate with no cloud access', () => {
     const journeys = jobs.journeys ?? '';
     expect(journeys).toContain('pnpm verify:integrated');

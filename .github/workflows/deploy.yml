@@ -83,8 +83,10 @@ jobs:
           fetch-depth: 0
 
       # A dispatch may name an older commit: a full SHA (every job checks out exactly that commit,
-      # and the images are tagged with it), and on main.
+      # and the images are tagged with it), and on main. A push needs no check: the identity
+      # condition admits only main (and a scratch ref while one is being proved).
       - name: Check the commit is on main
+        if: inputs.sha != ''
         run: |
           if ! [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
             echo "::error::sha must be a full 40-character commit SHA."
