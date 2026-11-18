@@ -41,6 +41,7 @@ describe('loadAccessConfig', () => {
         { label: 'bob', hash: HASH_B },
       ],
       revoked: [],
+      trusted: [],
       limits: DEFAULT_LIMITS,
       usageStore: 'memory',
     });
@@ -87,7 +88,11 @@ describe('loadAccessConfig', () => {
     ['a long label', `${'a'.repeat(33)}:${HASH_A}`],
     ['a short hash', 'alice:abc123'],
     ['an upper-case hash', `alice:${HASH_A.toUpperCase()}`],
-    ['an empty entry', `alice:${HASH_A},,bob:${HASH_B}`],
+    ['an unknown option', `alice:${HASH_A};colour=blue`],
+    ['a repeated option', `alice:${HASH_A};hour=5;hour=6`],
+    ['a zero quota', `alice:${HASH_A};extract=0`],
+    ['an option with no value', `alice:${HASH_A};hour`],
+    ['an impossible expiry date', `alice:${HASH_A};expires=2027-02-30`],
   ])('AC-GATE-08: an entry with %s is refused in every mode, without its value', (_, value) => {
     const error = failure({ INVITE_CODES: value });
     expect(error.variables).toEqual(['INVITE_CODES']);
@@ -200,6 +205,97 @@ describe('loadAccessConfig', () => {
     expect(failure({ USAGE_STORE: 'redis' }).variables).toEqual(['USAGE_STORE']);
   });
 
+  it('AC-GATE-20: reads per-entry options, leaving unset ones to the service-wide values', () => {
+    const { codes } = loadAccessConfig(
+      {
+        INVITE_CODES: `alice:${HASH_A};extract=7;recommend=none;hour=4;expires=2027-01-31, bob:${HASH_B}`,
+      },
+      'replay',
+    );
+    expect(codes).toEqual([
+      {
+        label: 'alice',
+        hash: HASH_A,
+        options: {
+          quota: { extract: 7, recommend: null },
+          perHour: 4,
+          expiresAt: Date.UTC(2027, 1, 1),
+        },
+      },
+      { label: 'bob', hash: HASH_B },
+    ]);
+  });
+
+  it('AC-GATE-20: a refused option is reported by variable and entry number, never by value', () => {
+    const error = failure({ INVITE_CODES: `alice:${HASH_A}, bob:${HASH_B};present=-1` });
+    expect(error.message).toContain('entry 2');
+    expect(error.message).not.toContain(HASH_B);
+    expect(error.message).not.toContain('bob');
+  });
+
+  it('AC-GATE-22: entries may be separated by newlines, with blank and # lines skipped', () => {
+    const { codes, revoked } = loadAccessConfig(
+      {
+        INVITE_CODES: `# recruiters\nalice:${HASH_A}\n\n  # interviews\nbob:${HASH_B},`,
+        REVOKED_INVITE_CODES: '\n# none yet\n',
+      },
+      'replay',
+    );
+    expect(codes.map(({ label }) => label)).toEqual(['alice', 'bob']);
+    expect(revoked).toEqual([]);
+  });
+
+  it('AC-GATE-08: USAGE_STORE=firestore is accepted, and lets a hosted server run live', () => {
+    const config = loadAccessConfig(
+      { INVITE_CODES: `alice:${HASH_A}`, USAGE_STORE: 'firestore' },
+      'live',
+    );
+    expect(config.usageStore).toBe('firestore');
+  });
+
+  it('AC-GATE-25: reads trusted service accounts and their audience', () => {
+    const config = loadAccessConfig(
+      {
+        TRUSTED_SERVICE_ACCOUNTS: 'ci-deploy:deploy@proj.iam.gserviceaccount.com',
+        ID_TOKEN_AUDIENCE: 'ai-trip-planner-api',
+      },
+      'replay',
+    );
+    expect(config.trusted).toEqual([
+      { label: 'ci-deploy', email: 'deploy@proj.iam.gserviceaccount.com' },
+    ]);
+    expect(config.idTokenAudience).toBe('ai-trip-planner-api');
+    expect(loadAccessConfig({}, 'replay')).not.toHaveProperty('idTokenAudience');
+  });
+
+  it.each([
+    ['no audience', { TRUSTED_SERVICE_ACCOUNTS: 'ci:a@b.com' }, ['ID_TOKEN_AUDIENCE']],
+    [
+      'a malformed entry',
+      { TRUSTED_SERVICE_ACCOUNTS: 'ci:not-an-email', ID_TOKEN_AUDIENCE: 'x' },
+      ['TRUSTED_SERVICE_ACCOUNTS'],
+    ],
+    [
+      'a label an invite entry uses',
+      {
+        INVITE_CODES: `ci:${HASH_A}`,
+        TRUSTED_SERVICE_ACCOUNTS: 'ci:a@b.com',
+        ID_TOKEN_AUDIENCE: 'x',
+      },
+      ['TRUSTED_SERVICE_ACCOUNTS'],
+    ],
+  ])('AC-GATE-25: refuses trusted accounts with %s', (_, env, variables) => {
+    expect(failure(env).variables).toEqual(variables);
+  });
+
+  it('AC-GATE-25: trusted accounts are enough to need no startup warning about empty codes', () => {
+    const config = loadAccessConfig(
+      { TRUSTED_SERVICE_ACCOUNTS: 'ci:a@b.com', ID_TOKEN_AUDIENCE: 'x' },
+      'replay',
+    );
+    expect(startupWarnings(config, 'replay')).toEqual([]);
+  });
+
   it('the committed hashes are the real hashes of the committed codes', () => {
     expect(hashInviteCode('local-dev-invite')).toBe(DEV_INVITE_CODE_HASH);
     expect(hashInviteCode(TEST_INVITE_CODE)).toBe(TEST_INVITE_CODE_HASH);
@@ -211,6 +307,7 @@ describe('startupWarnings', () => {
     gate: 'on',
     codes: [{ label: 'alice', hash: HASH_A }],
     revoked: [],
+    trusted: [],
     limits: DEFAULT_LIMITS,
     usageStore: 'memory',
     ...overrides,

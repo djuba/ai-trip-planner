@@ -1,6 +1,6 @@
 // Usage counters for the access gate (WU-22 plan D11). `take` checks every counter a request
 // needs and increments all of them or none, so a request one limit refuses consumes nothing from
-// the others. Async, so a database can implement it in a transaction (WU-23: Firestore).
+// the others. Async, so a database can implement it (WU-23a: Firestore, firestore-usage-store.ts).
 
 export interface Counter {
   key: string;
@@ -19,10 +19,41 @@ export interface UsageStore {
   take(counters: readonly Counter[], now: number): Promise<TakeResult>;
 }
 
-interface Slot {
+/** One counter's stored state. */
+export interface Slot {
   count: number;
   /** Start of the current window; unused for lifetime counters. */
   windowStart: number;
+}
+
+/**
+ * The one rule both stores apply (WU-23a plan D2): given each counter's stored slot (undefined if
+ * none), refuse at the first counter that is full, else increment every one. An ended window
+ * counts as empty and restarts at `now`. `next` is what to store when the request is allowed.
+ */
+export function decide(
+  counters: readonly Counter[],
+  slots: ReadonlyArray<Slot | undefined>,
+  now: number,
+): { result: TakeResult; next: Slot[] } {
+  const current = counters.map((counter, index) => {
+    const slot = slots[index];
+    const expired =
+      slot === undefined ||
+      (counter.windowMs !== null && now >= slot.windowStart + counter.windowMs);
+    return expired ? { count: 0, windowStart: now } : slot;
+  });
+  for (const [index, counter] of counters.entries()) {
+    const slot = current[index] as Slot;
+    if (slot.count >= counter.limit) {
+      const resetAt = counter.windowMs === null ? null : slot.windowStart + counter.windowMs;
+      return { result: { allowed: false, key: counter.key, resetAt }, next: [] };
+    }
+  }
+  return {
+    result: { allowed: true },
+    next: current.map(({ count, windowStart }) => ({ count: count + 1, windowStart })),
+  };
 }
 
 /**
@@ -35,23 +66,14 @@ export class MemoryUsageStore implements UsageStore {
 
   /** Never awaits between checking and incrementing, so concurrent requests can't both pass. */
   take(counters: readonly Counter[], now: number): Promise<TakeResult> {
-    const current = counters.map((counter) => {
-      const slot = this.#slots.get(counter.key);
-      const expired =
-        slot === undefined ||
-        (counter.windowMs !== null && now >= slot.windowStart + counter.windowMs);
-      return { counter, slot: expired ? { count: 0, windowStart: now } : slot };
-    });
-
-    for (const { counter, slot } of current) {
-      if (slot.count >= counter.limit) {
-        const resetAt = counter.windowMs === null ? null : slot.windowStart + counter.windowMs;
-        return Promise.resolve({ allowed: false, key: counter.key, resetAt });
-      }
+    const { result, next } = decide(
+      counters,
+      counters.map(({ key }) => this.#slots.get(key)),
+      now,
+    );
+    if (result.allowed) {
+      counters.forEach(({ key }, index) => this.#slots.set(key, next[index] as Slot));
     }
-    for (const { counter, slot } of current) {
-      this.#slots.set(counter.key, { count: slot.count + 1, windowStart: slot.windowStart });
-    }
-    return Promise.resolve({ allowed: true });
+    return Promise.resolve(result);
   }
 }

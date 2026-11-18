@@ -2,8 +2,8 @@
 # which the deploy workflow sets (gcloud run services update --image), so a deploy leaves
 # `terraform plan` clean.
 
-# Runs the service. No roles: replay mode reads only files baked into the image. WU-23 grants it
-# read access to the one API key secret.
+# Runs the service. Its one role is Firestore in the default database (firestore.tf), for the
+# gate's usage counts. WU-23c grants it read access to the one API key secret.
 resource "google_service_account" "runtime" {
   account_id   = "api-runtime"
   display_name = "api-nextjs runtime"
@@ -56,9 +56,8 @@ resource "google_cloud_run_v2_service" "api" {
         name  = "WEB_ORIGIN"
         value = var.web_origin
       }
-      # The access gate (WU-22). Replay costs nothing, so the limits only need to stay out of the
-      # way of the post-deploy contract check, which sends the CI code on every deploy. WU-23 sets
-      # the live values (and needs a persistent usage store: live mode refuses the memory one).
+      # The access gate (WU-22, WU-23a). Replay costs nothing, so the limits only need to stay out
+      # of the way of the post-deploy contract check. WU-23c sets the live values.
       env {
         name  = "INVITE_CODES"
         value = local.invite_codes
@@ -86,6 +85,29 @@ resource "google_cloud_run_v2_service" "api" {
       env {
         name  = "RATE_LIMIT_GLOBAL_PER_DAY"
         value = "10000"
+      }
+      # Counts persist in Firestore, so hosted live mode can start (WU-23a plan D1). A variable only
+      # for the rollout: an image from before WU-23a refuses `firestore` (infra/README.md).
+      env {
+        name  = "USAGE_STORE"
+        value = var.usage_store
+      }
+      # Saves a metadata server call for the Firestore store.
+      env {
+        name  = "GOOGLE_CLOUD_PROJECT"
+        value = var.project_id
+      }
+      # The post-deploy contract check sends a Google ID token of the deploy identity, not a stored
+      # code (WU-23a plan D4). The gate counts it only in the global daily window. The audience must
+      # equal id_token_audience in .github/workflows/deploy.yml (a test checks). The label must differ
+      # from every invite entry's, or the server refuses to start; `ci-contract` was the old CI code's.
+      env {
+        name  = "TRUSTED_SERVICE_ACCOUNTS"
+        value = "ci-deploy:${google_service_account.deploy.email}"
+      }
+      env {
+        name  = "ID_TOKEN_AUDIENCE"
+        value = var.id_token_audience
       }
       # Must equal CONTRACT_TEST_ENV (backends/api-nextjs/tests/support/api-server.ts): cassette
       # keys hash the model request, model ID included, so the contract suite's cassettes replay
@@ -125,7 +147,8 @@ resource "google_cloud_run_v2_service" "api" {
     ]
   }
 
-  depends_on = [google_project_service.apis]
+  # A revision on the Firestore store needs its grant before it starts.
+  depends_on = [google_project_service.apis, google_project_iam_member.runtime_firestore]
 }
 
 # Public, so the contract suite (and later the browser) can call it. Unadvertised, replay-only and

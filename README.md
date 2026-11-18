@@ -115,7 +115,7 @@ Every feature's acceptance criteria are in [docs/features/](docs/features/), eac
 |---|---|---|---|
 | Pre-commit | (lefthook) | Lint and format the staged files, gitleaks secret scan | Every commit |
 | Project | `pnpm verify` | Typecheck, lint, format, generated-file drift, dependency audit, unit, integration, functional and contract tests, coverage | Every push (`pre-push`), and CI job `verify` on every PR |
-| Image | `pnpm test:image` | Builds the API image, checks it runs as non-root with no secrets, runs the provider contract tests against it | CI job `image`; locally where Docker is installed |
+| Image | `pnpm test:image`, `pnpm test:firestore` | Builds the API image, checks it runs as non-root with no secrets, runs the provider contract tests against it; then checks the Firestore usage store against the Firestore emulator | CI job `image`; locally where Docker is installed |
 | Infrastructure | — | `terraform fmt`, `init` and `validate`, with no credentials | CI job `infra` |
 | Integrated | `pnpm verify:integrated` | Builds both apps, starts them in replay mode, runs the `@smoke` and `@critical` journeys | Locally, before a release |
 | Full | `pnpm verify:full` | The `@full` journeys, then the provider contract tests | Locally |
@@ -177,7 +177,7 @@ The trip endpoints need `Authorization: Bearer <invite code>`. A business-rule p
 - Chromium for Playwright, installed once with `pnpm --filter @vp/journeys exec playwright install chromium`
 - To commit: [gitleaks](https://github.com/gitleaks/gitleaks) 8.30.1 on `PATH` for the pre-commit secret scan (`winget install Gitleaks.Gitleaks` or `brew install gitleaks`). Without it, commits are blocked. Running and verifying don't need it.
 - On Windows, the Microsoft Visual C++ 2015–2022 Redistributable (x64) for the Pact verifier's native library (`winget install Microsoft.VCRedist.2015+.x64`). Without it, `pnpm test:contract` fails with a message saying so.
-- Optional: Docker, only to build and test the API container image (`pnpm test:image`). `pnpm verify` doesn't use it, and CI always runs the image check.
+- Optional: Docker, only to build and test the API container image (`pnpm test:image`) and the Firestore usage store (`pnpm test:firestore`). `pnpm verify` doesn't use it, and CI always runs both.
 
 ## Commands
 
@@ -190,6 +190,7 @@ pnpm verify:integrated    # integrated gate: build both apps, start them (replay
 pnpm verify:full          # nightly-equivalent gate: journeys @full, then the provider contract tests
 pnpm test:journeys        # every journey; Playwright arguments pass through (e.g. --grep @full, --headed)
 pnpm test:image           # needs Docker: build the API image, check it, contract tests against it
+pnpm test:firestore       # needs Docker: the access gate's Firestore usage store against the emulator
 pnpm eval --budget 1      # LIVE, costs money: extraction quality and injection evals (never gated)
 ```
 

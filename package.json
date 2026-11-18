@@ -24,6 +24,7 @@
     "test:contract": "node scripts/run-contract.ts",
     "test:contract:external": "node scripts/run-contract.ts --external",
     "test:image": "node scripts/test-image.ts",
+    "test:firestore": "node scripts/test-firestore.ts",
     "record:cassettes": "node scripts/record-cassettes.ts",
     "invite:new": "node scripts/invite-code.ts",
     "eval": "node backends/api-nextjs/eval/run.ts",

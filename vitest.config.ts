@@ -14,6 +14,8 @@ const excludeEverywhere = [
   '**/.next-journeys/**',
   // Claude Code's git worktrees for other units (WU-20 plan, deviations): their tests aren't ours.
   '.claude/**',
+  // Needs the Firestore emulator; only the `firestore` project below collects it.
+  'backends/api-nextjs/tests/firestore/**',
 ];
 
 const FUNCTIONAL = '**/tests/functional/**/*.test.{ts,tsx}';
@@ -100,6 +102,16 @@ export default defineConfig({
           globalSetup: ['backends/api-nextjs/tests/support/build-once.ts'],
           testTimeout: 60_000,
           hookTimeout: 60_000,
+        },
+      },
+      {
+        // Run by `pnpm test:firestore`, which starts the emulator; not part of `pnpm verify`.
+        extends: true,
+        test: {
+          name: 'firestore',
+          include: ['backends/api-nextjs/tests/firestore/**/*.test.ts'],
+          exclude: configDefaults.exclude,
+          testTimeout: 30_000,
         },
       },
     ],

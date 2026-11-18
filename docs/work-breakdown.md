@@ -39,7 +39,9 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-14 | Streamed presentation cards + a11y | WU-11, WU-13 | done |
 | WU-15 | Journeys + integrated gate | WU-14 | done |
 | WU-16 | Portfolio README & architecture docs | WU-15 | done |
-| WU-23 | Live demo launch | WU-16, WU-21, WU-22 | todo |
+| WU-23a | Live-ready API | WU-21, WU-22 | done |
+| WU-23b | Web service + live release workflow | WU-23a | todo |
+| WU-23c | Live demo launch | WU-16, WU-23b | todo |
 
 ```
 WU-01 ─┬─ WU-02 ─┐
@@ -48,11 +50,11 @@ WU-01 ─┬─ WU-02 ─┐
                            │   WU-03,06 ─ WU-08 ─ WU-19 ┘                                         │
                            └──── WU-22 (needs WU-20) ─ WU-12 ─ WU-13 (needs WU-09) ───────────────┴─ WU-14 ─ WU-15 ─ WU-16 ─┐
                                                                                                                             │
-Hosting track:   WU-08 ─ WU-20 ─┬─ WU-21 ─────────────────────────────────────────────────────────────────────────────── WU-23
+Hosting track:   WU-08 ─ WU-20 ─┬─ WU-21 ─ WU-23a ─ WU-23b ──────────────────────────────────────────────────────────── WU-23c
                                 └─ WU-22 (above)
 ```
 
-WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of sequence. This table and the sections below list them in build order. WU-19 comes before WU-17: WU-17 depends on it.
+WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of sequence. WU-23 was split into WU-23a, WU-23b and WU-23c when it was started (2026-11-16). This table and the sections below list them in build order. WU-19 comes before WU-17: WU-17 depends on it.
 
 **Hosting track (WU-20 to WU-23).** The live demo is for interviewers who ask for it, so it launches last (WU-23), once the UI is complete and the README exists. The pieces that are useful before then come early. WU-20 decides the approach and builds the API image, which CI checks against the contract right away. WU-21 deploys that image to the one hosted environment in replay mode, at no cost and unadvertised, so every later merge proves the deployment still works. WU-22 adds the access gate before WU-12, so the web client and its pact include it from the start. Only WU-23 depends on WU-21, so WU-21 can move later, or fold into WU-23, without changing anything else.
 
@@ -946,19 +948,78 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 
 ---
 
-## WU-23 — Live demo launch
-**Status:** todo · **Depends on:** WU-16, WU-21, WU-22 · **Commits:**
+## WU-23a — Live-ready API
+**Status:** done · **Depends on:** WU-21, WU-22 · **Commits:** [djuba/ai-trip-planner#37](https://github.com/djuba/ai-trip-planner/pull/37)
+
+**Goal:** everything the API needs before it can safely run live is built and proven on the hosted environment, which still runs in replay mode. After this unit, going live is configuration only.
+
+**Scope** (from WU-23 and the WU-22 Notes carried under WU-23c)
+- **Persistent counts:** a Firestore `UsageStore` behind the existing interface; the hosted replay service uses it from this unit on.
+- **Per-code limits:** per-entry quotas (or none), hourly window, expiry and revocation, set by `pnpm invite:new` flags and editable without reissuing the code.
+- **CI credential:** the post-deploy contract check sends a Google ID token of the deploy identity, verified by the gate against an allowlist; the `CONTRACT_INVITE_CODE` secret is deleted.
+- **Invite entries stay in Terraform** (`terraform.tfvars`, git-ignored): they are hashes, not secrets, since WU-22. The API key, the one real secret, is WU-23c's ([plan](plans/WU-23a.md), A1).
+- **Alerts:** a log-based alert on `revoked`, `quota_exhausted` and unusual volume for one label.
+- **Logging review:** production logs carry usage, latency, discard signals and labels, never message content, codes or hashes.
+- Runbook (`infra/README.md`) for issuing, editing and revoking codes, the alert and the logs; an ADR 0005 addendum.
+
+**Required tests**
+- *Unit:* entry options and expiry, ID-token verification, the Firestore store against a fake, `invite:new` flags.
+- *Integration:* the Firestore store against the emulator (`pnpm test:firestore`, Docker, in CI's `image` job).
+- *Functional:* a full run logs no message content or code.
+- *Contract:* the post-deploy check passes with the ID token, on the Firestore store.
+
+**Definition of done**
+- The hosted service (replay) runs on the Firestore store, and the post-deploy contract check passes with an ID token.
+- The `CONTRACT_INVITE_CODE` secret and its `ci-contract` entry are deleted.
+- Hosted live mode would start with this configuration (the memory store is no longer the obstacle).
+
+**Notes:**
+- Split from WU-23 at its start (2026-11-16); see [the plan](plans/WU-23a.md).
+- Done: see [the plan](plans/WU-23a.md), [`access-gate.md`](features/access-gate.md) (AC-GATE-20 to -29), [`production-logs.md`](features/production-logs.md) and the [ADR 0005 addendum](decisions/0005-hosting-and-access.md). The gate counts in Firestore through its REST API (preconditioned commits, jittered retries; `pnpm test:firestore` runs the store suite against the emulator in CI's `image` job). Invite entries take `;extract=`, `;recommend=`, `;present=` (a number or `none`), `;hour=` and `;expires=` options, set by `pnpm invite:new` flags. The post-deploy contract check sends a Google ID token of the deploy identity (label `ci-deploy`), verified with `jose`. An email alert fires on `revoked`, `expired`, `quota_exhausted` and `rate_limited`. Contract unchanged (0.6.0).
+- Decided at plan approval: WU-23 split in three; invite entries stay in Terraform (no Secret Manager; the WU-23 Secrets line predates hashed entries); Firestore through REST, not the SDK; ID tokens with `jose` in this unit; scratch-branch proof; `opus` unit review; all plan-review fixes.
+- Proven on the hosted environment (2026-11-18, plan deviation 16): the scratch deploy passed 33/33 contract tests with an ID token, first on the memory store, then on Firestore. Cloud Run passes the JWT through; the token is masked in the public log.
+- **Definition of done:** the hosted service runs on Firestore and the contract check passes with an ID token — done on the scratch branch, confirmed again by the merge's `main` deploy. The `CONTRACT_INVITE_CODE` secret and the `ci-contract` entry — **after the merge** (rollout step 4, below). Hosted live mode would start with this configuration — done: the persistent store was the obstacle; the API key and `LLM_MODE` are WU-23c's.
+- **After the merge** (rollout step 4, [`infra/README.md`](../infra/README.md)): once the `main` deploy passes, from an up-to-date `main` in `infra/`: `terraform plan -out=tfplan` with no `-var` flags (it should show only the identity condition dropping the scratch ref), `terraform apply tfplan`; then remove `ci-contract` from `invite_codes`, plan and apply (one service change); then `gh secret delete CONTRACT_INVITE_CODE` and `git push origin --delete scratch/wu-23a-deploy`. Until the `main` deploy passes, merge nothing else to `main`.
+- Learned:
+  - A trusted account's label must differ from every invite entry's, including entries about to be removed: the server refuses a label used twice at startup (unit review P0).
+  - A rollout where the new image needs new configuration and the old image refuses it needs a variable to stage it (`usage_store`), and a window in which nothing else merges to `main`.
+  - `terraform init` on a new platform adds its checksum to the lock file; commit it, or `-lockfile=readonly` fails there.
+  - In the desktop app's `!` shell each command starts at the repo root, so Terraform needs `-chdir=infra`.
+- Usage: main/Opus 143 req, 159k out; wu-implementer/Sonnet 31 req, 33k out; wu-reviewer/Opus 12 req, 17k out; wu-reviewer/Sonnet 3 req, 6k out.
+
+---
+
+## WU-23b — Web service + live release workflow
+**Status:** todo · **Depends on:** WU-23a · **Commits:**
+
+**Goal:** the web client runs on Cloud Run next to the API, and live deploys go out only through a manual release that you approve.
+
+**Scope** (from WU-23 and the WU-12, WU-15 and WU-21 Notes carried under WU-23c)
+- `apps/web-nextjs/Dockerfile` on the WU-20 pattern, with `NEXT_PUBLIC_API_BASE_URL` as a build argument; the web service in `infra/`; the API's `WEB_ORIGIN` pointed at it; the deploy workflow extended.
+- **Release trigger:** live deploys run from a manual workflow (or a tag), after `pnpm verify:integrated` passes locally, through a GitHub Environment that needs your approval. Merges to `main` no longer deploy straight to live. Record in ADR 0005 how the replay-mode contract check fits from now on.
+- The live deploy identity: accept that the deploy identity can reach the API key, or give live deploys their own identity behind the Environment (WU-21 Note). Record the choice in ADR 0005.
+- Optional: candidate-tag deploys and the journeys' `--image` mode (WU-23c's Notes).
+
+**Definition of done**
+- The web service serves the UI against the hosted API (still replay), CORS across the real origins works, and the manual release workflow deploys both with your approval.
+
+**Notes:** see the WU-12, WU-15 and WU-21 entries under WU-23c's Notes, which this unit takes.
+- From WU-23a: the deploy workflow mints a Google ID token for the contract check (`contract-token` step; audience `ai-trip-planner-api`), and the API trusts the deploy identity as `ci-deploy`. A live-release workflow needs the same step. If live deploys get their own identity, add it to `TRUSTED_SERVICE_ACCOUNTS` with its own label (never one an invite entry uses) and grant it the ID-token role on itself. A contract check against a live service calls the model and counts toward the global daily window: decide whether it runs against live, or only against a replay candidate ([plan](plans/WU-23a.md), deviation 16).
+- From WU-23a: changes that need new configuration the running image refuses must be staged (a Terraform variable, as `usage_store` was) and proven on a scratch branch, with nothing else merged to `main` in between ([`infra/README.md`](../infra/README.md), "Rolling out WU-23a").
+
+---
+
+## WU-23c — Live demo launch
+**Status:** todo · **Depends on:** WU-16, WU-23b · **Commits:**
 
 **Goal:** the hosted environment becomes a live demo, offered on request to interviewers, with a worst-case monthly cost within the $5–10 budget.
 
 **Scope**
 - **Cost first:** from the WU-10 usage figures and one recorded full session, work out the cost per demo session. Size the rate limits and the spend limit from it, and record the arithmetic in ADR 0005.
 - **Anthropic:** a dedicated workspace for the demo with a hard spend limit, and its own API key. This is an account setting, documented in the runbook.
-- **Secrets:** Terraform creates the Secret Manager secrets, but their values (API key, invite codes) are added by hand, so they never appear in Terraform state, CI or the repo. The runtime service account can read them.
-- **Switch to live:** `LLM_MODE=live`, the model IDs (consider `MODEL_CRITIC` on Haiku for cost), and the WU-22 rate limits. The gate fails closed (WU-22).
-- **Release trigger:** live deploys run from a manual workflow (or a tag), after `pnpm verify:integrated` passes locally, through a GitHub Environment that needs your approval. Merges to `main` no longer deploy straight to live. Record in ADR 0005 how the replay-mode contract check fits from now on.
-- **Logging review:** production logs carry usage, latency, discard signals and code hashes, never message content or codes.
-- **Runbook** (`infra/README.md`): issue and revoke a code, rotate the key, pause the demo (scale to zero or remove the codes), and read the logs and the bill.
+- **Secrets:** the API key secret in Secret Manager (Terraform creates it, you add the value), readable by the runtime service account.
+- **Switch to live:** `LLM_MODE=live`, the model IDs (consider `MODEL_CRITIC` on Haiku for cost), the final limits, the owner's code. The gate fails closed (WU-22).
+- **Runbook** (`infra/README.md`): rotate the key, pause the demo (scale to zero or revoke the codes), and read the bill.
 - **README:** a "Live demo available on request" line and how to ask. No public URL or code.
 
 **Required tests**
@@ -969,9 +1030,9 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 - The checklist passes on the hosted environment.
 - Worst-case monthly spend is bounded by the Anthropic spend limit, which is at most $10, plus about $0 of hosting.
 - No secret exists outside Secret Manager and the Anthropic console.
-- Hosted live mode runs with a persistent usage store (WU-22: a hosted server refuses live mode with the in-memory one).
 
-**Notes:**
+**Notes:** (carried over from WU-23; the WU-12, WU-15 and WU-21 deploy items belong to WU-23b, the persistent counts, per-code limits, CI credential and alerts to WU-23a)
+- From WU-23a: the persistent store, per-code limits, the ID-token CI credential and the alert are built. The owner's code is `pnpm invite:new owner --no-quota --hour <n>`. Set the service-wide limits in `service.tf` from the cost arithmetic; per-code options override them. The global daily window is shared by every code and by the CI identity (`ci-deploy`), so size it to leave room for contract checks. An allowed request costs 3 Firestore reads and 3 writes, far inside the free tier ([ADR 0005 addendum](decisions/0005-hosting-and-access.md)).
 - From deployment planning: review tier `sonnet`; likely one code commit.
 - From WU-15: the journeys run against `next start` builds, not the container image (the image is checked by `pnpm test:image`). If the launch wants "test what you ship" end to end, add an opt-in `--image` mode to `scripts/run-journeys.ts` that starts the API from the image; the default must still need no Docker ([plan](plans/WU-15.md), D9).
 - If WU-21 was skipped, its scope moves here, ahead of everything above.

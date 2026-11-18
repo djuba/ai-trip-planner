@@ -1,5 +1,6 @@
 # Deploys the API to the hosted environment on every merge to main, then runs the provider contract
-# tests against it (WU-21; ADR 0005), sending the CI invite code (WU-22). It authenticates
+# tests against it (WU-21; ADR 0005), authenticating to the API with a short-lived Google ID token of
+# the deploy identity rather than a stored invite code (WU-23a plan D4). It authenticates
 # through GitHub OIDC and Workload Identity Federation: no stored key, no cloud credential. Only
 # this file, run from main, passes the identity provider's condition (infra/deploy-identity.tf).
 # The deploy changes only the running image; everything else about the service is Terraform's
@@ -101,15 +102,31 @@ jobs:
       - name: Deploy
         run: gcloud run services update "$SERVICE" --region "$REGION" --image "$IMAGE_REF" --quiet
 
+      # A Google ID token of the deploy identity, for the API's access gate (WU-23a plan D4). It lives
+      # an hour, works only for this audience, and the gate accepts it only for this account's email
+      # (TRUSTED_SERVICE_ACCOUNTS in infra/service.tf). The action masks it in the log. It writes no
+      # credentials file and exports nothing, so it adds no cloud credential to the job.
+      - id: contract-token
+        name: Mint an ID token for the contract tests
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA }}
+          token_format: id_token
+          id_token_audience: ai-trip-planner-api
+          id_token_include_email: true
+          create_credentials_file: false
+          export_environment_variables: false
+
       # The contract suite runs with no cloud credential reachable: the credential file variables,
-      # gcloud's config and the OIDC token request variables are all withheld. The CI invite code
-      # (WU-22 plan D9) reaches this step only, and is checked here rather than in an earlier step.
+      # gcloud's config and the OIDC token request variables are all withheld. The runner sends
+      # CONTRACT_INVITE_CODE as the Bearer value, here the ID token.
       - name: Provider contract tests against the service
         env:
-          CONTRACT_INVITE_CODE: ${{ secrets.CONTRACT_INVITE_CODE }}
+          CONTRACT_INVITE_CODE: ${{ steps.contract-token.outputs.id_token }}
         run: |
           if [ -z "$CONTRACT_INVITE_CODE" ]; then
-            echo "::error::Set the CONTRACT_INVITE_CODE repository secret, and its entry in the service's invite_codes (infra/README.md)."
+            echo "::error::The ID token step produced no token."
             exit 1
           fi
           env -u GOOGLE_APPLICATION_CREDENTIALS -u CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE \

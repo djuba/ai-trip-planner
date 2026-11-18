@@ -83,3 +83,12 @@ resource "google_service_account_iam_member" "deploy_act_as_runtime" {
   role               = "roles/iam.serviceAccountUser"
   member             = google_service_account.deploy.member
 }
+
+# The deploy workflow mints a Google ID token of this account for the post-deploy contract check
+# (WU-23a plan D4), so no invite code is stored in GitHub. The token's audience is the API's
+# ID_TOKEN_AUDIENCE, and the gate accepts it only for this account's email.
+resource "google_service_account_iam_member" "deploy_id_token" {
+  service_account_id = google_service_account.deploy.name
+  role               = "roles/iam.serviceAccountOpenIdTokenCreator"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository_id/${var.github_repository_id}"
+}

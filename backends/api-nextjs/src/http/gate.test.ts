@@ -1,5 +1,12 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Limits } from './access-config.ts';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  ISSUED_AT,
+  TEST_ACCOUNT,
+  TEST_AUDIENCE,
+  testSigner,
+  type TestSigner,
+} from '../../tests/support/id-token.ts';
+import type { InviteEntry, Limits } from './access-config.ts';
 import {
   QuotaExhaustedError,
   RateLimitedError,
@@ -8,6 +15,7 @@ import {
   createGate,
   type GateEvent,
 } from './gate.ts';
+import { createIdTokenVerifier } from './id-token.ts';
 import { hashInviteCode } from './invite-code.ts';
 import { MemoryUsageStore } from './usage-store.ts';
 
@@ -197,5 +205,219 @@ describe('consoleGateLog', () => {
         code: 'carol',
       },
     ]);
+  });
+});
+
+describe('createGate: per-code options (WU-23a)', () => {
+  const DAY = 24 * HOUR;
+
+  function optioned(options: InviteEntry['options'], limitOverrides: Partial<Limits> = {}) {
+    const events: GateEvent[] = [];
+    let clock = Date.UTC(2027, 0, 31, 12);
+    const gate = createGate({
+      config: {
+        codes: [
+          { label: 'owner', hash: hashInviteCode(CODE), ...(options ? { options } : {}) },
+          { label: 'bob', hash: hashInviteCode(OTHER) },
+        ],
+        revoked: [],
+        limits: limits(limitOverrides),
+      },
+      store: new MemoryUsageStore(),
+      now: () => clock,
+      log: (event) => events.push(event),
+    });
+    const check = (endpoint: string, code = CODE) =>
+      gate.check(
+        new Request(`http://api.test/v1/trip/${endpoint}`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${code}` },
+        }),
+      );
+    return {
+      events,
+      check,
+      advance: (ms: number) => {
+        clock += ms;
+      },
+    };
+  }
+
+  it('AC-GATE-20: an entry’s quota overrides the service-wide one for that code only', async () => {
+    const { check } = optioned({ quota: { recommend: 1 } });
+    await check('recommend');
+    await expect(check('recommend')).rejects.toBeInstanceOf(QuotaExhaustedError);
+    await expect(check('recommend', OTHER)).resolves.toBeUndefined();
+    await expect(check('present')).resolves.toBeUndefined();
+  });
+
+  it('AC-GATE-20: a `none` quota never runs out, but the hourly and global windows still apply', async () => {
+    const { check, advance } = optioned(
+      { quota: { extract: null } },
+      { quota: { extract: 1, recommend: 100, present: 100 }, perHour: 3, globalPerDay: 5 },
+    );
+    for (let i = 0; i < 3; i += 1) await check('extract');
+    await expect(check('extract')).rejects.toBeInstanceOf(RateLimitedError);
+    advance(HOUR);
+    await check('extract');
+    await check('extract');
+    await expect(check('extract')).rejects.toBeInstanceOf(RateLimitedError);
+    const error = (await check('extract', OTHER).catch((e: unknown) => e)) as RateLimitedError;
+    expect(error).toBeInstanceOf(RateLimitedError);
+  });
+
+  it('AC-GATE-20: an entry’s hourly window overrides the service-wide one', async () => {
+    const { check } = optioned({ perHour: 1 });
+    await check('extract');
+    await expect(check('extract')).rejects.toBeInstanceOf(RateLimitedError);
+    await expect(check('extract', OTHER)).resolves.toBeUndefined();
+  });
+
+  it('AC-GATE-21: a code works through its expiry day (UTC), then is a 401 logged as expired', async () => {
+    const expiresAt = Date.UTC(2027, 1, 1);
+    const { check, advance, events } = optioned({ expiresAt });
+    await expect(check('extract')).resolves.toBeUndefined();
+    advance(expiresAt - 1 - Date.UTC(2027, 0, 31, 12));
+    await expect(check('extract')).resolves.toBeUndefined();
+    advance(1);
+    await expect(check('extract')).rejects.toBeInstanceOf(UnauthorizedError);
+    advance(DAY);
+    await expect(check('extract')).rejects.toBeInstanceOf(UnauthorizedError);
+    expect(events.map((e) => [e.outcome, e.code])).toEqual([
+      ['allowed', 'owner'],
+      ['allowed', 'owner'],
+      ['expired', 'owner'],
+      ['expired', 'owner'],
+    ]);
+  });
+
+  it('AC-GATE-21: an expired code touches no counter', async () => {
+    const { check, advance } = optioned(
+      { expiresAt: Date.UTC(2027, 0, 31, 13) },
+      {
+        globalPerDay: 1,
+      },
+    );
+    advance(2 * HOUR);
+    await expect(check('extract')).rejects.toBeInstanceOf(UnauthorizedError);
+    await expect(check('extract', OTHER)).resolves.toBeUndefined();
+  });
+});
+
+describe('createGate: service-account ID tokens (WU-23a)', () => {
+  const NOW = (ISSUED_AT + 60) * 1000;
+  let signer: TestSigner;
+
+  beforeAll(async () => {
+    signer = await testSigner();
+  });
+
+  function trustedGate(options: { verifier?: boolean; globalPerDay?: number } = {}) {
+    const events: GateEvent[] = [];
+    const gate = createGate({
+      config: {
+        codes: [{ label: 'alice', hash: hashInviteCode(CODE) }],
+        revoked: [],
+        trusted: [{ label: 'ci-deploy', email: TEST_ACCOUNT }],
+        limits: limits({
+          quota: { extract: 1, recommend: 1, present: 1 },
+          perHour: 1,
+          globalPerDay: options.globalPerDay ?? 100,
+        }),
+      },
+      store: new MemoryUsageStore(),
+      now: () => NOW,
+      log: (event) => events.push(event),
+      ...(options.verifier === false
+        ? {}
+        : { idTokens: createIdTokenVerifier({ audience: TEST_AUDIENCE, keys: signer.keys }) }),
+    });
+    const check = (endpoint: string, credential: string) =>
+      gate.check(
+        new Request(`http://api.test/v1/trip/${endpoint}`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${credential}` },
+        }),
+      );
+    return { events, check };
+  }
+
+  it('AC-GATE-23: a trusted account’s token is allowed under its label, with no quota or hourly window', async () => {
+    const { check, events } = trustedGate();
+    const token = await signer.sign();
+    for (let i = 0; i < 5; i += 1) await expect(check('recommend', token)).resolves.toBeUndefined();
+    expect(events.at(-1)).toEqual({
+      outcome: 'allowed',
+      path: '/v1/trip/recommend',
+      code: 'ci-deploy',
+    });
+  });
+
+  it('AC-GATE-23: a trusted account is still counted by the global daily window', async () => {
+    const { check } = trustedGate({ globalPerDay: 2 });
+    const token = await signer.sign();
+    await check('extract', token);
+    await check('extract', CODE);
+    await expect(check('extract', token)).rejects.toBeInstanceOf(RateLimitedError);
+  });
+
+  it('AC-GATE-24: an unlisted account or a bad token is a 401 logged as invalid_token, without the token', async () => {
+    const { check, events } = trustedGate();
+    const unlisted = await signer.sign({ email: 'someone@else.iam.gserviceaccount.com' });
+    const wrongAudience = await signer.sign({ aud: 'elsewhere' });
+    await expect(check('extract', unlisted)).rejects.toBeInstanceOf(UnauthorizedError);
+    await expect(check('extract', wrongAudience)).rejects.toBeInstanceOf(UnauthorizedError);
+    await expect(check('extract', 'x.y.z')).rejects.toBeInstanceOf(UnauthorizedError);
+    expect(events).toEqual([
+      { outcome: 'invalid_token', path: '/v1/trip/extract' },
+      { outcome: 'invalid_token', path: '/v1/trip/extract' },
+      { outcome: 'invalid_token', path: '/v1/trip/extract' },
+    ]);
+    expect(JSON.stringify(events)).not.toContain(unlisted);
+  });
+
+  it('AC-GATE-24: with no verifier configured, every JWT is refused', async () => {
+    const { check, events } = trustedGate({ verifier: false });
+    await expect(check('extract', await signer.sign())).rejects.toBeInstanceOf(UnauthorizedError);
+    expect(events).toEqual([{ outcome: 'invalid_token', path: '/v1/trip/extract' }]);
+  });
+
+  it('AC-GATE-24: with no trusted accounts, a valid token is still refused', async () => {
+    const events: GateEvent[] = [];
+    const gate = createGate({
+      config: { codes: [], revoked: [], limits: limits() },
+      store: new MemoryUsageStore(),
+      now: () => NOW,
+      log: (event) => events.push(event),
+      idTokens: createIdTokenVerifier({ audience: TEST_AUDIENCE, keys: signer.keys }),
+    });
+    const request = new Request('http://api.test/v1/trip/extract', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${await signer.sign()}` },
+    });
+    await expect(gate.check(request)).rejects.toBeInstanceOf(UnauthorizedError);
+    expect(events).toEqual([{ outcome: 'invalid_token', path: '/v1/trip/extract' }]);
+  });
+});
+
+describe('createGate: a failing usage store (WU-23a)', () => {
+  it('AC-GATE-27: fails closed: the check rejects, and nothing is logged as allowed', async () => {
+    const events: GateEvent[] = [];
+    const gate = createGate({
+      config: {
+        codes: [{ label: 'alice', hash: hashInviteCode(CODE) }],
+        revoked: [],
+        limits: limits(),
+      },
+      store: { take: () => Promise.reject(new Error('firestore unreachable')) },
+      now: () => 0,
+      log: (event) => events.push(event),
+    });
+    const request = new Request('http://api.test/v1/trip/extract', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${CODE}` },
+    });
+    await expect(gate.check(request)).rejects.toThrow('firestore unreachable');
+    expect(events).toEqual([]);
   });
 });
