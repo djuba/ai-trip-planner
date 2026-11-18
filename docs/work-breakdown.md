@@ -41,7 +41,7 @@ The implementation plan, as units of work (WUs). `CLAUDE.md` holds the rules; th
 | WU-16 | Portfolio README & architecture docs | WU-15 | done |
 | WU-23a | Live-ready API | WU-21, WU-22 | done |
 | WU-23b | Web service + live release workflow | WU-23a | done |
-| WU-23c | Live demo launch | WU-16, WU-23b | todo |
+| WU-23c | Live demo launch | WU-16, WU-23b | in-progress |
 
 ```
 WU-01 ─┬─ WU-02 ─┐
@@ -1014,7 +1014,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-23c — Live demo launch
-**Status:** todo · **Depends on:** WU-16, WU-23b · **Commits:**
+**Status:** in-progress · **Depends on:** WU-16, WU-23b · **Commits:**
 
 **Goal:** the hosted environment becomes a live demo, offered on request to interviewers, with a worst-case monthly cost within the $5–10 budget.
 
