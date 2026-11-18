@@ -2,10 +2,15 @@
 project_id         = "<project-id>"
 billing_account_id = "<billing-account-id>"
 
-# Invite codes, as `label:hash` entries from `pnpm invite:new <label>` (infra/README.md). The
-# CI code's entry is required: the post-deploy contract check sends that code.
+# Where the access-gate alert emails go.
+alert_email = "<you@example.com>"
+
+# Invite codes, as `label:hash[;option=value…]` entries from `pnpm invite:new <label> [flags]`
+# (infra/README.md). Options set a code's own limits and expiry, and can be edited later without
+# reissuing the code.
 invite_codes = [
-  "ci-contract:<hash>",
+  # "acme-recruiter:<hash>",
+  # "owner:<hash>;extract=none;recommend=none;present=none;hour=30",
 ]
 # Revoked entries move here, so attempts after revocation show up in the logs.
 revoked_invite_codes = []

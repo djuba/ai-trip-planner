@@ -26,6 +26,10 @@ function terraformEnv(hcl: string): Record<string, string> {
   return env;
 }
 
+/** The steps of a workflow file, each starting at its first key. */
+const workflowSteps = (workflow: string) =>
+  workflow.split(/\n\s+- (?=name:|uses:|run:|id:)/).slice(1);
+
 describe('infra/service.tf', () => {
   const env = terraformEnv(read('infra/service.tf'));
 
@@ -91,13 +95,75 @@ describe('the access gate in the hosted environment (WU-22)', () => {
     }
   });
 
-  it('AC-GATE-14: exactly one deploy step sees the CI invite code: the contract tests', () => {
+  it('AC-GATE-14: no deploy step reads a stored invite code; the contract tests get an ID token', () => {
     const workflow = read('.github/workflows/deploy.yml');
-    const steps = workflow.split(/\n\s+- (?=name:|uses:|run:)/).slice(1);
-    const withSecret = steps.filter((step) => step.includes('secrets.CONTRACT_INVITE_CODE'));
-    expect(withSecret).toHaveLength(1);
-    expect(withSecret[0]).toMatch(/^name: Provider contract tests against the service/);
-    expect(withSecret[0]).toContain('pnpm test:contract:external');
+    expect(workflow).not.toContain('secrets.CONTRACT_INVITE_CODE');
+    const steps = workflowSteps(workflow);
+    const contract = steps.find((step) =>
+      step.startsWith('name: Provider contract tests against the service'),
+    );
+    expect(contract).toContain(
+      'CONTRACT_INVITE_CODE: ${{ steps.contract-token.outputs.id_token }}',
+    );
+    expect(contract).toContain('pnpm test:contract:external');
+  });
+
+  it('AC-GATE-14: the ID-token step adds no cloud credential, and its audience is the service’s', () => {
+    const steps = workflowSteps(read('.github/workflows/deploy.yml'));
+    const token = steps.find((step) => step.includes('id: contract-token')) ?? '';
+    expect(token).toContain('token_format: id_token');
+    expect(token).toContain('id_token_include_email: true');
+    expect(token).toContain('create_credentials_file: false');
+    expect(token).toContain('export_environment_variables: false');
+    const audience = /id_token_audience:\s*(\S+)/.exec(token)?.[1];
+    const variable = /variable "id_token_audience" \{[^}]*default\s*=\s*"([^"]+)"/.exec(
+      read('infra/variables.tf'),
+    )?.[1];
+    expect(audience).toBeDefined();
+    expect(audience).toBe(variable);
+    expect(env.ID_TOKEN_AUDIENCE).toBe('var.id_token_audience');
+    expect(env.TRUSTED_SERVICE_ACCOUNTS).toBe('ci-deploy:${google_service_account.deploy.email}');
+  });
+});
+
+describe('persistent counts and alerts in the hosted environment (WU-23a)', () => {
+  const env = terraformEnv(read('infra/service.tf'));
+
+  it('AC-GATE-29: the service counts in Firestore by default', () => {
+    expect(env.USAGE_STORE).toBe('var.usage_store');
+    expect(read('infra/variables.tf')).toMatch(
+      /variable "usage_store" \{[^}]*default\s*=\s*"firestore"/,
+    );
+  });
+
+  it('AC-GATE-29: the runtime account’s only role is Firestore, limited to the default database', () => {
+    const terraform = [
+      'main',
+      'service',
+      'firestore',
+      'alerts',
+      'deploy-identity',
+      'registry',
+      'budget',
+    ]
+      .map((name) => read(`infra/${name}.tf`))
+      .join('\n');
+    // Grants *to* the runtime account name it as the member.
+    const grants = terraform.match(/member\s*=\s*google_service_account\.runtime\.member/g) ?? [];
+    expect(grants).toHaveLength(1);
+    const firestore = read('infra/firestore.tf');
+    expect(firestore).toMatch(/role\s*=\s*"roles\/datastore\.user"/);
+    expect(firestore).toMatch(/expression\s*=\s*"resource\.name == /);
+  });
+
+  it('AC-GATE-29: one alert matches gate refusals for revoked, expired, exhausted and rate-limited codes', () => {
+    const alerts = read('infra/alerts.tf');
+    expect(alerts.match(/resource "google_monitoring_alert_policy"/g)).toHaveLength(1);
+    expect(alerts).toContain('jsonPayload.event=\\"gate\\"');
+    for (const outcome of ['revoked', 'expired', 'quota_exhausted', 'rate_limited']) {
+      expect(alerts).toContain(`\\"${outcome}\\"`);
+    }
+    expect(alerts).not.toContain('\\"unknown\\"');
   });
 });
 

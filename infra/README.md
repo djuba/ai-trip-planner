@@ -8,8 +8,10 @@ Terraform for the one hosted environment ([ADR 0005](../docs/decisions/0005-host
 |---|---|
 | `main.tf` | the provider and the project's APIs |
 | `registry.tf` | Artifact Registry, keeping the 5 most recent images |
-| `service.tf` | the runtime service account (no roles) and the Cloud Run service: 0 to 1 instances, `/v1/health` startup probe, replay mode, public |
-| `deploy-identity.tf` | Workload Identity Federation for `deploy.yml` on `main`, and the deploy service account, which can push to the one repository and deploy the one service |
+| `service.tf` | the runtime service account and the Cloud Run service: 0 to 1 instances, `/v1/health` startup probe, replay mode, public |
+| `firestore.tf` | the default Firestore database, where the access gate keeps its usage counts, and the runtime account's one role (read and write documents in that database) |
+| `alerts.tf` | an email alert when the access gate refuses a known holder (revoked, expired, quota spent, window full) |
+| `deploy-identity.tf` | Workload Identity Federation for `deploy.yml` on `main`, and the deploy service account, which can push to the one repository, deploy the one service, and mint an ID token of itself for the contract check |
 | `budget.tf` | a monthly budget with email alerts to the billing account's admins |
 | `backend.hcl`, `terraform.tfvars` | the environment's identifiers. Git-ignored; copy the `.example` files |
 
@@ -45,7 +47,7 @@ Then, in `infra/`:
 
 ```sh
 cp backend.hcl.example backend.hcl                 # set the bucket
-cp terraform.tfvars.example terraform.tfvars       # set project_id and billing_account_id
+cp terraform.tfvars.example terraform.tfvars       # set project_id, billing_account_id and alert_email
 terraform init -backend-config=backend.hcl
 terraform plan -out=tfplan
 terraform apply tfplan
@@ -65,21 +67,48 @@ terraform output -raw gcp_deploy_sa    | gh secret set GCP_DEPLOY_SA
 
 Then deploy once without waiting for a merge: `gh workflow run deploy.yml --ref main`, and watch it with `gh run watch`.
 
-A fourth secret, `CONTRACT_INVITE_CODE`, is the CI invite code that the post-deploy contract check sends (see "Invite codes" below). Unlike the three above it is a credential, but only a weak one: in replay mode a request spends nothing. Only the contract test step can read it.
+The post-deploy contract check needs no fourth secret. The workflow mints a Google ID token of the deploy identity, valid for an hour and only for the API's audience, and the API accepts it for that one account (`TRUSTED_SERVICE_ACCOUNTS` in `service.tf`; ADR 0005, WU-23a addendum). The GitHub action masks the token in the log.
 
 ## Invite codes
 
-The trip endpoints need an invite code ([ADR 0005](../docs/decisions/0005-hosting-and-access.md), WU-22 addendum; [`access-gate.md`](../docs/features/access-gate.md)). The service holds only each code's SHA-256 hash, under a label that names its holder, as `label:hash` entries in the `invite_codes` variable (in the git-ignored `terraform.tfvars`). Labels show up in the logs, so pick ones that tell you who it is (`acme-recruiter`), and keep them out of anything public.
+The trip endpoints need an invite code ([ADR 0005](../docs/decisions/0005-hosting-and-access.md), WU-22 and WU-23a addenda; [`access-gate.md`](../docs/features/access-gate.md)). The service holds only each code's SHA-256 hash, under a label that names its holder, as `label:hash` entries in the `invite_codes` variable (in the git-ignored `terraform.tfvars`). A hash can't be used as a code, so the entries aren't secrets, but labels say whom you've given a demo to: they show up in the logs and in the service's configuration, so keep them out of anything public, or use opaque labels (`r01`) and keep the mapping yourself.
 
-- **Issue a code:** `pnpm invite:new <label>` prints the code and its entry. Add the entry to `invite_codes`, plan and apply (as above), and send the code to its holder. The code is shown only once and stored nowhere; if it's lost, issue a new one.
+- **Issue a code:** `pnpm invite:new <label> [flags]` prints the code and its entry. Add the entry to `invite_codes`, plan and apply (as above), and send the code to its holder. The code is shown only once and stored nowhere; if it's lost, issue a new one.
+- **A code's own limits:** flags put options on the entry: `--extract`, `--recommend`, `--present` (a number, or `none` for no lifetime quota), `--no-quota` (all three `none`), `--hour` (its hourly window) and `--expires YYYY-MM-DD` (works through that day, UTC). Unset options take the service-wide values in `service.tf`; the global daily window applies to every code. Your own code, for example: `pnpm invite:new owner --no-quota --hour 30`.
+- **Extend or change a code:** edit its entry's options in `terraform.tfvars` (e.g. `acme-recruiter:<hash>;recommend=6`, or add `;expires=2027-03-31`), then plan and apply. The code doesn't change, so there's nothing to resend. Its usage counts are kept by label, so it keeps what it has used: having used 2 of 3 recommends, `recommend=6` leaves it 4.
 - **Revoke a code:** move its entry from `invite_codes` to `revoked_invite_codes`, then plan and apply. The code gets a 401 from the next revision on, and every later attempt is logged as `revoked` with its label.
-- **See usage:** every gate decision is one JSON log line with `event: "gate"`, `outcome` (`allowed`, `missing`, `unknown`, `revoked`, `rate_limited`, `quota_exhausted`), `path` and `code` (the label). In Logs Explorer: `jsonPayload.event="gate"`, then filter on `jsonPayload.code` or `jsonPayload.outcome`.
-- **Limits:** set in `service.tf`. In replay mode they're high, so they stay out of the way of the post-deploy check. Live mode (WU-23) sets real values and needs a persistent usage store: the in-memory one resets whenever the service scales to zero, and the server refuses to start in live mode with it.
+- **See usage:** every gate decision is one JSON log line with `event: "gate"`, `outcome` (`allowed`, `missing`, `unknown`, `revoked`, `expired`, `invalid_token`, `rate_limited`, `quota_exhausted`), `path` and `code` (the label). In Logs Explorer: `jsonPayload.event="gate"`, then filter on `jsonPayload.code` or `jsonPayload.outcome`. The current counts are in Firestore (below).
+- **Alerts:** a `revoked`, `expired`, `quota_exhausted` or `rate_limited` decision emails `alert_email`, at most once per 5 minutes, naming the label and the outcome. `unknown` and `missing` don't alert: anything scanning the URL would make them noise.
+- **Limits:** the service-wide values are set in `service.tf`. In replay mode they're high, so they stay out of the way of the post-deploy check. WU-23c sets the live values.
 - **Never use a committed code.** `terraform plan` rejects the hashes of `local-dev-invite` and the tests' code, and a malformed entry; the server refuses committed codes unless `LOCAL_DEV=true`, which Cloud Run refuses.
 - **Never set `ACCESS_GATE` or `LOCAL_DEV`** on the service. Both are for local use: the server refuses `ACCESS_GATE=off` without `LOCAL_DEV=true`, refuses `LOCAL_DEV=true` on Cloud Run, and a test checks that `service.tf` sets neither.
-- **The CI code:** made once with `pnpm invite:new ci-contract`. Its entry goes in `invite_codes`; the code goes in the `CONTRACT_INVITE_CODE` secret (`gh secret set CONTRACT_INVITE_CODE`, then paste it at the prompt, so it stays out of shell history). Before going live, WU-23 drops it or caps it, since in live mode every deploy's contract run would cost money.
+- **The CI credential:** the post-deploy contract check sends an ID token of the deploy identity, not a code (see "GitHub Actions secrets" above). It is logged under the label `ci-deploy`, has no quota or hourly window, and counts toward the global daily window.
 
-**First rollout (WU-22), before its PR merges:** make the CI code, add its entry to `terraform.tfvars`, plan and apply from the branch (the running image ignores the new variables), and set the secret. The merge's deploy then runs the gated contract check. If the check fails with 401s, the entry or the secret is missing or mismatched: fix it and re-run the workflow (`gh workflow run deploy.yml --ref main`).
+### Usage counts in Firestore
+
+The gate's counts live in the default Firestore database, collection `usage`, one small document per counter. For a code labelled `acme-recruiter`:
+
+| Document | Holds |
+|---|---|
+| `quota:acme-recruiter:extract` (and `:recommend`, `:present`) | `count`: requests to that endpoint over the code's life |
+| `hour:acme-recruiter` | `count` and `windowStart` (epoch ms) of its current hourly window |
+| `global:day` | `count` and `windowStart` of the current day, for all codes together |
+
+There's no code, hash, message or limit in them: the limits stay in your entries. A request the gate allows creates or increments its three documents in one atomic write; a refused request writes nothing; a window that has ended restarts at 1. An endpoint with a `none` quota never gets a `quota:` document.
+
+You never edit these documents to change a limit: edit the entry and apply. Two exceptions:
+
+- **A fresh allowance rather than a larger one:** delete that code's `quota:` documents in the console (Firestore → Data → `usage`). Raising the limit does the same job without touching Firestore.
+- **A renamed label** starts from zero; the old label's documents stay behind, a few bytes each.
+
+### Rolling out WU-23a (once)
+
+Today's image refuses `USAGE_STORE=firestore`, and the new deploy workflow sends an ID token that only the new image accepts. So the change is proven on a scratch branch first (as in "Prove a deploy workflow change before merge" below):
+
+1. Add `alert_email` to `terraform.tfvars`. On the PR branch: `terraform plan -var usage_store=memory -var extra_deploy_ref=refs/heads/scratch/wu-23a-deploy -out=tfplan`, review, `terraform apply tfplan`. This adds Firestore and its role, the ID-token role, the alert, and two variables today's image ignores.
+2. Push a scratch branch whose `deploy.yml` also runs on `scratch/wu-23a-deploy`. Its deploy runs the new image, and the contract check passes with an ID token.
+3. Apply again without `-var usage_store=memory`, and re-run the scratch deploy: the check now runs on Firestore. **From here until this PR's own deploy passes on `main`, merge nothing else to `main`:** today's image refuses `USAGE_STORE=firestore`, so any other merge's deploy would fail.
+4. After the merge's deploy passes on `main`: plan and apply from `main` with no `-var` flags, confirm `terraform plan` is clean, remove the `ci-contract` entry from `invite_codes` and apply, then `gh secret delete CONTRACT_INVITE_CODE`.
 
 ## Reviewing and applying infra changes
 
@@ -118,7 +147,7 @@ Rolling back with `update-traffic` instead would pin traffic to a revision, whic
 
 ## Cost
 
-Hosting should cost about $0 a month: the service scales to zero, and the Cloud Run free tier covers a demo's traffic. Check it in the console under Billing → Reports, filtered to the project. The budget emails the billing account's admins at 20 %, 50 % and 100 % of `budget_amount_usd` ($5 by default), and when the forecast passes it. Google Cloud has no hard spend cap; the budget is a warning.
+Hosting should cost about $0 a month: the service scales to zero, and the Cloud Run and Firestore free tiers cover a demo's traffic (an allowed request is 3 small reads and 3 writes). Check it in the console under Billing → Reports, filtered to the project. The budget emails the billing account's admins at 20 %, 50 % and 100 % of `budget_amount_usd` ($5 by default), and when the forecast passes it. Google Cloud has no hard spend cap; the budget is a warning.
 
 ## Teardown
 
