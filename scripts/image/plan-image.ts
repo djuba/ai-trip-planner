@@ -1,14 +1,50 @@
 // The pure parts of `pnpm test:image` (scripts/test-image.ts; WU-20 plan D5): docker arguments and
 // the image checks, kept here so they can be unit-tested without Docker.
 
-export const DOCKERFILE = 'backends/api-nextjs/Dockerfile';
-export const IMAGE_TAG = 'vp-api-nextjs:test';
+export interface ImageSpec {
+  name: string;
+  dockerfile: string;
+  tag: string;
+  buildArgs: Readonly<Record<string, string>>;
+}
+
+export const API_IMAGE: ImageSpec = {
+  name: 'api-nextjs',
+  dockerfile: 'backends/api-nextjs/Dockerfile',
+  tag: 'vp-api-nextjs:test',
+  buildArgs: {},
+};
+
+/** The API URL baked into the test web image; a reserved name that never resolves. */
+export const WEB_TEST_API_URL = 'https://api.image-test.invalid';
+
+export const WEB_IMAGE: ImageSpec = {
+  name: 'web-nextjs',
+  dockerfile: 'apps/web-nextjs/Dockerfile',
+  tag: 'vp-web-nextjs:test',
+  buildArgs: { NEXT_PUBLIC_API_BASE_URL: WEB_TEST_API_URL },
+};
+
 export const PLATFORM = 'linux/amd64';
 /** The port the image's server listens on (its PORT default). */
 export const CONTAINER_PORT = 8080;
 
-export function buildArgs(tag: string = IMAGE_TAG): string[] {
-  return ['build', '--platform', PLATFORM, '-f', DOCKERFILE, '-t', tag, '.'];
+export function buildArgs(spec: ImageSpec): string[] {
+  const buildArgFlags = Object.entries(spec.buildArgs).flatMap(([key, value]) => [
+    '--build-arg',
+    `${key}=${value}`,
+  ]);
+  return [
+    'build',
+    '--platform',
+    PLATFORM,
+    '-f',
+    spec.dockerfile,
+    ...buildArgFlags,
+    '-t',
+    spec.tag,
+    '.',
+  ];
 }
 
 export interface RunOptions {
@@ -19,7 +55,7 @@ export interface RunOptions {
 }
 
 /** Detached, published on loopback only. No --rm, so `docker logs` still works after a crash. */
-export function runArgs({ tag = IMAGE_TAG, name, hostPort, env }: RunOptions): string[] {
+export function runArgs({ tag = API_IMAGE.tag, name, hostPort, env }: RunOptions): string[] {
   const envArgs = Object.entries(env).flatMap(([key, value]) => ['-e', `${key}=${value}`]);
   return [
     'run',
@@ -56,11 +92,11 @@ const uid = typeof process.getuid === 'function' ? process.getuid() : null;
 console.log(JSON.stringify({ uid, envFiles }));
 `;
 
-export function probeArgs(tag: string = IMAGE_TAG): string[] {
+export function probeArgs(tag: string = API_IMAGE.tag): string[] {
   return ['run', '--rm', '--entrypoint', 'node', tag, '-e', PROBE_SCRIPT];
 }
 
-export function inspectEnvArgs(tag: string = IMAGE_TAG): string[] {
+export function inspectEnvArgs(tag: string = API_IMAGE.tag): string[] {
   return ['image', 'inspect', '--format', '{{json .Config.Env}}', tag];
 }
 
