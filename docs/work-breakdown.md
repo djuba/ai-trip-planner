@@ -93,7 +93,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-02 — Quality gates & test harness
-**Status:** done · **Depends on:** WU-01 · **Commits:** [PR #5](https://github.com/djuba/vacation-planner-polyglot/pull/5)
+**Status:** done · **Depends on:** WU-01 · **Commits:** [PR #5](https://github.com/djuba/ai-trip-planner/pull/5)
 
 **Goal:** every gate in CLAUDE.md §6.7 exists and runs, even with almost no tests yet.
 
@@ -121,7 +121,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-03 — AI SDK structured-output spike
-**Status:** done · **Depends on:** WU-01 · **Commits:** [PR #3](https://github.com/djuba/vacation-planner-polyglot/pull/3)
+**Status:** done · **Depends on:** WU-01 · **Commits:** [PR #3](https://github.com/djuba/ai-trip-planner/pull/3)
 
 **Goal:** remove the biggest technical unknown before building on it. Throwaway code, permanent decision record.
 
@@ -151,7 +151,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-04 — Contract wire schemas & generation
-**Status:** done · **Depends on:** WU-02, WU-03 · **Commits:** [PR #6](https://github.com/djuba/vacation-planner-polyglot/pull/6)
+**Status:** done · **Depends on:** WU-02, WU-03 · **Commits:** [PR #6](https://github.com/djuba/ai-trip-planner/pull/6)
 
 **Goal:** the language-neutral contract exists as Zod plus committed JSON Schema/OpenAPI artifacts.
 
@@ -183,7 +183,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-05 — Invariant rules & fixtures
-**Status:** done · **Depends on:** WU-04 · **Commits:** [PR #7](https://github.com/djuba/vacation-planner-polyglot/pull/7)
+**Status:** done · **Depends on:** WU-04 · **Commits:** [PR #7](https://github.com/djuba/ai-trip-planner/pull/7)
 
 **Goal:** every business invariant is specified language-neutrally and implemented in TS.
 
@@ -218,7 +218,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-06 — `api-nextjs` skeleton
-**Status:** done · **Depends on:** WU-04 · **Commits:** [PR #11](https://github.com/djuba/vacation-planner-polyglot/pull/11)
+**Status:** done · **Depends on:** WU-04 · **Commits:** [PR #11](https://github.com/djuba/ai-trip-planner/pull/11)
 
 **Goal:** a running, decoupled API service with the HTTP plumbing and the functional-test harness in place, and no AI yet.
 
@@ -252,7 +252,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-07 — Contract suite (provider side)
-**Status:** done · **Depends on:** WU-05, WU-06 · **Commits:** [PR #12](https://github.com/djuba/vacation-planner-polyglot/pull/12)
+**Status:** done · **Depends on:** WU-05, WU-06 · **Commits:** [PR #12](https://github.com/djuba/ai-trip-planner/pull/12)
 
 **Goal:** a black-box suite that can prove any backend conforms. Written before the endpoints exist, so it starts red.
 
@@ -280,7 +280,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 ---
 
 ## WU-08 — `LlmClient` with record / replay / mock
-**Status:** done · **Depends on:** WU-03, WU-06 · **Commits:** [PR #13](https://github.com/djuba/vacation-planner-polyglot/pull/13)
+**Status:** done · **Depends on:** WU-03, WU-06 · **Commits:** [PR #13](https://github.com/djuba/ai-trip-planner/pull/13)
 
 **Goal:** a deterministic, cost-free LLM boundary for all tests (CLAUDE.md §6.1, §8.3).
 
@@ -1076,8 +1076,7 @@ WU-17 to WU-23 were added after WU-16 was planned, so their IDs are out of seque
 
 ## Backlog (not scheduled)
 - From WU-13: have the clarification prompt (WU-09) work from the spec's message catalog, and control which language it writes `clarificationQuestion` in. Today no prompt sets the language. This is a prompt change, so cassettes must be re-recorded. Pair it with a second catalog locale (`spec/messages/<locale>.json`) and a way for the client to send its locale.
-- `mobile-react-native` client, with its own consumer pact verified against the backend
-- Local Docker Pact Broker + `can-i-deploy`
+- `mobile-react-native` client, with its own consumer pact verified against the backend. Unlike the web client, which ships with the API from the same commit, released app versions stay in use, so the backend must satisfy each live version's pact. Choose in the plan: a self-hosted open-source Pact Broker with `can-i-deploy` (a hosted service, so it changes CLAUDE.md §6.5's local-tooling rule), or one committed pact file per released version, verified together. Either way, keep `/v1` changes additive ([ADR 0003 addendum](decisions/0003-spec-first-one-implementation.md#addendum-more-clients-as-the-main-reason-2026-11-19)). A local Docker broker alone can't track released versions
 - Remaining abuse controls from ADR 0004's Future hardening section (written in WU-17). Invite codes and per-code rate limits are now WU-22, and the spend limit is WU-23. Left: an on-topic guard step (it may move into WU-18 if the evals show it's needed). User accounts belong here only if this becomes a product (ADR 0005).
 - Performance testing, against the hosted environment (WU-21)
 - From WU-23c (WU-15 Notes): an opt-in `--image` mode for `scripts/run-journeys.ts` that starts the API from its container image, so the journeys test what ships. The default must still need no Docker ([plan](plans/WU-15.md), D9). The image is already contract-checked on the twin on every merge, so this is optional.

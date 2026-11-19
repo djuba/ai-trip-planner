@@ -58,3 +58,19 @@ Re-add what this ADR removed, in the same unit as the backend:
 - **Its folder in `backends/`**, with a README stating the contract it must satisfy (CLAUDE.md §6.5).
 
 The contract suite, the generated schemas and the rule fixtures need no change: they already read only `spec/`.
+
+## Addendum: more clients as the main reason (2026-11-19)
+
+The decision is unchanged; this records a reason for the keep verdicts that the table above only implies. The kept pieces pay off sooner for more clients than for more backends, and that holds however the backend is written. A client in another language, such as the backlog's mobile app, can generate its models from `spec/generated/`, word every rule code and enum value from `spec/messages/`, check the caps in `constants.json` before it sends, and read the `/present` stream without the AI SDK, because the stream is plain JSON text (CLAUDE.md §5). Pact handles many consumers: each client writes its own pact, and provider verification checks the backend against all of them.
+
+This is unproven too. The one client is in TypeScript and imports `@vp/domain-schema/wire` and `/messages` instead of reading `spec/`. And the provider contract tests check the backend, not clients: a new client shows that it conforms through its own consumer pact and schema checks.
+
+**Why one committed pact file is enough today.** The web client ships with the API from the same commit: the deploy workflow builds both images together, and its `promote` job releases and rolls back both. The monorepo is what makes that easy. So only one web client version is live, and its pact, committed at that commit, is the only one the backend must satisfy. The one gap is a browser tab opened before a deploy, which runs the old client until it reloads; keeping changes additive within `/v1` covers it.
+
+**What a mobile client changes.** Released app versions stay installed for months and can't be forced to update, so the backend must satisfy the pact of every version still in use, not only the newest. One committed pact file can't record that. A local Docker broker started for one run doesn't either, because it forgets which versions are released. The options:
+
+1. **Self-host the open-source Pact Broker** (for example on Cloud Run with a small database), so CI can record each version's pact and releases, and run `can-i-deploy`. It needs no subscription, but it is a hosted service with running costs, which CLAUDE.md §6.5's "only open-source, local tooling" rule rules out today, so adopting it means changing that rule.
+2. **No broker: commit one pact file per released mobile version** (for example `contracts/pacts/mobile-1.4.json`) and verify all of them, deleting each when its version is retired. Simple at small scale, and everything stays local.
+3. **With either: change the contract additively within `/v1`**, and put breaking changes in a `/v2`. The schema-first conformance suite already supports this.
+
+The unit that adds a mobile client chooses between options 1 and 2.
