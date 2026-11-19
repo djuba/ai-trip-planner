@@ -4,6 +4,10 @@ A portfolio app that turns natural-language travel requests into structured, val
 
 It's built spec-first. The HTTP contract, the business rules and worked examples of each rule live as language-neutral files in `spec/`. One TypeScript backend implements them, and a Next.js web client talks to it over HTTP only. The provider contract tests check the running backend against the spec over HTTP, without importing any of its code.
 
+![A vague request gets a targeted clarification; the answer completes the trip profile, and recommendation cards stream in with each claim labelled as from sample route data or unverified.](docs/assets/demo.gif)
+
+*A recorded run of the app in replay mode: a vague request, a clarification, then recommendations. Re-record it with `pnpm record:demo` (needs ffmpeg).*
+
 **In five minutes:** read [How it works](#how-it-works), [Design and tradeoffs](#design-and-tradeoffs) and [Testing](#testing). **In ten:** follow the [Quickstart](#quickstart) to a green gate and a browser running the app.
 
 ## Quickstart

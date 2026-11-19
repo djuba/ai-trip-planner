@@ -4,5 +4,5 @@
     "types": ["node"],
     "lib": ["ES2023", "DOM"]
   },
-  "include": ["support", "specs", "playwright.config.ts"]
+  "include": ["support", "specs", "demo", "playwright.config.ts", "demo.config.ts"]
 }
