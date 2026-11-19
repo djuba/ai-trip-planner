@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { loadAccessConfig } from '../../backends/api-nextjs/src/http/access-config.ts';
 import { matchInviteCode } from '../../backends/api-nextjs/src/http/invite-code.ts';
-import { InviteArgsError, planInvite } from './plan-invite.ts';
+import { INVITE_PARAM } from '../../apps/web-nextjs/src/lib/invite.ts';
+import { InviteArgsError, WEB_URL_PLACEHOLDER, planInvite } from './plan-invite.ts';
 
 function accepted(argv: string[]) {
   const { code, entry } = planInvite(argv);
@@ -19,6 +20,14 @@ describe('planInvite', () => {
     });
     expect(entry).not.toContain(code);
     expect(entry).not.toContain(';');
+  });
+
+  it('AC-GATE-30: prints an invite link for the same code, with a placeholder for the web URL', () => {
+    const { code, link } = planInvite(['acme-recruiter', '--extract', '3']);
+    expect(link).toBe(`<web_url>/?invite=${code}`);
+    const url = new URL(link.replace(WEB_URL_PLACEHOLDER, 'https://web.example'));
+    expect(url.pathname).toBe('/');
+    expect(url.searchParams.get(INVITE_PARAM)).toBe(code);
   });
 
   it('AC-GATE-15: makes a new code every time', () => {
