@@ -10,7 +10,7 @@ describe('commitlint config', () => {
     );
   });
 
-  it('allows exactly the CLAUDE.md §10 scopes', () => {
+  it('AC-HOST-08: allows exactly the CLAUDE.md §10 scopes', () => {
     expect([...SCOPES].sort()).toEqual(
       [
         'api-nextjs',
