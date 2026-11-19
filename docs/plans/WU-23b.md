@@ -122,6 +122,8 @@ The pipeline needs one new Actions secret, `GCP_PROMOTE_SA` (an identifier, not 
 
 ## 4. Acceptance criteria → tests
 
+> **Moved (2026-11-19):** these ACs now live in `docs/features/hosting.md` and `docs/features/container-image.md`, which are their source of truth. The table below is the plan as approved.
+
 No user-facing feature, so the ACs live here, continuing WU-20's `AC-IMAGE` and WU-21's `AC-HOST` series.
 
 | AC | Given / When / Then | Test | Layer |

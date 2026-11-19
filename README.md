@@ -115,7 +115,7 @@ Every behavior is tested at the lowest layer that can prove it. No gated test ca
 | Integration | One component with its real dependency | Everything else | Vitest, msw | Tens |
 | Unit | Logic in isolation | Everything else | Vitest, React Testing Library | Hundreds |
 
-Every feature's acceptance criteria are in [docs/features/](docs/features/), each with a stable ID that starts the title of the test proving it, so `grep AC-EXTRACT-03` finds both. Coverage floors are enforced: 95% for the domain schema and the use cases, 80% elsewhere.
+Every feature's acceptance criteria are in [docs/features/](docs/features/), each with a stable ID that starts the title of the test proving it, so `grep AC-EXTRACT-03` finds both, and a test fails if an AC has no test. Coverage floors are enforced: 95% for the domain schema and the use cases, 80% elsewhere.
 
 **Gates**
 
@@ -140,6 +140,7 @@ Every feature's acceptance criteria are in [docs/features/](docs/features/), eac
 | Schema parity | Zod and the generated JSON Schema accept and reject the same payloads | `packages/domain-schema/src/wire/parity.test.ts` |
 | Rule examples | The rules return exactly the cataloged violations for every example | `spec/fixtures/rules/`, run by the rules' unit tests and through `/extract` |
 | Message catalog | Every rule code and enum value has text in every locale, each template uses only real arguments, and every rule example formats | `packages/domain-schema/src/messages/catalog.test.ts` |
+| Acceptance criteria | Every AC in `docs/features/` is proven by a named test or rule example (or marked as checked outside the suite), and every AC a test names is defined there | `scripts/ac-traceability.test.ts` |
 | Normalize examples | Model output becomes exactly the expected profile, with over-cap values discarded | `spec/fixtures/normalize/`, run by `normalize`'s unit tests and through `/extract` |
 | Conformance suite | The running backend's responses match the contract | `tests/contract/conformance/`, run by `pnpm test:contract` (or `test:contract:external` for any running backend) |
 | Pact | The backend does what the web client expects | The web client's consumer tests (`apps/web-nextjs/tests/contract/`) write `contracts/pacts/`; `tests/contract/pact-verify.test.ts` verifies it |

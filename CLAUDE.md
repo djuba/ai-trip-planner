@@ -202,6 +202,8 @@ Each feature gets `docs/features/<feature>.md` listing acceptance criteria and e
 2. Test titles start with the AC ID (`it('AC-EXTRACT-03: child aged 18 yields CHILD_AGE_RANGE', …)`), so `grep` gives traceability.
 3. A feature is not done until every AC ID appears in a passing test.
 
+`scripts/ac-traceability.test.ts` enforces this in `pnpm verify` ([`docs.md`](docs/features/docs.md), AC-DOCS-03/04): every AC defined in `docs/features/` must be named by a test (in a string, not a comment) or a rule fixture's `ac` field, and every AC a test names must be defined there. So ACs live in a feature doc even for a unit with no user-facing feature, never only in its plan. An AC no gated test can prove (a deploy run, a check by hand) ends its line with `_(Proven outside the test suite: <how>.)_` instead.
+
 ### 6.3 Layers, tools and conventions
 
 | Layer | Proves | Real | Faked | Tool | File pattern | Volume |
