@@ -54,6 +54,7 @@ Who may call the trip endpoints, and how much. The decision is [ADR 0005 §5](..
 - **AC-GATE-21:** Given an entry with `;expires=D`, then the code is allowed through the end of D in UTC; from the next instant it gets the 401 of AC-GATE-01, logged as `expired` with its label, and no counter is touched.
 - **AC-GATE-22:** Given `INVITE_CODES` or `REVOKED_INVITE_CODES`, then entries may be separated by commas or newlines, and blank lines and lines starting with `#` are ignored.
 - **AC-GATE-28:** Given `pnpm invite:new <label>` with `--extract`, `--recommend`, `--present` (a positive integer or `none`), `--no-quota` (all three `none`), `--hour` or `--expires`, then it prints an entry carrying those options, which the gate accepts with those limits. A malformed flag or value, a repeated flag, or `--no-quota` with a per-endpoint quota is refused.
+- **AC-GATE-30:** Given `pnpm invite:new <label>`, then it also prints an invite link, `<web_url>/?invite=<code>`, with the same code and the `invite` query parameter the web app reads (AC-CONV-11), and says to replace `<web_url>` with `terraform -chdir=infra output -raw web_url`.
 
 ## Service-account ID tokens (WU-23a)
 

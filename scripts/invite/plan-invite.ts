@@ -13,6 +13,11 @@ const VALUE_FLAGS = ['extract', 'recommend', 'present', 'hour', 'expires'] as co
 type ValueFlag = (typeof VALUE_FLAGS)[number];
 const QUOTA_FLAGS: readonly ValueFlag[] = ['extract', 'recommend', 'present'];
 
+/** Stands in for the web service's URL, which the user fills in from `terraform output`. */
+export const WEB_URL_PLACEHOLDER = '<web_url>';
+/** The query parameter the web app reads an invite code from (`INVITE_PARAM`, apps/web-nextjs/src/lib/invite.ts). */
+const INVITE_PARAM = 'invite';
+
 export class InviteArgsError extends Error {
   constructor(message: string) {
     super(message);
@@ -53,7 +58,7 @@ function checkValue(flag: ValueFlag, value: string): void {
 export function planInvite(
   argv: readonly string[],
   make: () => string = newInviteCode,
-): { code: string; entry: string } {
+): { code: string; entry: string; link: string } {
   const labels: string[] = [];
   const values = new Map<ValueFlag, string>();
   let noQuota = false;
@@ -101,5 +106,10 @@ export function planInvite(
     (flag) => `;${flag}=${values.get(flag)}`,
   );
   const code = make();
-  return { code, entry: `${label}:${hashInviteCode(code)}${options.join('')}` };
+  return {
+    code,
+    entry: `${label}:${hashInviteCode(code)}${options.join('')}`,
+    // A base64url code needs no escaping in a query string.
+    link: `${WEB_URL_PLACEHOLDER}/?${INVITE_PARAM}=${code}`,
+  };
 }
