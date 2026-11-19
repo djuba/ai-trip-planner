@@ -27,6 +27,7 @@
     "release:smoke": "node scripts/release-smoke.ts",
     "test:firestore": "node scripts/test-firestore.ts",
     "record:cassettes": "node scripts/record-cassettes.ts",
+    "record:demo": "node scripts/record-demo.ts",
     "invite:new": "node scripts/invite-code.ts",
     "eval": "node backends/api-nextjs/eval/run.ts",
     "test:journeys": "node scripts/run-journeys.ts",
