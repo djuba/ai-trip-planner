@@ -71,6 +71,7 @@ ai-trip-planner/
 | Functional tests | `pnpm test:functional` |
 | Contract tests (consumer + provider) | `pnpm test:contract` (builds and starts its own api-nextjs); `pnpm test:contract:external` tests the backend at `API_BASE_URL` instead, sending `CONTRACT_INVITE_CODE` as the Bearer credential: an invite code whose limits allow a full run (the post-deploy check sends a Google ID token) |
 | Make an invite code (prints the code and its `label:hash` entry; flags set its own limits and expiry) | `pnpm invite:new <label> [flags]` (see `infra/README.md`) |
+| Each invite code's usage on the hosted API against its limits (reads `terraform.tfvars` and Firestore; needs gcloud) | `pnpm invite:usage` |
 | API and web images: build, check, contract tests (needs Docker) | `pnpm test:image` |
 | Post-deploy smoke check (model-free; `API_BASE_URL`, `WEB_BASE_URL`, `WEB_ORIGIN`) | `pnpm release:smoke` |
 | Firestore usage store against the emulator (needs Docker) | `pnpm test:firestore` |
